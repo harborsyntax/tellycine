@@ -20,7 +20,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Tube"
+rootProject.name = "Mosaic"
 
 include(":app")
 include(":core")

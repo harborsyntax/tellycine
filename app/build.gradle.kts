@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "app.tube"
+    namespace = "app.mosaic"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "app.tube"
+        applicationId = "app.mosaic"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

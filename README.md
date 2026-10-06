@@ -1,14 +1,14 @@
-# Tube
+# Mosaic
 
 An IPTV player for Android phones and tablets, built with Jetpack Compose and Material 3.
 
-Tube is a player only. It does not provide any channels or content; you add your own
+Mosaic is a player only. It does not provide any channels or content; you add your own
 playlists from your provider.
 
 ## Features
 
 - **Sources**: M3U/M3U8 links, local M3U files, and Xtream Codes logins.
-  Paste an Xtream `get.php` link and Tube offers to switch to the Xtream API automatically.
+  Paste an Xtream `get.php` link and Mosaic offers to switch to the Xtream API automatically.
 - **TV guide**: XMLTV guides (plain or `.gz`), taken from the playlist's `url-tvg` header,
   from the Xtream provider, or from a URL you enter. Channels show what's on now with a
   progress bar, and long-pressing a channel opens its schedule.

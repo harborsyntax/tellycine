@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "mosaic" wordmark: single-weight geometric strokes with round caps. Tint it with the theme colour. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="94.2dp"
+    android:height="24dp"
+    android:viewportWidth="314"
+    android:viewportHeight="80">
+    <path
+        android:pathData="M5,70 V30 M5,46 a16,16 0 0 1 32,0 V70 M37,46 a16,16 0 0 1 32,0 V70 M88,50 a20,20 0 1 0 40,0 a20,20 0 1 0 -40,0 M168.9,34.4 A13,10 0 1 0 159,50 A13,10 0 1 1 149.1,65.6 M191,50 a20,20 0 1 0 40,0 a20,20 0 1 0 -40,0 M231,30 V70 M250,34 V70 M303.14,35.86 A20,20 0 1 0 303.14,64.14"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="10"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M243.5,15 a6.5,6.5 0 1 0 13,0 a6.5,6.5 0 1 0 -13,0" />
+</vector>

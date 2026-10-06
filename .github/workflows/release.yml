@@ -49,11 +49,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
-          apk="tube-${TAG}.apk"
+          apk="mosaic-${TAG}.apk"
           cp app/build/outputs/apk/release/app-release.apk "$apk"
           sha256sum "$apk" > "$apk.sha256"
           cat > notes.md <<NOTES
-          Tube ${TAG} — an IPTV player for Android phones and tablets (Android 8.0+).
+          Mosaic ${TAG} — an IPTV player for Android phones and tablets (Android 8.0+).
 
           **Install:** download \`${apk}\` on your device and open it (allow installing from unknown sources when asked).
 
@@ -64,6 +64,6 @@ jobs:
           - Media3 player with picture-in-picture, track selection, resume and channel zapping
           - Material You design with adaptive phone/tablet layouts
 
-          This build is signed with a debug key for side-loading. Tube does not provide any content.
+          This build is signed with a debug key for side-loading. Mosaic does not provide any content.
           NOTES
-          gh release create "$TAG" "$apk" "$apk.sha256" --target "$GITHUB_SHA" --title "Tube ${TAG}" --notes-file notes.md
+          gh release create "$TAG" "$apk" "$apk.sha256" --target "$GITHUB_SHA" --title "Mosaic ${TAG}" --notes-file notes.md
