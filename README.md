@@ -1,6 +1,19 @@
-# Mosaic
+<p align="center">
+  <img src="branding/mosaic-icon-rounded.svg" width="112" alt="Mosaic app icon">
+</p>
 
-An IPTV player for Android phones and tablets, built with Jetpack Compose and Material 3.
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="branding/mosaic-logo-dark.svg">
+    <img src="branding/mosaic-logo-light.svg" width="300" alt="Mosaic">
+  </picture>
+</h1>
+
+<p align="center">
+  An IPTV player for Android phones and tablets, built with Jetpack Compose and Material 3.
+  <br><br>
+  <a href="https://github.com/mrjack711/tube/releases/latest"><b>Download the latest APK</b></a>
+</p>
 
 Mosaic is a player only. It does not provide any channels or content; you add your own
 playlists from your provider.
@@ -58,10 +71,12 @@ playlists from your provider.
 
 ## Branding
 
-The launcher icon is the Mosaic tile grid (`res/drawable/ic_launcher_foreground.xml`, with a
+The launcher icon is the Mosaic tile grid (source: `mosaic-icon.svg`; app version
+`res/drawable/ic_launcher_foreground.xml`, with a
 single-colour `ic_launcher_monochrome.xml` for Android 13+ themed icons). The in-app logo pairs
 the grid with a "Mosaic" wordmark set in Figtree Bold (SIL Open Font License) and converted to
 vector outlines (`mosaic_wordmark.xml`), so it renders identically on every device.
+SVG exports for use outside the app (light and dark logo, rounded icon) live in `branding/`.
 
 ## Building
 
