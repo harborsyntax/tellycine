@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags: [ "v*" ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Test and build release APK
+        run: ./gradlew --no-daemon :core:test :app:assembleRelease
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          apk="tube-${TAG}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$apk"
+          sha256sum "$apk" > "$apk.sha256"
+          cat > notes.md <<NOTES
+          Tube ${TAG} — an IPTV player for Android phones and tablets (Android 8.0+).
+
+          **Install:** download \`${apk}\` on your device and open it (allow installing from unknown sources when asked).
+
+          - M3U/M3U8 links, local M3U files and Xtream Codes logins
+          - XMLTV TV guide with now/next and per-channel schedules
+          - Live TV, movies and series with categories, favourites, continue watching and search
+          - Multiple playlists, built to handle very large playlists and guides
+          - Media3 player with picture-in-picture, track selection, resume and channel zapping
+          - Material You design with adaptive phone/tablet layouts
+
+          This build is signed with a debug key for side-loading. Tube does not provide any content.
+          NOTES
+          gh release create "$TAG" "$apk" "$apk.sha256" --title "Tube ${TAG}" --notes-file notes.md
