@@ -41,6 +41,13 @@ data class DvrRecording(
     }
 }
 
+/** An upstream stream feeding a Dispatcharr channel (`/api/channels/channels/{id}/streams/`). */
+data class DispatcharrSource(
+    val id: Long,
+    val name: String,
+    val url: String,
+)
+
 /** JSON helpers for the parts of the Dispatcharr REST API that Mosaic uses. */
 object DispatcharrParser {
 
@@ -84,6 +91,21 @@ object DispatcharrParser {
             season = cp.long("season")?.toInt() ?: program.long("season")?.toInt(),
             episode = cp.long("episode")?.toInt() ?: program.long("episode")?.toInt(),
         )
+    }
+
+    /** A channel's source streams, in failover order. Streams without a URL (e.g. local files) are skipped. */
+    fun parseSources(reader: Reader): List<DispatcharrSource> {
+        val root = JsonParser.parseReader(reader)
+        val array = when {
+            root.isJsonArray -> root.asJsonArray
+            root.isJsonObject && root.asJsonObject.get("results")?.isJsonArray == true -> root.asJsonObject.getAsJsonArray("results")
+            else -> return emptyList()
+        }
+        return array.mapNotNull { el ->
+            val o = el as? JsonObject ?: return@mapNotNull null
+            val url = o.string("url") ?: return@mapNotNull null
+            DispatcharrSource(o.long("id") ?: 0, o.string("name") ?: url, url)
+        }
     }
 
     /** Body for `POST /api/channels/recordings/`, mirroring Dispatcharr's own guide. */

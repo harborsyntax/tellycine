@@ -56,4 +56,16 @@ class DispatcharrParserTest {
             body,
         )
     }
+
+    @Test
+    fun parsesChannelSources() {
+        val sources = DispatcharrParser.parseSources(
+            """[{"id": 3, "name": "BBC One HD", "url": "http://provider/live/u/p/1.ts", "m3u_account": 1},
+                {"id": 4, "name": "Local", "url": null, "local_file": "x.mp4"},
+                {"id": 5, "name": "BBC One backup", "url": "http://backup/1.m3u8"}]""".reader()
+        )
+        assertEquals(listOf(3L, 5L), sources.map { it.id })
+        assertEquals("http://provider/live/u/p/1.ts", sources[0].url)
+        assertEquals("BBC One backup", sources[1].name)
+    }
 }

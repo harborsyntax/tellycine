@@ -1,6 +1,7 @@
 package app.mosaic.data.repo
 
 import app.mosaic.core.dispatcharr.DispatcharrParser
+import app.mosaic.core.dispatcharr.DispatcharrSource
 import app.mosaic.core.dispatcharr.DvrRecording
 import app.mosaic.core.xtream.XtreamUrls
 import app.mosaic.data.db.MosaicDatabase
@@ -116,6 +117,16 @@ class DvrRepository(private val db: MosaicDatabase, httpClient: OkHttpClient) {
         _state.update { map ->
             val current = map[playlist.id] ?: return@update map
             map + (playlist.id to current.copy(recordings = current.recordings.filterNot { it.id == recordingId }))
+        }
+    }
+
+    /** Upstream streams behind a Dispatcharr channel (needs a Standard user or above). */
+    suspend fun channelSources(playlist: PlaylistEntity, channelId: Long): List<DispatcharrSource> {
+        val key = playlist.dvrApiKey ?: throw DvrException("Connect your Dispatcharr login in the playlist settings first.")
+        return withContext(Dispatchers.IO) {
+            DispatcharrParser.parseSources(
+                execute(authed(Request.Builder().url("${baseUrl(playlist)}/api/channels/channels/$channelId/streams/"), key).build()).reader()
+            )
         }
     }
 

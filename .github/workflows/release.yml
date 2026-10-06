@@ -1,10 +1,10 @@
 name: Release
 
-# Publishes a release whenever a push carries a versionName (app/build.gradle.kts)
-# that has not been released yet. Bump versionName to cut a new release.
+# Publishes a release whenever a push to main carries a versionName (app/build.gradle.kts)
+# that has not been released yet. Bump versionName in a PR; the release is cut when it merges.
 on:
   push:
-    branches: [ "**" ]
+    branches: [ main ]
     paths-ignore: [ "README.md" ]
   workflow_dispatch:
 

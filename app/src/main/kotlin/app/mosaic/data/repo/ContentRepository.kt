@@ -105,6 +105,12 @@ class ContentRepository(db: MosaicDatabase) {
     fun history(playlistId: Long, keys: List<String>) = dao.observeHistory(playlistId, keys)
     suspend fun getHistory(playlistId: Long, key: String) = dao.getHistory(playlistId, key)
     suspend fun saveHistory(item: HistoryEntity) = dao.upsertHistory(item)
+    /** Records that playback of [item] started elsewhere (external player), keeping any resume point. */
+    suspend fun touchHistory(item: HistoryEntity) {
+        val existing = dao.getHistory(item.playlistId, item.itemKey)
+        dao.upsertHistory(existing?.copy(lastWatchedAt = item.lastWatchedAt) ?: item)
+    }
+
     suspend fun removeHistory(playlistId: Long, key: String) = dao.removeHistory(playlistId, key)
     suspend fun clearHistory() = dao.clearAllHistory()
 
