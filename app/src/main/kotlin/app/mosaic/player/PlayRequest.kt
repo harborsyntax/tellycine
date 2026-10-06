@@ -80,5 +80,3 @@ data class PlayRequest(
         }
     }
 }
-
-fun Context.play(request: PlayRequest) = startActivity(request.toIntent(this))

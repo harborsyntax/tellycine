@@ -34,6 +34,10 @@ playlists from your provider.
 - **Dispatcharr recordings**: connect your Dispatcharr login per playlist to browse, play,
   schedule (from any channel's guide) and delete DVR recordings. Mosaic stores only the
   account's API key, reusing the existing one rather than regenerating it.
+- **Share & external players**: long-press a channel to open it in another app (VLC, MX
+  Player, …) or share its stream URL; for Dispatcharr you can share either the Dispatcharr
+  URL or the upstream source URL. A *Default player* setting makes an external app the
+  default for everything.
 - **Live TV, movies and series** in separate tabs, browsed by category, plus favourites,
   "continue watching" and recently watched channels.
 - **Multiple playlists**: add as many as you like and switch between them from the title bar.

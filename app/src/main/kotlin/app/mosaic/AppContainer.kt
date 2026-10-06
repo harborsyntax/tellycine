@@ -14,6 +14,10 @@ import app.mosaic.data.sync.SyncManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 
 /** Hand-rolled dependency graph; small enough not to need a DI framework. */
 class AppContainer(context: Context) {
@@ -27,4 +31,9 @@ class AppContainer(context: Context) {
     val content = ContentRepository(database)
     val details = DetailsRepository(downloader)
     val dvr = DvrRepository(database, httpClient)
+
+    /** Cached so playback can be launched synchronously from click handlers. */
+    val externalPlayerDefault: StateFlow<Boolean> = settings.settings
+        .map { it.externalPlayer }
+        .stateIn(appScope, SharingStarted.Eagerly, false)
 }

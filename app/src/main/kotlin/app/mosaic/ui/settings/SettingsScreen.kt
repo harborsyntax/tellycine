@@ -58,6 +58,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setEpgDays(v: Int) = viewModelScope.launch { repo.setEpgDays(v) }
     fun setRefreshOnLaunch(v: Boolean) = viewModelScope.launch { repo.setRefreshOnLaunch(v) }
     fun setPreferHls(v: Boolean) = viewModelScope.launch { repo.setPreferHls(v) }
+    fun setExternalPlayer(v: Boolean) = viewModelScope.launch { repo.setExternalPlayer(v) }
     fun clearHistory() = viewModelScope.launch { container.content.clearHistory() }
 }
 
@@ -69,6 +70,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     var themeDialog by remember { mutableStateOf(false) }
     var epgDialog by remember { mutableStateOf(false) }
     var clearDialog by remember { mutableStateOf(false) }
+    var playerDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -88,6 +90,20 @@ fun SettingsScreen(onBack: () -> Unit) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 SwitchItem("Dynamic colour", "Match colours to your wallpaper", s.dynamicColor, vm::setDynamicColor)
             }
+            HorizontalDivider()
+
+            Header("Playback")
+            ListItem(
+                headlineContent = { Text("Default player") },
+                supportingContent = {
+                    Text(
+                        if (s.externalPlayer) "External app: Android asks which app to use, and you can pick one to always use. " +
+                            "Dispatcharr recordings still play here."
+                        else "Built-in player"
+                    )
+                },
+                modifier = Modifier.clickable { playerDialog = true },
+            )
             HorizontalDivider()
 
             Header("Playlists & guide")
@@ -146,6 +162,15 @@ fun SettingsScreen(onBack: () -> Unit) {
             selected = s.themeMode,
             onSelect = { vm.setTheme(it); themeDialog = false },
             onDismiss = { themeDialog = false },
+        )
+    }
+    if (playerDialog) {
+        ChoiceDialog(
+            title = "Default player",
+            options = listOf(false to "Built-in player", true to "External app"),
+            selected = s.externalPlayer,
+            onSelect = { vm.setExternalPlayer(it); playerDialog = false },
+            onDismiss = { playerDialog = false },
         )
     }
     if (epgDialog) {

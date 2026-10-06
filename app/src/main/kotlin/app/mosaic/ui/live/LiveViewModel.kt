@@ -7,6 +7,7 @@ import androidx.paging.PagingSource
 import androidx.paging.cachedIn
 import app.mosaic.AppContainer
 import app.mosaic.core.ContentKind
+import app.mosaic.core.dispatcharr.DispatcharrSource
 import app.mosaic.core.dispatcharr.DvrRecording
 import app.mosaic.data.db.CategoryEntity
 import app.mosaic.data.db.ChannelRow
@@ -169,6 +170,46 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
         val p = playlist.value?.takeIf { it.hasDvr } ?: return
         val loadedAt = container.dvr.state.value[p.id]?.loadedAt ?: 0
         if (System.currentTimeMillis() - loadedAt > 60_000) viewModelScope.launch { container.dvr.refresh(p) }
+    }
+
+    // ---- Share / external player ----
+
+    /** True for Dispatcharr playlists, which offer both the Dispatcharr and the upstream source URL. */
+    fun isDispatcharr() = playlist.value?.isDispatcharr == true
+
+    private val _sources = MutableStateFlow<List<DispatcharrSource>?>(null)
+    /** Upstream sources to pick from when a Dispatcharr channel has several. */
+    val sources: StateFlow<List<DispatcharrSource>?> = _sources.asStateFlow()
+
+    private val _shareRequests = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 2)
+    /** (label, url) pairs the UI should hand to the share sheet. */
+    val shareRequests: SharedFlow<Pair<String, String>> = _shareRequests.asSharedFlow()
+
+    /** Looks up the provider stream(s) behind a Dispatcharr channel and shares one. */
+    fun shareSourceUrl(row: ChannelRow) {
+        val p = playlist.value ?: return
+        val channelId = row.stream.streamId.toLongOrNull() ?: return
+        if (!p.hasDvr) {
+            _events.tryEmit("Connect your Dispatcharr login in the playlist settings to share source URLs.")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val list = container.dvr.channelSources(p, channelId)
+                when (list.size) {
+                    0 -> _events.emit("This channel has no source streams with a URL.")
+                    1 -> _shareRequests.emit("${row.stream.name} (source)" to list[0].url)
+                    else -> _sources.value = list
+                }
+            } catch (e: Exception) {
+                _events.emit(e.message ?: "Couldn't load the channel's sources")
+            }
+        }
+    }
+
+    fun pickSource(source: DispatcharrSource?) {
+        _sources.value = null
+        if (source != null) _shareRequests.tryEmit("${source.name} (source)" to source.url)
     }
 
     fun canReplay(row: ChannelRow, programme: ProgrammeEntity): Boolean =

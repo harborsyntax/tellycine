@@ -1,5 +1,22 @@
 package app.mosaic.ui.live
 
+import app.mosaic.player.shareUrl
+import app.mosaic.player.openExternally
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import android.net.Uri
 import app.mosaic.core.dispatcharr.DvrRecording
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material.icons.outlined.FiberManualRecord
@@ -153,6 +170,30 @@ fun LiveScreen(
     LaunchedEffect(vm) {
         vm.events.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
     }
+    LaunchedEffect(vm) {
+        vm.shareRequests.collect { (label, url) -> context.shareUrl(label, url) }
+    }
+    val sources by vm.sources.collectAsStateWithLifecycle()
+    sources?.let { list ->
+        AlertDialog(
+            onDismissRequest = { vm.pickSource(null) },
+            title = { Text("Share which source?") },
+            text = {
+                Column {
+                    list.forEach { source ->
+                        ListItem(
+                            headlineContent = { Text(source.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            supportingContent = {
+                                Text(Uri.parse(source.url).host ?: source.url, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            },
+                            modifier = Modifier.clickable { vm.pickSource(source) },
+                        )
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { vm.pickSource(null) }) { Text("Cancel") } },
+        )
+    }
 
     schedule?.let { state ->
         val canRecord = vm.canRecord(state.channel)
@@ -162,6 +203,13 @@ fun LiveScreen(
             recordingFor = { if (canRecord) vm.recordingFor(state.channel, it, recordings) else null },
             canRecord = canRecord,
             onToggleRecording = { vm.toggleRecording(state.channel, it) },
+            isDispatcharr = vm.isDispatcharr(),
+            onOpenExternally = {
+                context.openExternally(vm.playRequest(state.channel), chooser = true)
+                vm.dismissSchedule()
+            },
+            onShareUrl = { context.shareUrl(state.channel.stream.name, state.channel.stream.url) },
+            onShareSourceUrl = { vm.shareSourceUrl(state.channel) },
             onPlay = {
                 context.play(vm.playRequest(state.channel))
                 vm.dismissSchedule()
@@ -185,6 +233,10 @@ private fun ScheduleSheet(
     recordingFor: (ProgrammeEntity) -> DvrRecording?,
     canRecord: Boolean,
     onToggleRecording: (ProgrammeEntity) -> Unit,
+    isDispatcharr: Boolean,
+    onOpenExternally: () -> Unit,
+    onShareUrl: () -> Unit,
+    onShareSourceUrl: () -> Unit,
     onPlay: () -> Unit,
     onReplay: (ProgrammeEntity) -> Unit,
     onDismiss: () -> Unit,
@@ -216,7 +268,9 @@ private fun ScheduleSheet(
                     }
                 }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
+            ChannelActions(isDispatcharr, onOpenExternally, onShareUrl, onShareSourceUrl)
+            Spacer(Modifier.height(8.dp))
         }
         HorizontalDivider()
         val programmes = state.programmes
@@ -299,4 +353,46 @@ private fun ScheduleSheet(
             }
         }
     }
+}
+
+/** Secondary channel actions: open in another app and share the stream URL. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ChannelActions(
+    isDispatcharr: Boolean,
+    onOpenExternally: () -> Unit,
+    onShareUrl: () -> Unit,
+    onShareSourceUrl: () -> Unit,
+) {
+    var shareMenu by remember { mutableStateOf(false) }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        AssistChip(
+            onClick = onOpenExternally,
+            label = { Text("Open with…") },
+            leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, null, Modifier.size(AssistChipDefaults.IconSize)) },
+        )
+        Box {
+            AssistChip(
+                onClick = { if (isDispatcharr) shareMenu = true else onShareUrl() },
+                label = { Text("Share stream URL") },
+                leadingIcon = { Icon(Icons.Filled.Share, null, Modifier.size(AssistChipDefaults.IconSize)) },
+            )
+            DropdownMenu(expanded = shareMenu, onDismissRequest = { shareMenu = false }) {
+                DropdownMenuItem(
+                    text = { Text("Dispatcharr URL") },
+                    onClick = { shareMenu = false; onShareUrl() },
+                )
+                DropdownMenuItem(
+                    text = { Text("Source URL (from Dispatcharr)") },
+                    onClick = { shareMenu = false; onShareSourceUrl() },
+                )
+            }
+        }
+    }
+    Text(
+        "Shared URLs include your login details.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp),
+    )
 }
