@@ -43,8 +43,15 @@ data class PlaylistEntity(
     /** When false, movies and series are neither downloaded nor shown. */
     @ColumnInfo(defaultValue = "1")
     val vodEnabled: Boolean = true,
+    /** Dispatcharr REST API key, used for DVR recordings. Null when not connected. */
+    val dvrApiKey: String? = null,
+    /** Dispatcharr user the API key belongs to (display only). */
+    val dvrUsername: String? = null,
 ) {
     val isDispatcharr get() = serverSoftware == app.mosaic.core.xtream.XtreamAccount.SOFTWARE_DISPATCHARR
+
+    /** Connected to Dispatcharr's DVR, so recordings can be listed and scheduled. */
+    val hasDvr get() = isDispatcharr && !dvrApiKey.isNullOrBlank()
 }
 
 @Entity(

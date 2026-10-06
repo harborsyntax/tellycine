@@ -1,5 +1,10 @@
 package app.mosaic.ui.live
 
+import app.mosaic.core.dispatcharr.DvrRecording
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material.icons.outlined.FiberManualRecord
+import androidx.compose.material.icons.filled.FiberManualRecord
+import android.widget.Toast
 import androidx.compose.foundation.layout.Box
 import app.mosaic.data.db.ProgrammeEntity
 import androidx.compose.ui.draw.alpha
@@ -144,10 +149,19 @@ fun LiveScreen(
         }
     }
 
+    val recordings by vm.recordings.collectAsStateWithLifecycle()
+    LaunchedEffect(vm) {
+        vm.events.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+    }
+
     schedule?.let { state ->
+        val canRecord = vm.canRecord(state.channel)
         ScheduleSheet(
             state = state,
             canReplay = { vm.canReplay(state.channel, it) },
+            recordingFor = { if (canRecord) vm.recordingFor(state.channel, it, recordings) else null },
+            canRecord = canRecord,
+            onToggleRecording = { vm.toggleRecording(state.channel, it) },
             onPlay = {
                 context.play(vm.playRequest(state.channel))
                 vm.dismissSchedule()
@@ -168,6 +182,9 @@ fun LiveScreen(
 private fun ScheduleSheet(
     state: ScheduleState,
     canReplay: (ProgrammeEntity) -> Boolean,
+    recordingFor: (ProgrammeEntity) -> DvrRecording?,
+    canRecord: Boolean,
+    onToggleRecording: (ProgrammeEntity) -> Unit,
     onPlay: () -> Unit,
     onReplay: (ProgrammeEntity) -> Unit,
     onDismiss: () -> Unit,
@@ -252,10 +269,24 @@ private fun ScheduleSheet(
                                 } else {
                                     null
                                 },
-                                trailingContent = if (replayable) {
+                                trailingContent = if (replayable || (canRecord && !past)) {
                                     {
-                                        IconButton(onClick = { onReplay(p) }) {
-                                            Icon(Icons.Filled.Replay, if (live) "Watch from the start" else "Watch again")
+                                        Row {
+                                            if (replayable) {
+                                                IconButton(onClick = { onReplay(p) }) {
+                                                    Icon(Icons.Filled.Replay, if (live) "Watch from the start" else "Watch again")
+                                                }
+                                            }
+                                            if (canRecord && !past) {
+                                                val recording = recordingFor(p)
+                                                IconButton(onClick = { onToggleRecording(p) }) {
+                                                    if (recording != null) {
+                                                        Icon(Icons.Filled.FiberManualRecord, "Cancel recording", tint = MaterialTheme.colorScheme.error)
+                                                    } else {
+                                                        Icon(Icons.Outlined.FiberManualRecord, "Record")
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 } else {

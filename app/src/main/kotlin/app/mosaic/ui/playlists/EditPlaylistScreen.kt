@@ -1,6 +1,15 @@
 package app.mosaic.ui.playlists
 
 import android.content.Intent
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.SharingStarted
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.foundation.layout.PaddingValues
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -77,6 +86,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+data class DvrConnectState(
+    val busy: Boolean = false,
+    val error: String? = null,
+    val connected: Boolean = false,
+)
+
 data class PlaylistForm(
     val loaded: Boolean = false,
     val id: Long = 0,
@@ -103,6 +118,37 @@ data class PlaylistForm(
 }
 
 class EditPlaylistViewModel(private val container: AppContainer, private val editId: Long?) : ViewModel() {
+    /** The saved playlist being edited (live, so DVR connection changes show immediately). */
+    val existing: StateFlow<PlaylistEntity?> = container.playlists.playlists
+        .map { list -> list.firstOrNull { it.id == editId } }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    private val _dvr = MutableStateFlow(DvrConnectState())
+    val dvr: StateFlow<DvrConnectState> = _dvr.asStateFlow()
+
+    fun connectDvr(username: String, password: String, apiKey: String) {
+        val playlist = existing.value ?: return
+        _dvr.value = DvrConnectState(busy = true)
+        viewModelScope.launch {
+            _dvr.value = try {
+                if (apiKey.isNotBlank()) container.dvr.connectWithKey(playlist, apiKey)
+                else container.dvr.connect(playlist, username.trim(), password)
+                DvrConnectState(connected = true)
+            } catch (e: Exception) {
+                DvrConnectState(error = e.message ?: "Couldn't connect to Dispatcharr")
+            }
+        }
+    }
+
+    fun disconnectDvr() {
+        val id = existing.value?.id ?: return
+        viewModelScope.launch { container.dvr.disconnect(id) }
+        _dvr.value = DvrConnectState()
+    }
+
+    fun clearDvrResult() {
+        _dvr.value = DvrConnectState()
+    }
     private val _form = MutableStateFlow(PlaylistForm())
     val form: StateFlow<PlaylistForm> = _form.asStateFlow()
 
@@ -341,6 +387,11 @@ fun EditPlaylistScreen(editId: Long?, onDone: () -> Unit, onManageCategories: (L
                     }
                 }
 
+                val saved by vm.existing.collectAsStateWithLifecycle()
+                saved?.takeIf { it.isDispatcharr }?.let { playlist ->
+                    DvrSection(playlist, vm)
+                }
+
                 TextButton(onClick = { advanced = !advanced }) {
                     Text("Advanced options")
                     Icon(if (advanced) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null)
@@ -379,4 +430,108 @@ fun EditPlaylistScreen(editId: Long?, onDone: () -> Unit, onManageCategories: (L
             }
         }
     }
+}
+
+@Composable
+private fun DvrSection(playlist: PlaylistEntity, vm: EditPlaylistViewModel) {
+    val dvr by vm.dvr.collectAsStateWithLifecycle()
+    var showDialog by rememberSaveable { mutableStateOf(false) }
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(Icons.Filled.FiberManualRecord, null, tint = MaterialTheme.colorScheme.error)
+                Text("Dispatcharr recordings", style = MaterialTheme.typography.titleMedium)
+            }
+            if (playlist.hasDvr) {
+                Text(
+                    "Connected${playlist.dvrUsername?.let { " as $it" } ?: ""}. Recordings appear in Library, " +
+                        "and you can record from a channel's guide.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(onClick = vm::disconnectDvr) { Text("Disconnect") }
+            } else {
+                Text(
+                    "Sign in with your Dispatcharr web login (not the Xtream password) to watch and schedule recordings. " +
+                        "Your user needs DVR access in Dispatcharr.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FilledTonalButton(onClick = { vm.clearDvrResult(); showDialog = true }) { Text("Connect") }
+            }
+        }
+    }
+    if (showDialog) {
+        DvrLoginDialog(
+            defaultUsername = playlist.dvrUsername ?: playlist.username,
+            state = dvr,
+            onConnect = vm::connectDvr,
+            onDismiss = { showDialog = false },
+        )
+    }
+    LaunchedEffect(dvr.connected) { if (dvr.connected) showDialog = false }
+}
+
+@Composable
+private fun DvrLoginDialog(
+    defaultUsername: String,
+    state: DvrConnectState,
+    onConnect: (username: String, password: String, apiKey: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var username by rememberSaveable { mutableStateOf(defaultUsername) }
+    var password by rememberSaveable { mutableStateOf("") }
+    var apiKey by rememberSaveable { mutableStateOf("") }
+    var useKey by rememberSaveable { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = { if (!state.busy) onDismiss() },
+        title = { Text("Connect to Dispatcharr") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (useKey) {
+                    OutlinedTextField(
+                        value = apiKey,
+                        onValueChange = { apiKey = it },
+                        label = { Text("API key") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = username,
+                        onValueChange = { username = it },
+                        label = { Text("Username") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(
+                        "Mosaic keeps only your API key, never the password.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(onClick = { useKey = !useKey }, contentPadding = PaddingValues(0.dp)) {
+                    Text(if (useKey) "Sign in with username and password instead" else "Use an API key instead")
+                }
+                if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConnect(username, password, if (useKey) apiKey else "") },
+                enabled = !state.busy && (if (useKey) apiKey.isNotBlank() else username.isNotBlank() && password.isNotEmpty()),
+            ) { Text("Connect") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !state.busy) { Text("Cancel") } },
+    )
 }

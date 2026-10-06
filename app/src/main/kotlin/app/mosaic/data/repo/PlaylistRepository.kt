@@ -47,6 +47,8 @@ class PlaylistRepository(
                     maxConnections = existing?.maxConnections,
                     serverTimezone = existing?.serverTimezone,
                     serverSoftware = existing?.serverSoftware,
+                    dvrApiKey = existing?.dvrApiKey,
+                    dvrUsername = existing?.dvrUsername,
                     createdAt = existing?.createdAt ?: playlist.createdAt,
                 )
             )

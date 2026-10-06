@@ -21,6 +21,8 @@ data class PlayRequest(
     val categoryId: String? = null,
     /** Replay of a past programme from the provider's archive (seekable, not tracked in history). */
     val catchup: Boolean = false,
+    /** Sent as `X-API-Key` (Dispatcharr recordings). */
+    val apiKey: String? = null,
 ) {
     val isLive get() = kind == ContentKind.LIVE && !catchup
 
@@ -39,6 +41,7 @@ data class PlayRequest(
         .putExtra(EXTRA_START, startPositionMs)
         .putExtra(EXTRA_CATEGORY, categoryId)
         .putExtra(EXTRA_CATCHUP, catchup)
+        .putExtra(EXTRA_API_KEY, apiKey)
 
     companion object {
         private const val EXTRA_PLAYLIST = "playlist"
@@ -54,6 +57,7 @@ data class PlayRequest(
         private const val EXTRA_START = "start"
         private const val EXTRA_CATEGORY = "category"
         private const val EXTRA_CATCHUP = "catchup"
+        private const val EXTRA_API_KEY = "api_key"
 
         fun fromIntent(intent: Intent): PlayRequest? {
             val url = intent.getStringExtra(EXTRA_URL) ?: return null
@@ -71,6 +75,7 @@ data class PlayRequest(
                 startPositionMs = intent.getLongExtra(EXTRA_START, 0),
                 categoryId = intent.getStringExtra(EXTRA_CATEGORY),
                 catchup = intent.getBooleanExtra(EXTRA_CATCHUP, false),
+                apiKey = intent.getStringExtra(EXTRA_API_KEY),
             )
         }
     }

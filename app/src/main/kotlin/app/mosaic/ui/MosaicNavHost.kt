@@ -44,6 +44,7 @@ import app.mosaic.ui.live.LiveScreen
 import app.mosaic.ui.playlists.CategoryFilterScreen
 import app.mosaic.ui.playlists.EditPlaylistScreen
 import app.mosaic.ui.playlists.PlaylistsScreen
+import app.mosaic.ui.recordings.RecordingsScreen
 import app.mosaic.ui.search.SearchScreen
 import app.mosaic.ui.settings.SettingsScreen
 import app.mosaic.ui.vod.VodScreen
@@ -63,10 +64,12 @@ private object Routes {
     const val SEARCH = "search"
     const val SETTINGS = "settings"
     const val CATEGORIES = "playlist/{id}/categories"
+    const val RECORDINGS = "playlist/{id}/recordings"
 
     fun detail(s: StreamEntity) = "detail/${s.kind.name}/${s.playlistId}/${Uri.encode(s.streamId)}"
     fun edit(id: Long?) = "playlist/edit?id=${id ?: -1}"
     fun categories(id: Long) = "playlist/$id/categories"
+    fun recordings(id: Long) = "playlist/$id/recordings"
 }
 
 @Composable
@@ -107,6 +110,12 @@ fun MosaicNavHost(nav: NavHostController = rememberNavController()) {
             arguments = listOf(navArgument("id") { type = NavType.LongType }),
         ) { entry ->
             CategoryFilterScreen(playlistId = entry.arguments!!.getLong("id"), onBack = { nav.popBackStack() })
+        }
+        composable(
+            Routes.RECORDINGS,
+            arguments = listOf(navArgument("id") { type = NavType.LongType }),
+        ) { entry ->
+            RecordingsScreen(playlistId = entry.arguments!!.getLong("id"), onBack = { nav.popBackStack() })
         }
         composable(Routes.SEARCH) {
             SearchScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.detail(it)) })
@@ -164,7 +173,11 @@ private fun TabContent(tab: Tab, session: SessionState, nav: NavHostController, 
         Tab.LIVE -> LiveScreen(session, onSelectPlaylist, onSearch)
         Tab.MOVIES -> VodScreen(ContentKind.MOVIE, session, onSelectPlaylist, onSearch, onOpen)
         Tab.SERIES -> VodScreen(ContentKind.SERIES, session, onSelectPlaylist, onSearch, onOpen)
-        Tab.LIBRARY -> LibraryScreen(session, onSelectPlaylist, onSearch, onOpen)
+        Tab.LIBRARY -> LibraryScreen(
+            session, onSelectPlaylist, onSearch, onOpen,
+            onOpenRecordings = { nav.navigate(Routes.recordings(it)) },
+            onConnectDvr = { nav.navigate(Routes.edit(it)) },
+        )
         Tab.PLAYLISTS -> PlaylistsScreen(
             session = session,
             onAdd = { nav.navigate(Routes.edit(null)) },

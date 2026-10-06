@@ -64,7 +64,10 @@ class PlayerFactory(private val context: Context, httpClient: OkHttpClient) {
     fun applyHeaders(request: PlayRequest) {
         dataSourceFactory.setUserAgent(request.userAgent?.ifBlank { null } ?: DEFAULT_USER_AGENT)
         dataSourceFactory.setDefaultRequestProperties(
-            request.referrer?.ifBlank { null }?.let { mapOf("Referer" to it) } ?: emptyMap()
+            buildMap {
+                request.referrer?.ifBlank { null }?.let { put("Referer", it) }
+                request.apiKey?.ifBlank { null }?.let { put("X-API-Key", it) }
+            }
         )
     }
 

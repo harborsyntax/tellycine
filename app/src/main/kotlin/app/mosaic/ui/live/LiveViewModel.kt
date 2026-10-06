@@ -7,6 +7,7 @@ import androidx.paging.PagingSource
 import androidx.paging.cachedIn
 import app.mosaic.AppContainer
 import app.mosaic.core.ContentKind
+import app.mosaic.core.dispatcharr.DvrRecording
 import app.mosaic.data.db.CategoryEntity
 import app.mosaic.data.db.ChannelRow
 import app.mosaic.data.db.PlaylistEntity
@@ -21,7 +22,10 @@ import app.mosaic.player.PlayRequest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -100,6 +104,7 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun showSchedule(row: ChannelRow) {
+        refreshRecordings()
         val catchup = CatchupResolver.supports(playlist.value, row.stream)
         _schedule.value = ScheduleState(row, catchup = catchup)
         val channelId = row.stream.epgChannelId ?: run {
@@ -115,6 +120,55 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
                 _schedule.value = ScheduleState(row, programmes, catchup)
             }
         }
+    }
+
+    // ---- Dispatcharr DVR ----
+
+    /** Recordings of the active playlist, so the guide can show what is already scheduled. */
+    val recordings: StateFlow<List<DvrRecording>> = combine(playlist, container.dvr.state) { p, state ->
+        p?.let { state[it.id]?.recordings }.orEmpty()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _events = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    /** One-off messages for the UI (recording scheduled, errors…). */
+    val events: SharedFlow<String> = _events.asSharedFlow()
+
+    fun canRecord(row: ChannelRow): Boolean = playlist.value?.hasDvr == true && row.stream.streamId.toLongOrNull() != null
+
+    fun recordingFor(row: ChannelRow, programme: ProgrammeEntity, recordings: List<DvrRecording>): DvrRecording? {
+        val channelId = row.stream.streamId.toLongOrNull() ?: return null
+        return recordings.firstOrNull {
+            it.channelId == channelId && it.startMs < programme.stopMs && it.endMs > programme.startMs &&
+                minOf(it.endMs, programme.stopMs) - maxOf(it.startMs, programme.startMs) >= (programme.stopMs - programme.startMs) / 2
+        }
+    }
+
+    /** Schedules [programme], or cancels it if it is already scheduled. */
+    fun toggleRecording(row: ChannelRow, programme: ProgrammeEntity) {
+        val p = playlist.value ?: return
+        val channelId = row.stream.streamId.toLongOrNull() ?: return
+        val existing = recordingFor(row, programme, recordings.value)
+        viewModelScope.launch {
+            try {
+                if (existing != null && existing.state(System.currentTimeMillis()) == DvrRecording.State.SCHEDULED) {
+                    container.dvr.delete(p, existing.id)
+                    _events.emit("Recording cancelled")
+                } else if (existing == null) {
+                    container.dvr.schedule(p, channelId, programme)
+                    _events.emit("Recording “${programme.title}”")
+                } else {
+                    _events.emit("Manage this recording from Library › Recordings")
+                }
+            } catch (e: Exception) {
+                _events.emit(e.message ?: "Couldn't schedule the recording")
+            }
+        }
+    }
+
+    private fun refreshRecordings() {
+        val p = playlist.value?.takeIf { it.hasDvr } ?: return
+        val loadedAt = container.dvr.state.value[p.id]?.loadedAt ?: 0
+        if (System.currentTimeMillis() - loadedAt > 60_000) viewModelScope.launch { container.dvr.refresh(p) }
     }
 
     fun canReplay(row: ChannelRow, programme: ProgrammeEntity): Boolean =

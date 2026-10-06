@@ -51,6 +51,9 @@ interface PlaylistDao {
         serverTimezone: String?, serverSoftware: String?,
     )
 
+    @Query("UPDATE playlists SET dvrApiKey = :apiKey, dvrUsername = :username WHERE id = :id")
+    suspend fun setDvrCredentials(id: Long, apiKey: String?, username: String?)
+
     @Query("UPDATE playlists SET epgSyncedAt = :at, programmeCount = :count WHERE id = :id")
     suspend fun setEpgSynced(id: Long, at: Long, count: Int)
 

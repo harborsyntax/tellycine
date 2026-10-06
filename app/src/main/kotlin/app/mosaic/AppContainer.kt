@@ -6,6 +6,7 @@ import app.mosaic.data.net.Downloader
 import app.mosaic.data.net.createHttpClient
 import app.mosaic.data.repo.ContentRepository
 import app.mosaic.data.repo.DetailsRepository
+import app.mosaic.data.repo.DvrRepository
 import app.mosaic.data.repo.PlaylistRepository
 import app.mosaic.data.settings.SettingsRepository
 import app.mosaic.data.sync.PlaylistSyncer
@@ -25,4 +26,5 @@ class AppContainer(context: Context) {
     val playlists = PlaylistRepository(database, settings, syncManager)
     val content = ContentRepository(database)
     val details = DetailsRepository(downloader)
+    val dvr = DvrRepository(database, httpClient)
 }

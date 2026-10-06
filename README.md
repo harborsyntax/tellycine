@@ -18,6 +18,9 @@ playlists from your provider.
 - **Dispatcharr aware**: Dispatcharr's Xtream API is detected automatically. Catch-up uses its
   UTC timeshift, its placeholder expiry date is hidden, and pasting a Dispatcharr
   `/output/m3u` link suggests switching to its Xtream login.
+- **Dispatcharr recordings**: connect your Dispatcharr login per playlist to browse, play,
+  schedule (from any channel's guide) and delete DVR recordings. Mosaic stores only the
+  account's API key, reusing the existing one rather than regenerating it.
 - **Live TV, movies and series** in separate tabs, browsed by category, plus favourites,
   "continue watching" and recently watched channels.
 - **Multiple playlists**: add as many as you like and switch between them from the title bar.

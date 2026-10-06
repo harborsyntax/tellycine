@@ -18,12 +18,15 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -43,6 +46,7 @@ import androidx.lifecycle.viewModelScope
 import app.mosaic.AppContainer
 import app.mosaic.core.ContentKind
 import app.mosaic.data.db.HistoryEntity
+import app.mosaic.data.db.PlaylistEntity
 import app.mosaic.data.db.StreamEntity
 import app.mosaic.data.repo.ContentRepository
 import app.mosaic.player.PlayRequest
@@ -69,6 +73,7 @@ data class LibraryState(
     val channels: List<StreamEntity> = emptyList(),
     val movies: List<StreamEntity> = emptyList(),
     val series: List<StreamEntity> = emptyList(),
+    val playlist: PlaylistEntity? = null,
 ) {
     val isEmpty get() = continueWatching.isEmpty() && recentChannels.isEmpty() && channels.isEmpty() && movies.isEmpty() && series.isEmpty()
 }
@@ -87,7 +92,7 @@ class LibraryViewModel(private val container: AppContainer) : ViewModel() {
                 content.favoriteItems(p.id, ContentKind.MOVIE),
                 content.favoriteItems(p.id, ContentKind.SERIES),
             ) { cw, recent, ch, mv, sr ->
-                if (p.vodEnabled) LibraryState(cw, recent, ch, mv, sr) else LibraryState(recentChannels = recent, channels = ch)
+                if (p.vodEnabled) LibraryState(cw, recent, ch, mv, sr, p) else LibraryState(recentChannels = recent, channels = ch, playlist = p)
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryState())
@@ -138,6 +143,8 @@ fun LibraryScreen(
     onSelectPlaylist: (Long) -> Unit,
     onSearch: () -> Unit,
     onOpen: (StreamEntity) -> Unit,
+    onOpenRecordings: (Long) -> Unit,
+    onConnectDvr: (Long) -> Unit,
 ) {
     val vm = mosaicViewModel { c, _ -> LibraryViewModel(c) }
     val state by vm.state.collectAsStateWithLifecycle()
@@ -150,7 +157,8 @@ fun LibraryScreen(
         contentWindowInsets = WindowInsets(0),
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { padding ->
-        if (state.isEmpty) {
+        val dvrPlaylist = state.playlist?.takeIf { it.isDispatcharr }
+        if (state.isEmpty && dvrPlaylist == null) {
             EmptyState(
                 Icons.Filled.FavoriteBorder,
                 "Your library is empty",
@@ -160,6 +168,24 @@ fun LibraryScreen(
             return@Scaffold
         }
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+            if (dvrPlaylist != null) {
+                item(key = "dvr") {
+                    ListItem(
+                        modifier = Modifier.clickable {
+                            if (dvrPlaylist.hasDvr) onOpenRecordings(dvrPlaylist.id) else onConnectDvr(dvrPlaylist.id)
+                        },
+                        leadingContent = { Icon(Icons.Filled.FiberManualRecord, null, tint = MaterialTheme.colorScheme.error) },
+                        headlineContent = { Text("Recordings") },
+                        supportingContent = {
+                            Text(
+                                if (dvrPlaylist.hasDvr) "Watch and manage your Dispatcharr recordings"
+                                else "Connect your Dispatcharr login to watch and schedule recordings"
+                            )
+                        },
+                        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                    )
+                }
+            }
             if (state.continueWatching.isNotEmpty()) {
                 item(key = "cw-h") { SectionHeader("Continue watching") }
                 item(key = "cw") {
