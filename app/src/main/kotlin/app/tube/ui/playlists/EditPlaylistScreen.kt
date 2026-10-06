@@ -90,6 +90,10 @@ data class PlaylistForm(
 ) {
     /** Xtream credentials detected inside an M3U `get.php` link. */
     val detectedXtream get() = if (type == PlaylistType.M3U_URL) XtreamUrls.fromM3uUrl(url.trim()) else null
+
+    /** A Dispatcharr `/output/m3u` link: catch-up, movies and series need its Xtream login instead. */
+    val looksLikeDispatcharrM3u get() =
+        type == PlaylistType.M3U_URL && Regex("(?i)^https?://[^/]+/output/m3u(/|\\?|$)").containsMatchIn(url.trim())
 }
 
 class EditPlaylistViewModel(private val container: AppContainer, private val editId: Long?) : ViewModel() {
@@ -241,6 +245,18 @@ fun EditPlaylistScreen(editId: Long?, onDone: () -> Unit) {
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
+                        if (form.looksLikeDispatcharrM3u) {
+                            AssistChip(
+                                onClick = {
+                                    vm.update {
+                                        it.copy(type = PlaylistType.XTREAM, server = XtreamUrls.normaliseServer(it.url.substringBefore("/output")))
+                                    }
+                                },
+                                label = {
+                                    Text("This is a Dispatcharr playlist. Use your Dispatcharr Xtream login instead to get catch-up, movies and series.")
+                                },
+                            )
+                        }
                         if (form.detectedXtream != null) {
                             AssistChip(
                                 onClick = vm::convertToXtream,

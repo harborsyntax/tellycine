@@ -188,7 +188,8 @@ private fun PlaylistCard(
                     }
                     Text(
                         when (playlist.type) {
-                            PlaylistType.XTREAM -> "Xtream Codes · ${playlist.username}"
+                            PlaylistType.XTREAM ->
+                                "${if (playlist.isDispatcharr) "Dispatcharr" else "Xtream Codes"} · ${playlist.username}"
                             PlaylistType.M3U_URL -> "M3U playlist"
                             PlaylistType.M3U_FILE -> "Local M3U file"
                         },

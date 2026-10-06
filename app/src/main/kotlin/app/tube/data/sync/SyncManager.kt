@@ -92,8 +92,11 @@ class SyncManager(
                 series = result.series,
                 at = System.currentTimeMillis(),
                 detectedEpg = result.detectedEpgUrl,
-                expiresAt = result.account?.expiresAtMs,
+                // Dispatcharr reports a synthetic "now + 90 days" expiry; don't show it.
+                expiresAt = result.account?.takeUnless { it.isDispatcharr }?.expiresAtMs,
                 maxConnections = result.account?.maxConnections,
+                serverTimezone = result.account?.serverTimezone,
+                serverSoftware = result.account?.serverSoftware,
             )
             playlist = dao.get(playlistId) ?: return
         }

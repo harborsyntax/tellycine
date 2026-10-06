@@ -9,7 +9,15 @@ data class XtreamAccount(
     val activeConnections: Int?,
     val allowedOutputFormats: List<String>,
     val serverTimezone: String?,
-)
+    /** Software behind the Xtream API when it identifies itself (currently only Dispatcharr). */
+    val serverSoftware: String? = null,
+) {
+    val isDispatcharr get() = serverSoftware == SOFTWARE_DISPATCHARR
+
+    companion object {
+        const val SOFTWARE_DISPATCHARR = "Dispatcharr"
+    }
+}
 
 data class XtreamCategory(
     val id: String,

@@ -34,12 +34,14 @@ interface PlaylistDao {
 
     @Query(
         """UPDATE playlists SET liveCount = :live, movieCount = :movies, seriesCount = :series,
-           lastSyncedAt = :at, detectedEpgUrl = :detectedEpg, expiresAt = :expiresAt, maxConnections = :maxConnections
+           lastSyncedAt = :at, detectedEpgUrl = :detectedEpg, expiresAt = :expiresAt, maxConnections = :maxConnections,
+           serverTimezone = :serverTimezone, serverSoftware = :serverSoftware
            WHERE id = :id"""
     )
     suspend fun setContentSynced(
         id: Long, live: Int, movies: Int, series: Int, at: Long,
         detectedEpg: String, expiresAt: Long?, maxConnections: Int?,
+        serverTimezone: String?, serverSoftware: String?,
     )
 
     @Query("UPDATE playlists SET epgSyncedAt = :at, programmeCount = :count WHERE id = :id")
@@ -88,6 +90,14 @@ interface ContentDao {
 
     @Query("SELECT DISTINCT epgChannelId FROM streams WHERE playlistId = :playlistId AND kind = 'LIVE' AND epgChannelId IS NOT NULL")
     fun epgChannelIds(playlistId: Long): List<String>
+
+    /** Longest catch-up archive per guide channel, used to keep past programmes for replay. */
+    @Query(
+        """SELECT epgChannelId, MAX(catchupDays) AS days FROM streams
+           WHERE playlistId = :playlistId AND kind = 'LIVE' AND epgChannelId IS NOT NULL AND catchupDays > 0
+           GROUP BY epgChannelId"""
+    )
+    fun catchupWindows(playlistId: Long): List<CatchupWindow>
 
     // ---- Categories ----
 

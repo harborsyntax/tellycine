@@ -156,7 +156,7 @@ class PlayerActivity : ComponentActivity() {
         )
         lifecycleScope.launch {
             val channelId = stream.epgChannelId ?: return@launch
-            val now = container.content.schedule(stream.playlistId, channelId, 1).firstOrNull()
+            val now = container.content.schedule(stream.playlistId, channelId, limit = 1).firstOrNull()
             if (now != null && now.startMs <= System.currentTimeMillis() && request?.streamId == stream.streamId) {
                 request = request?.copy(subtitle = now.title)
             }
@@ -245,6 +245,7 @@ class PlayerActivity : ComponentActivity() {
     }
 
     private fun recordHistory(req: PlayRequest, position: Long, duration: Long) {
+        if (req.catchup) return
         val content = container.content
         val entity = HistoryEntity(
             playlistId = req.playlistId,

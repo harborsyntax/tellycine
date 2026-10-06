@@ -69,8 +69,12 @@ class ContentRepository(db: TubeDatabase) {
 
     suspend fun episodes(playlistId: Long, seriesId: String) = dao.episodes(playlistId, seriesId)
 
-    suspend fun schedule(playlistId: Long, channelId: String, limit: Int = 300): List<ProgrammeEntity> =
-        dao.schedule(playlistId, channelId, System.currentTimeMillis(), limit)
+    suspend fun schedule(
+        playlistId: Long,
+        channelId: String,
+        fromMs: Long = System.currentTimeMillis(),
+        limit: Int = 300,
+    ): List<ProgrammeEntity> = dao.schedule(playlistId, channelId, fromMs, limit)
 
     fun isFavorite(playlistId: Long, kind: ContentKind, streamId: String) = dao.observeIsFavorite(playlistId, kind, streamId)
 

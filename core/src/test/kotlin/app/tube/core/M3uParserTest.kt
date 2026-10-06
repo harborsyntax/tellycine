@@ -20,7 +20,7 @@ class M3uParserTest {
         val (epg, entries) = parse(
             """
             ﻿#EXTM3U url-tvg="http://epg.example/a.xml.gz,http://epg.example/b.xml" x-tvg-url="http://epg.example/a.xml.gz"
-            #EXTINF:-1 tvg-id="bbc1.uk" tvg-name="BBC One" tvg-logo="http://logo/bbc1.png" group-title="UK, General",BBC One HD
+            #EXTINF:-1 tvg-id="bbc1.uk" catchup="default" catchup-source="?utc={utc}" catchup-days="5" tvg-name="BBC One" tvg-logo="http://logo/bbc1.png" group-title="UK, General",BBC One HD
             http://host/live/u/p/1.ts
 
             #EXTINF:0,Plain Channel
@@ -41,6 +41,9 @@ class M3uParserTest {
         assertEquals("http://logo/bbc1.png", bbc.logo)
         assertEquals("UK, General", bbc.group)
         assertEquals(ContentKind.LIVE, ContentKind.classify(bbc.url))
+        assertEquals("default", bbc.catchupType)
+        assertEquals("?utc={utc}", bbc.catchupSource)
+        assertEquals(5, bbc.catchupDays)
 
         val plain = entries[1]
         assertEquals("Plain Channel", plain.name)

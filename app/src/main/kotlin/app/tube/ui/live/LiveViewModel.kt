@@ -12,6 +12,10 @@ import app.tube.data.db.ChannelRow
 import app.tube.data.db.PlaylistEntity
 import app.tube.data.db.ProgrammeEntity
 import app.tube.data.repo.Categories
+import app.tube.data.repo.CatchupResolver
+import app.tube.data.sync.PlaylistSyncer
+import app.tube.ui.components.formatDay
+import app.tube.ui.components.formatTime
 import app.tube.data.repo.ContentRepository
 import app.tube.player.PlayRequest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,7 +36,11 @@ import kotlinx.coroutines.launch
 data class ScheduleState(
     val channel: ChannelRow,
     val programmes: List<ProgrammeEntity>? = null,
+    /** The channel has an archive, so past programmes can be replayed. */
+    val catchup: Boolean = false,
 )
+
+private const val DAY = 24 * 60 * 60 * 1000L
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LiveViewModel(private val container: AppContainer) : ViewModel() {
@@ -92,22 +100,52 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun showSchedule(row: ChannelRow) {
-        _schedule.value = ScheduleState(row)
+        val catchup = CatchupResolver.supports(playlist.value, row.stream)
+        _schedule.value = ScheduleState(row, catchup = catchup)
         val channelId = row.stream.epgChannelId ?: run {
-            _schedule.value = ScheduleState(row, emptyList())
+            _schedule.value = ScheduleState(row, emptyList(), catchup)
             return
         }
         viewModelScope.launch {
-            val programmes = content.schedule(row.stream.playlistId, channelId)
+            val now = System.currentTimeMillis()
+            val days = if (catchup) (row.stream.catchupDays ?: 0).coerceAtMost(PlaylistSyncer.MAX_CATCHUP_GUIDE_DAYS) else 0
+            val from = now - days * DAY
+            val programmes = content.schedule(row.stream.playlistId, channelId, from, limit = if (catchup) 2000 else 300)
             if (_schedule.value?.channel?.stream?.streamId == row.stream.streamId) {
-                _schedule.value = ScheduleState(row, programmes)
+                _schedule.value = ScheduleState(row, programmes, catchup)
             }
         }
+    }
+
+    fun canReplay(row: ChannelRow, programme: ProgrammeEntity): Boolean =
+        CatchupResolver.isReplayable(playlist.value, row.stream, programme)
+
+    /** Play request for a past (or in-progress, from the start) programme, or null if unavailable. */
+    fun replayRequest(row: ChannelRow, programme: ProgrammeEntity): PlayRequest? {
+        val p = playlist.value ?: return null
+        if (!CatchupResolver.isReplayable(p, row.stream, programme)) return null
+        val url = CatchupResolver.url(p, row.stream, programme) ?: return null
+        val s = row.stream
+        return PlayRequest(
+            playlistId = s.playlistId,
+            kind = ContentKind.LIVE,
+            streamId = s.streamId,
+            historyKey = ContentRepository.liveKey(s.streamId),
+            url = url,
+            title = programme.title,
+            subtitle = "${s.name} · ${formatDay(programme.startMs)} ${formatTime(programme.startMs)}",
+            artwork = s.logo,
+            userAgent = s.userAgent ?: p.userAgent,
+            referrer = s.referrer,
+            catchup = true,
+        )
     }
 
     fun dismissSchedule() {
         _schedule.value = null
     }
+
+    fun hasCatchup(row: ChannelRow) = CatchupResolver.supports(playlist.value, row.stream)
 
     fun playRequest(row: ChannelRow): PlayRequest {
         val s = row.stream

@@ -27,6 +27,10 @@ class XtreamParser {
             activeConnections = user.int("active_cons"),
             allowedOutputFormats = formats,
             serverTimezone = server.str("timezone"),
+            // Dispatcharr answers with message "Dispatcharr XC API".
+            serverSoftware = XtreamAccount.SOFTWARE_DISPATCHARR.takeIf {
+                user.str("message")?.contains(it, ignoreCase = true) == true
+            },
         )
     }
 

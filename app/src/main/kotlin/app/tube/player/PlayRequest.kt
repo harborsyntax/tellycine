@@ -19,8 +19,10 @@ data class PlayRequest(
     val startPositionMs: Long = 0,
     /** Category the channel was opened from, used for channel up/down in the player. */
     val categoryId: String? = null,
+    /** Replay of a past programme from the provider's archive (seekable, not tracked in history). */
+    val catchup: Boolean = false,
 ) {
-    val isLive get() = kind == ContentKind.LIVE
+    val isLive get() = kind == ContentKind.LIVE && !catchup
 
     fun toIntent(context: Context): Intent = Intent(context, PlayerActivity::class.java)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -36,6 +38,7 @@ data class PlayRequest(
         .putExtra(EXTRA_REFERRER, referrer)
         .putExtra(EXTRA_START, startPositionMs)
         .putExtra(EXTRA_CATEGORY, categoryId)
+        .putExtra(EXTRA_CATCHUP, catchup)
 
     companion object {
         private const val EXTRA_PLAYLIST = "playlist"
@@ -50,6 +53,7 @@ data class PlayRequest(
         private const val EXTRA_REFERRER = "referrer"
         private const val EXTRA_START = "start"
         private const val EXTRA_CATEGORY = "category"
+        private const val EXTRA_CATCHUP = "catchup"
 
         fun fromIntent(intent: Intent): PlayRequest? {
             val url = intent.getStringExtra(EXTRA_URL) ?: return null
@@ -66,6 +70,7 @@ data class PlayRequest(
                 referrer = intent.getStringExtra(EXTRA_REFERRER),
                 startPositionMs = intent.getLongExtra(EXTRA_START, 0),
                 categoryId = intent.getStringExtra(EXTRA_CATEGORY),
+                catchup = intent.getBooleanExtra(EXTRA_CATCHUP, false),
             )
         }
     }

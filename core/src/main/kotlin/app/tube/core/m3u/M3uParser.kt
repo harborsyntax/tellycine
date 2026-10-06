@@ -5,6 +5,10 @@ import java.io.BufferedReader
 data class M3uHeader(
     /** EPG URLs advertised via `url-tvg` / `x-tvg-url` (may be comma separated in the source). */
     val epgUrls: List<String>,
+    /** Playlist-wide catch-up defaults (`catchup`, `catchup-source`, `catchup-days`). */
+    val catchupType: String? = null,
+    val catchupSource: String? = null,
+    val catchupDays: Int? = null,
 )
 
 data class M3uEntry(
@@ -17,6 +21,10 @@ data class M3uEntry(
     val userAgent: String?,
     val referrer: String?,
     val catchupDays: Int?,
+    /** `catchup` / `catchup-type` attribute, e.g. default, append, shift, flussonic, xc. */
+    val catchupType: String?,
+    /** `catchup-source` URL template. */
+    val catchupSource: String?,
     val attributes: Map<String, String>,
 )
 
@@ -56,7 +64,14 @@ class M3uParser {
                         .map { it.trim() }
                         .filter { it.isNotEmpty() }
                         .distinct()
-                    onHeader(M3uHeader(urls))
+                    onHeader(
+                        M3uHeader(
+                            epgUrls = urls,
+                            catchupType = (attrs["catchup"] ?: attrs["catchup-type"])?.ifBlank { null },
+                            catchupSource = attrs["catchup-source"]?.ifBlank { null },
+                            catchupDays = attrs["catchup-days"]?.toIntOrNull(),
+                        )
+                    )
                 }
 
                 line.startsWith("#EXTINF", ignoreCase = true) -> {
@@ -127,6 +142,8 @@ class M3uParser {
                 group = extGroup,
                 userAgent = userAgent, referrer = referrer,
                 catchupDays = null,
+                catchupType = null,
+                catchupSource = null,
                 attributes = emptyMap(),
             )
         }
@@ -150,7 +167,9 @@ class M3uParser {
             group = attrs["group-title"]?.ifBlank { null } ?: extGroup,
             userAgent = attrs["user-agent"]?.ifBlank { null } ?: userAgent,
             referrer = (attrs["referrer"] ?: attrs["http-referrer"])?.ifBlank { null } ?: referrer,
-            catchupDays = (attrs["catchup-days"] ?: attrs["tvg-rec"])?.toIntOrNull(),
+            catchupDays = (attrs["catchup-days"] ?: attrs["tvg-rec"] ?: attrs["timeshift"])?.toIntOrNull(),
+            catchupType = (attrs["catchup"] ?: attrs["catchup-type"])?.ifBlank { null },
+            catchupSource = attrs["catchup-source"]?.ifBlank { null },
             attributes = attrs,
         )
     }

@@ -5,6 +5,7 @@ import android.util.Log
 import android.util.Xml
 import app.tube.core.ContentKind
 import app.tube.core.gunzipIfNeeded
+import app.tube.core.m3u.M3uHeader
 import app.tube.core.m3u.M3uParser
 import app.tube.core.xmltv.XmltvParser
 import app.tube.core.xtream.XtreamAccount
@@ -94,6 +95,7 @@ class PlaylistSyncer(
         val streams = ArrayList<StreamEntity>(BATCH)
         val episodes = ArrayList<EpisodeEntity>(BATCH)
         var detectedEpg = ""
+        var header: M3uHeader? = null
         var processed = 0
 
         fun countCategory(kind: ContentKind, group: String) {
@@ -109,7 +111,10 @@ class PlaylistSyncer(
             file.inputStream().gunzipIfNeeded().bufferedReader().use { reader ->
                 M3uParser().parse(
                     reader,
-                    onHeader = { detectedEpg = it.epgUrls.joinToString(",") },
+                    onHeader = {
+                        header = it
+                        detectedEpg = it.epgUrls.joinToString(",")
+                    },
                 ) { e ->
                     if (!job.isActive) throw CancellationException("Sync cancelled")
                     val kind = ContentKind.classify(e.url)
@@ -139,6 +144,10 @@ class PlaylistSyncer(
                             logo = e.logo,
                         )
                     } else {
+                        val live = kind == ContentKind.LIVE
+                        val catchupType = if (live) e.catchupType ?: header?.catchupType else null
+                        val catchupSource = if (live) e.catchupSource ?: header?.catchupSource else null
+                        val hasCatchup = catchupType != null || catchupSource != null
                         streams += StreamEntity(
                             playlistId = pid,
                             kind = kind,
@@ -150,7 +159,9 @@ class PlaylistSyncer(
                             url = e.url,
                             epgChannelId = if (kind == ContentKind.LIVE) (e.tvgId ?: e.tvgName ?: e.name).trim().lowercase() else null,
                             number = e.attributes["tvg-chno"]?.toIntOrNull(),
-                            catchupDays = e.catchupDays,
+                            catchupDays = if (hasCatchup) (e.catchupDays ?: header?.catchupDays ?: DEFAULT_M3U_CATCHUP_DAYS) else null,
+                            catchupType = catchupType,
+                            catchupSource = catchupSource,
                             userAgent = e.userAgent,
                             referrer = e.referrer,
                         )
@@ -331,6 +342,7 @@ class PlaylistSyncer(
         if (sources.isEmpty()) return@withContext 0
         val wanted = dao.epgChannelIds(playlist.id).toHashSet()
         if (wanted.isEmpty()) return@withContext 0
+        val catchupDays = dao.catchupWindows(playlist.id).associate { it.epgChannelId to it.days }
 
         val files = ArrayList<File>()
         try {
@@ -354,18 +366,24 @@ class PlaylistSyncer(
 
             report("Importing TV guide…", null)
             val job = currentCoroutineContext().job
-            importEpg(playlist.id, files, wanted, days, job, report)
+            importEpg(playlist.id, files, wanted, catchupDays, days, job, report)
         } finally {
             files.forEach { it.delete() }
         }
     }
 
     private fun importEpg(
-        pid: Long, files: List<File>, wanted: Set<String>, days: Int, job: Job, report: ProgressReporter,
+        pid: Long, files: List<File>, wanted: Set<String>, catchupDays: Map<String, Int>, days: Int, job: Job,
+        report: ProgressReporter,
     ): Int {
         val now = System.currentTimeMillis()
-        val from = now - 6 * HOUR
+        val defaultFrom = now - 6 * HOUR
         val to = now + days * 24 * HOUR
+        // Channels with an archive keep past programmes so they can be replayed.
+        fun fromFor(epgId: String): Long {
+            val archive = catchupDays[epgId]?.coerceAtMost(MAX_CATCHUP_GUIDE_DAYS) ?: return defaultFrom
+            return minOf(defaultFrom, now - archive * 24 * HOUR)
+        }
         // XMLTV channel id -> playlist epg ids it feeds (matches by id and by display name).
         val aliases = HashMap<String, Set<String>>()
         val batch = ArrayList<ProgrammeEntity>(BATCH)
@@ -385,13 +403,17 @@ class PlaylistSyncer(
                                 ch.displayNames.forEach { dn -> dn.lowercase().let { if (it in wanted) targets += it } }
                                 if (targets.isNotEmpty()) aliases[idL] = targets
                             },
-                            acceptProgramme = { channel, start, stop ->
+                            acceptProgramme = accept@{ channel, start, stop ->
                                 if (!job.isActive) throw CancellationException("Sync cancelled")
-                                stop > from && start < to && channel.lowercase().let { it in aliases || it in wanted }
+                                if (start >= to) return@accept false
+                                val idL = channel.lowercase()
+                                val targets = aliases[idL] ?: if (idL in wanted) setOf(idL) else return@accept false
+                                targets.any { stop > fromFor(it) }
                             },
                         ) { prog ->
                             val idL = prog.channelId.lowercase()
                             for (target in aliases[idL] ?: setOf(idL)) {
+                                if (prog.stopMs <= fromFor(target)) continue
                                 batch += ProgrammeEntity(
                                     playlistId = pid,
                                     channelId = target,
@@ -452,6 +474,12 @@ class PlaylistSyncer(
         private const val BATCH = 2000
         private const val HOUR = 60 * 60 * 1000L
         const val UNCATEGORIZED = "Uncategorized"
+
+        /** Archive length assumed for M3U channels that declare catch-up without `catchup-days`. */
+        private const val DEFAULT_M3U_CATCHUP_DAYS = 7
+
+        /** Upper bound on past guide data kept for catch-up, to keep the database small. */
+        const val MAX_CATCHUP_GUIDE_DAYS = 7
 
         /** "Show Name S01E02 ..." / "Show Name - S1 E2" */
         private val EPISODE_REGEX = Regex("""^(.*?)[\s._\-|:]*\b[Ss](\d{1,2})[\s._\-]*[Ee](\d{1,4})(?!\d)""")

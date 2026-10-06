@@ -1,6 +1,15 @@
 package app.tube.ui.live
 
 import androidx.compose.foundation.layout.Box
+import app.tube.data.db.ProgrammeEntity
+import androidx.compose.ui.draw.alpha
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material.icons.filled.Replay
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -109,6 +118,7 @@ fun LiveScreen(
                                     onClick = { context.play(vm.playRequest(row)) },
                                     onLongClick = { vm.showSchedule(row) },
                                     onToggleFavorite = { vm.toggleFavorite(row) },
+                                    hasCatchup = vm.hasCatchup(row),
                                 )
                             }
                         }
@@ -136,9 +146,16 @@ fun LiveScreen(
     schedule?.let { state ->
         ScheduleSheet(
             state = state,
+            canReplay = { vm.canReplay(state.channel, it) },
             onPlay = {
                 context.play(vm.playRequest(state.channel))
                 vm.dismissSchedule()
+            },
+            onReplay = { programme ->
+                vm.replayRequest(state.channel, programme)?.let {
+                    context.play(it)
+                    vm.dismissSchedule()
+                }
             },
             onDismiss = vm::dismissSchedule,
         )
@@ -147,15 +164,39 @@ fun LiveScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ScheduleSheet(state: ScheduleState, onPlay: () -> Unit, onDismiss: () -> Unit) {
+private fun ScheduleSheet(
+    state: ScheduleState,
+    canReplay: (ProgrammeEntity) -> Boolean,
+    onPlay: () -> Unit,
+    onReplay: (ProgrammeEntity) -> Unit,
+    onDismiss: () -> Unit,
+) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState()) {
+        val now = remember(state.programmes) { System.currentTimeMillis() }
+        val current = state.programmes?.firstOrNull { it.startMs <= now && it.stopMs > now }
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
             Text(state.channel.stream.name, style = MaterialTheme.typography.headlineSmall)
+            if (state.catchup) {
+                Text(
+                    "Catch-up available for ${state.channel.stream.catchupDays} day${if (state.channel.stream.catchupDays == 1) "" else "s"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(Modifier.height(12.dp))
-            Button(onClick = onPlay) {
-                Icon(Icons.Filled.PlayArrow, null)
-                Spacer(Modifier.padding(4.dp))
-                Text("Watch now")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onPlay) {
+                    Icon(Icons.Filled.PlayArrow, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Watch live")
+                }
+                if (current != null && canReplay(current)) {
+                    FilledTonalButton(onClick = { onReplay(current) }) {
+                        Icon(Icons.Filled.Replay, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("From the start")
+                    }
+                }
             }
             Spacer(Modifier.height(16.dp))
         }
@@ -175,10 +216,15 @@ private fun ScheduleSheet(state: ScheduleState, onPlay: () -> Unit, onDismiss: (
                         Triple(p, day, i == 0 || day != formatDay(programmes[i - 1].startMs))
                     }
                 }
-                LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+                // Open on what's on now, with a little of what came before.
+                val listState = rememberLazyListState(
+                    initialFirstVisibleItemIndex = (programmes.indexOfFirst { it.stopMs > now } - 1).coerceAtLeast(0),
+                )
+                LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 24.dp)) {
                     items(rows, key = { it.first.id }) { (p, day, showDay) ->
-                        val now = System.currentTimeMillis()
                         val live = p.startMs <= now && p.stopMs > now
+                        val past = p.stopMs <= now
+                        val replayable = (past || live) && canReplay(p)
                         Column {
                             if (showDay) {
                                 Text(
@@ -190,6 +236,9 @@ private fun ScheduleSheet(state: ScheduleState, onPlay: () -> Unit, onDismiss: (
                             }
                             val description = p.description
                             ListItem(
+                                modifier = Modifier
+                                    .then(if (replayable) Modifier.clickable { onReplay(p) } else Modifier)
+                                    .alpha(if (past && !replayable) 0.55f else 1f),
                                 colors = if (live) {
                                     ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                                 } else {
@@ -199,6 +248,15 @@ private fun ScheduleSheet(state: ScheduleState, onPlay: () -> Unit, onDismiss: (
                                 headlineContent = { Text(p.title, fontWeight = if (live) FontWeight.SemiBold else null) },
                                 supportingContent = if (description != null) {
                                     { Text(description, maxLines = 3) }
+                                } else {
+                                    null
+                                },
+                                trailingContent = if (replayable) {
+                                    {
+                                        IconButton(onClick = { onReplay(p) }) {
+                                            Icon(Icons.Filled.Replay, if (live) "Watch from the start" else "Watch again")
+                                        }
+                                    }
                                 } else {
                                     null
                                 },

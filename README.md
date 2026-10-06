@@ -12,6 +12,12 @@ playlists from your provider.
 - **TV guide**: XMLTV guides (plain or `.gz`), taken from the playlist's `url-tvg` header,
   from the Xtream provider, or from a URL you enter. Channels show what's on now with a
   progress bar, and long-pressing a channel opens its schedule.
+- **Catch-up TV**: replay past programmes, or restart the current one, on channels with an
+  archive. Works with Xtream Codes timeshift (honouring the server's timezone) and M3U
+  `catchup`/`catchup-source` attributes (`default`, `append`, `shift`, `flussonic`).
+- **Dispatcharr aware**: Dispatcharr's Xtream API is detected automatically. Catch-up uses its
+  UTC timeshift, its placeholder expiry date is hidden, and pasting a Dispatcharr
+  `/output/m3u` link suggests switching to its Xtream login.
 - **Live TV, movies and series** in separate tabs, browsed by category, plus favourites,
   "continue watching" and recently watched channels.
 - **Multiple playlists**: add as many as you like and switch between them from the title bar.
@@ -32,7 +38,7 @@ playlists from your provider.
   (WAL mode). The UI keeps showing the old data until the import commits, and a failed
   refresh never leaves a half-empty playlist.
 - Only guide entries for channels in your playlist, within the configured window
-  (1–7 days), are stored. Channels are matched on `tvg-id`, falling back to the
+  (1–7 days ahead, plus up to 7 days back for catch-up channels), are stored. Channels are matched on `tvg-id`, falling back to the
   display name.
 - Lists are paged from Room with Paging 3, so scrolling stays smooth at any size.
 - On launch, playlists older than 24 h and guides older than 12 h refresh in the background.

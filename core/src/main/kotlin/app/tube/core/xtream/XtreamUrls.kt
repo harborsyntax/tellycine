@@ -26,9 +26,12 @@ class XtreamUrls(server: String, val username: String, val password: String) {
     fun episode(episodeId: String, extension: String?): String =
         "$baseUrl/series/$u/$p/$episodeId.${extension?.ifBlank { null } ?: "mp4"}"
 
-    /** Catch-up / timeshift URL for live streams with archive support. */
-    fun timeshift(streamId: String, startUtc: String, durationMinutes: Int): String =
-        "$baseUrl/timeshift/$u/$p/$durationMinutes/$startUtc/$streamId.ts"
+    /**
+     * Catch-up / timeshift URL for live streams with archive support.
+     * [start] must already be formatted as `yyyy-MM-dd:HH-mm` in the server's timezone.
+     */
+    fun timeshift(streamId: String, start: String, durationMinutes: Int): String =
+        "$baseUrl/timeshift/$u/$p/$durationMinutes/$start/$streamId.ts"
 
     companion object {
         private fun enc(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")

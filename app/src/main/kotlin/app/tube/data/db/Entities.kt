@@ -35,7 +35,13 @@ data class PlaylistEntity(
     val programmeCount: Int = 0,
     val expiresAt: Long? = null,
     val maxConnections: Int? = null,
-)
+    /** IANA zone reported by an Xtream server; catch-up start times are expressed in it. */
+    val serverTimezone: String? = null,
+    /** Server software when it identifies itself, e.g. "Dispatcharr". */
+    val serverSoftware: String? = null,
+) {
+    val isDispatcharr get() = serverSoftware == app.tube.core.xtream.XtreamAccount.SOFTWARE_DISPATCHARR
+}
 
 @Entity(
     tableName = "categories",
@@ -80,7 +86,12 @@ data class StreamEntity(
     val plot: String? = null,
     val genre: String? = null,
     val addedAt: Long? = null,
+    /** Days of archive available for catch-up; null or 0 when unsupported. */
     val catchupDays: Int? = null,
+    /** M3U catch-up method (`default`, `append`, `shift`, `flussonic`); unused for Xtream. */
+    val catchupType: String? = null,
+    /** M3U `catchup-source` template. */
+    val catchupSource: String? = null,
     val backdrop: String? = null,
     val userAgent: String? = null,
     val referrer: String? = null,
@@ -155,3 +166,5 @@ data class ChannelRow(
     val nowStop: Long?,
     val isFavorite: Boolean,
 )
+
+data class CatchupWindow(val epgChannelId: String, val days: Int)
