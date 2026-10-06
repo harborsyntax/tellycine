@@ -1,5 +1,6 @@
 package app.tube.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
@@ -39,6 +40,9 @@ data class PlaylistEntity(
     val serverTimezone: String? = null,
     /** Server software when it identifies itself, e.g. "Dispatcharr". */
     val serverSoftware: String? = null,
+    /** When false, movies and series are neither downloaded nor shown. */
+    @ColumnInfo(defaultValue = "1")
+    val vodEnabled: Boolean = true,
 ) {
     val isDispatcharr get() = serverSoftware == app.tube.core.xtream.XtreamAccount.SOFTWARE_DISPATCHARR
 }
@@ -168,3 +172,16 @@ data class ChannelRow(
 )
 
 data class CatchupWindow(val epgChannelId: String, val days: Int)
+
+/** A category the user unticked; kept separately so it survives playlist refreshes. */
+@Entity(tableName = "hidden_categories", primaryKeys = ["playlistId", "kind", "categoryId"])
+data class HiddenCategoryEntity(
+    val playlistId: Long,
+    val kind: ContentKind,
+    val categoryId: String,
+)
+
+data class CategoryVisibility(
+    @Embedded val category: CategoryEntity,
+    val hidden: Boolean,
+)

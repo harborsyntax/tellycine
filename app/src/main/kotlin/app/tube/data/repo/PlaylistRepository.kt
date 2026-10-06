@@ -45,6 +45,8 @@ class PlaylistRepository(
                     programmeCount = existing?.programmeCount ?: 0,
                     expiresAt = existing?.expiresAt,
                     maxConnections = existing?.maxConnections,
+                    serverTimezone = existing?.serverTimezone,
+                    serverSoftware = existing?.serverSoftware,
                     createdAt = existing?.createdAt ?: playlist.createdAt,
                 )
             )
@@ -65,6 +67,7 @@ class PlaylistRepository(
             content.deleteProgrammes(id)
             content.deleteFavorites(id)
             content.deleteHistory(id)
+            content.deleteHiddenCategories(id)
             dao.delete(id)
         }
         if (settings.current().activePlaylistId == id) {

@@ -41,6 +41,7 @@ import app.tube.ui.home.HomeViewModel
 import app.tube.ui.home.SessionState
 import app.tube.ui.library.LibraryScreen
 import app.tube.ui.live.LiveScreen
+import app.tube.ui.playlists.CategoryFilterScreen
 import app.tube.ui.playlists.EditPlaylistScreen
 import app.tube.ui.playlists.PlaylistsScreen
 import app.tube.ui.search.SearchScreen
@@ -61,9 +62,11 @@ private object Routes {
     const val EDIT = "playlist/edit?id={id}"
     const val SEARCH = "search"
     const val SETTINGS = "settings"
+    const val CATEGORIES = "playlist/{id}/categories"
 
     fun detail(s: StreamEntity) = "detail/${s.kind.name}/${s.playlistId}/${Uri.encode(s.streamId)}"
     fun edit(id: Long?) = "playlist/edit?id=${id ?: -1}"
+    fun categories(id: Long) = "playlist/$id/categories"
 }
 
 @Composable
@@ -93,7 +96,17 @@ fun TubeNavHost(nav: NavHostController = rememberNavController()) {
             arguments = listOf(navArgument("id") { type = NavType.LongType; defaultValue = -1L }),
         ) { entry ->
             val id = entry.arguments?.getLong("id")?.takeIf { it > 0 }
-            EditPlaylistScreen(editId = id, onDone = { nav.popBackStack() })
+            EditPlaylistScreen(
+                editId = id,
+                onDone = { nav.popBackStack() },
+                onManageCategories = { nav.navigate(Routes.categories(it)) },
+            )
+        }
+        composable(
+            Routes.CATEGORIES,
+            arguments = listOf(navArgument("id") { type = NavType.LongType }),
+        ) { entry ->
+            CategoryFilterScreen(playlistId = entry.arguments!!.getLong("id"), onBack = { nav.popBackStack() })
         }
         composable(Routes.SEARCH) {
             SearchScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.detail(it)) })
@@ -111,6 +124,13 @@ private fun HomeScreen(nav: NavHostController) {
     var tab by rememberSaveable { mutableStateOf(Tab.LIVE) }
     val stateHolder = rememberSaveableStateHolder()
 
+    // Movies and Series tabs disappear for playlists with VOD turned off.
+    val vodEnabled = session.active?.vodEnabled != false
+    val tabs = Tab.entries.filter { vodEnabled || (it != Tab.MOVIES && it != Tab.SERIES) }
+    LaunchedEffect(vodEnabled) {
+        if (tab !in tabs) tab = Tab.LIVE
+    }
+
     // First run: go straight to playlist setup.
     LaunchedEffect(session.loaded, session.playlists.isEmpty()) {
         if (session.loaded && session.playlists.isEmpty()) tab = Tab.PLAYLISTS
@@ -118,7 +138,7 @@ private fun HomeScreen(nav: NavHostController) {
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
-            Tab.entries.forEach { t ->
+            tabs.forEach { t ->
                 item(
                     selected = t == tab,
                     onClick = { tab = t },
@@ -149,6 +169,7 @@ private fun TabContent(tab: Tab, session: SessionState, nav: NavHostController, 
             session = session,
             onAdd = { nav.navigate(Routes.edit(null)) },
             onEdit = { nav.navigate(Routes.edit(it)) },
+            onCategories = { nav.navigate(Routes.categories(it)) },
             onSettings = { nav.navigate(Routes.SETTINGS) },
         )
     }

@@ -21,6 +21,9 @@ playlists from your provider.
 - **Live TV, movies and series** in separate tabs, browsed by category, plus favourites,
   "continue watching" and recently watched channels.
 - **Multiple playlists**: add as many as you like and switch between them from the title bar.
+- **Per-playlist filtering**: tick or untick each playlist's categories (Live TV, Movies and
+  Series separately) to hide them everywhere. You can also turn movies & series off for a
+  playlist, which skips downloading them altogether.
 - **Search** across channels, movies and series.
 - **Player** built on Media3/ExoPlayer: HLS, MPEG-TS, DASH and progressive files, audio
   and subtitle track selection, resume, channel up/down and an in-player channel list,

@@ -61,7 +61,9 @@ fun VodScreen(
     val selected by vm.selectedCategory.collectAsStateWithLifecycle()
     val pagingItems = vm.items.collectAsLazyPagingItems()
     val total = if (kind == ContentKind.MOVIE) session.active?.movieCount else session.active?.seriesCount
-    val options = remember(categories, total) { categoryOptions(kind, categories, total) }
+    val options = remember(categories, total) {
+        categoryOptions(kind, categories, if (categories.isEmpty()) total else categories.sumOf { it.itemCount })
+    }
     val title = if (kind == ContentKind.MOVIE) "Movies" else "Series"
     val icon = if (kind == ContentKind.MOVIE) Icons.Filled.Movie else Icons.Filled.VideoLibrary
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()

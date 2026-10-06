@@ -16,10 +16,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -34,6 +36,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -41,6 +44,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -53,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -85,6 +90,7 @@ data class PlaylistForm(
     val password: String = "",
     val epgUrl: String = "",
     val userAgent: String = "",
+    val vodEnabled: Boolean = true,
     val saved: Boolean = false,
     val error: String? = null,
 ) {
@@ -116,6 +122,7 @@ class EditPlaylistViewModel(private val container: AppContainer, private val edi
                 password = existing.password,
                 epgUrl = existing.epgUrl,
                 userAgent = existing.userAgent,
+                vodEnabled = existing.vodEnabled,
             )
         }
     }
@@ -166,6 +173,7 @@ class EditPlaylistViewModel(private val container: AppContainer, private val edi
                     password = if (f.type == PlaylistType.XTREAM) f.password else "",
                     epgUrl = f.epgUrl.trim(),
                     userAgent = f.userAgent.trim(),
+                    vodEnabled = f.vodEnabled,
                 )
             )
             _form.update { it.copy(saved = true) }
@@ -175,7 +183,7 @@ class EditPlaylistViewModel(private val container: AppContainer, private val edi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditPlaylistScreen(editId: Long?, onDone: () -> Unit) {
+fun EditPlaylistScreen(editId: Long?, onDone: () -> Unit, onManageCategories: (Long) -> Unit) {
     val vm = tubeViewModel(key = "edit-$editId") { c, _ -> EditPlaylistViewModel(c, editId) }
     val form by vm.form.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -309,6 +317,27 @@ fun EditPlaylistScreen(editId: Long?, onDone: () -> Unit) {
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
+                    }
+                }
+
+                ListItem(
+                    headlineContent = { Text("Movies & series") },
+                    supportingContent = {
+                        Text("Turn off to skip VOD entirely: faster refreshes, and only Live TV is shown for this playlist.")
+                    },
+                    trailingContent = { Switch(checked = form.vodEnabled, onCheckedChange = null) },
+                    modifier = Modifier.toggleable(
+                        value = form.vodEnabled,
+                        role = Role.Switch,
+                        onValueChange = { v -> vm.update { it.copy(vodEnabled = v) } },
+                    ),
+                )
+
+                if (editId != null) {
+                    OutlinedButton(onClick = { onManageCategories(editId) }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Filled.Category, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Choose categories to show")
                     }
                 }
 

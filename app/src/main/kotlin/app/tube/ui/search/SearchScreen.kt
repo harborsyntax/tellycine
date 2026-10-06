@@ -138,6 +138,8 @@ fun SearchScreen(onBack: () -> Unit, onOpen: (StreamEntity) -> Unit) {
     val query by vm.query.collectAsStateWithLifecycle()
     val results by vm.results.collectAsStateWithLifecycle()
     val filter by vm.filter.collectAsStateWithLifecycle()
+    val activePlaylist by vm.playlist.collectAsStateWithLifecycle()
+    val vodEnabled = activePlaylist?.vodEnabled != false
     val context = LocalContext.current
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
@@ -173,7 +175,11 @@ fun SearchScreen(onBack: () -> Unit, onOpen: (StreamEntity) -> Unit) {
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    val options = listOf(null to "All", ContentKind.LIVE to "Live TV", ContentKind.MOVIE to "Movies", ContentKind.SERIES to "Series")
+                    val options = if (vodEnabled) {
+                        listOf(null to "All", ContentKind.LIVE to "Live TV", ContentKind.MOVIE to "Movies", ContentKind.SERIES to "Series")
+                    } else {
+                        listOf(null to "All", ContentKind.LIVE to "Live TV")
+                    }
                     items(options, key = { it.second }) { (kind, label) ->
                         FilterChip(selected = filter == kind, onClick = { vm.setFilter(kind) }, label = { Text(label) })
                     }

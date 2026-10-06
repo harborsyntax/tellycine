@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -88,6 +89,7 @@ fun PlaylistsScreen(
     session: SessionState,
     onAdd: () -> Unit,
     onEdit: (Long) -> Unit,
+    onCategories: (Long) -> Unit,
     onSettings: () -> Unit,
 ) {
     val vm = tubeViewModel { c, _ -> PlaylistsViewModel(c) }
@@ -137,6 +139,7 @@ fun PlaylistsScreen(
                     onRefreshGuide = { vm.refreshGuide(p.id) },
                     onCancel = { vm.cancel(p.id) },
                     onEdit = { onEdit(p.id) },
+                    onCategories = { onCategories(p.id) },
                     onDelete = { confirmDelete = p },
                     modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth(),
                 )
@@ -172,6 +175,7 @@ private fun PlaylistCard(
     onRefreshGuide: () -> Unit,
     onCancel: () -> Unit,
     onEdit: () -> Unit,
+    onCategories: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -206,6 +210,11 @@ private fun PlaylistCard(
                         onClick = { menu = false; onEdit() },
                     )
                     DropdownMenuItem(
+                        text = { Text("Categories") },
+                        leadingIcon = { Icon(Icons.Filled.Category, null) },
+                        onClick = { menu = false; onCategories() },
+                    )
+                    DropdownMenuItem(
                         text = { Text("Update TV guide only") },
                         leadingIcon = { Icon(Icons.Filled.Refresh, null) },
                         onClick = { menu = false; onRefreshGuide() },
@@ -220,6 +229,7 @@ private fun PlaylistCard(
 
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SuggestionChip(onClick = {}, label = { Text("${formatCount(playlist.liveCount)} channels") })
+                if (!playlist.vodEnabled) SuggestionChip(onClick = {}, label = { Text("Movies & series off") })
                 if (playlist.movieCount > 0) SuggestionChip(onClick = {}, label = { Text("${formatCount(playlist.movieCount)} movies") })
                 if (playlist.seriesCount > 0) SuggestionChip(onClick = {}, label = { Text("${formatCount(playlist.seriesCount)} series") })
             }

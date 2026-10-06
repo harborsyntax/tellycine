@@ -6,6 +6,8 @@ import androidx.paging.PagingData
 import androidx.paging.PagingSource
 import app.tube.core.ContentKind
 import app.tube.data.db.CategoryEntity
+import app.tube.data.db.CategoryVisibility
+import app.tube.data.db.HiddenCategoryEntity
 import app.tube.data.db.ChannelRow
 import app.tube.data.db.FavoriteEntity
 import app.tube.data.db.HistoryEntity
@@ -32,6 +34,19 @@ class ContentRepository(db: TubeDatabase) {
 
     fun categories(playlistId: Long, kind: ContentKind): Flow<List<CategoryEntity>> =
         dao.observeCategories(playlistId, kind)
+
+    fun categoryVisibility(playlistId: Long, kind: ContentKind): Flow<List<CategoryVisibility>> =
+        dao.observeCategoryVisibility(playlistId, kind)
+
+    suspend fun setCategoriesVisible(playlistId: Long, kind: ContentKind, categoryIds: List<String>, visible: Boolean) {
+        if (categoryIds.isEmpty()) return
+        if (visible) {
+            // Chunked to stay below SQLite's bound-parameter limit.
+            categoryIds.chunked(500).forEach { dao.showCategories(playlistId, kind, it) }
+        } else {
+            dao.hideCategories(categoryIds.map { HiddenCategoryEntity(playlistId, kind, it) })
+        }
+    }
 
     /**
      * Pages live channels joined with their current programme. [now] is read whenever a

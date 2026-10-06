@@ -16,8 +16,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ProgrammeEntity::class,
         FavoriteEntity::class,
         HistoryEntity::class,
+        HiddenCategoryEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class TubeDatabase : RoomDatabase() {
@@ -25,6 +26,17 @@ abstract class TubeDatabase : RoomDatabase() {
     abstract fun content(): ContentDao
 
     companion object {
+        /** Per-playlist VOD switch and hidden categories. */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE playlists ADD COLUMN vodEnabled INTEGER NOT NULL DEFAULT 1")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `hidden_categories` (`playlistId` INTEGER NOT NULL, `kind` TEXT NOT NULL, " +
+                        "`categoryId` TEXT NOT NULL, PRIMARY KEY(`playlistId`, `kind`, `categoryId`))"
+                )
+            }
+        }
+
         /** Catch-up support and server detection. */
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -38,7 +50,7 @@ abstract class TubeDatabase : RoomDatabase() {
         fun create(context: Context): TubeDatabase =
             Room.databaseBuilder(context, TubeDatabase::class.java, "tube.db")
                 .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
     }

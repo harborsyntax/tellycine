@@ -86,7 +86,9 @@ class LibraryViewModel(private val container: AppContainer) : ViewModel() {
                 content.favoriteItems(p.id, ContentKind.LIVE, 100),
                 content.favoriteItems(p.id, ContentKind.MOVIE),
                 content.favoriteItems(p.id, ContentKind.SERIES),
-            ) { cw, recent, ch, mv, sr -> LibraryState(cw, recent, ch, mv, sr) }
+            ) { cw, recent, ch, mv, sr ->
+                if (p.vodEnabled) LibraryState(cw, recent, ch, mv, sr) else LibraryState(recentChannels = recent, channels = ch)
+            }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryState())
 

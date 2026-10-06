@@ -118,6 +118,7 @@ class PlaylistSyncer(
                 ) { e ->
                     if (!job.isActive) throw CancellationException("Sync cancelled")
                     val kind = ContentKind.classify(e.url)
+                    if (kind != ContentKind.LIVE && !playlist.vodEnabled) return@parse
                     val group = e.group?.trim()?.ifEmpty { null } ?: UNCATEGORIZED
 
                     if (kind == ContentKind.SERIES) {
@@ -210,11 +211,12 @@ class PlaylistSyncer(
             else -> formats.first()
         }
 
-        val endpoints = listOf(
-            "get_live_categories", "get_live_streams",
-            "get_vod_categories", "get_vod_streams",
-            "get_series_categories", "get_series",
-        )
+        val endpoints = listOf("get_live_categories", "get_live_streams") +
+            if (playlist.vodEnabled) {
+                listOf("get_vod_categories", "get_vod_streams", "get_series_categories", "get_series")
+            } else {
+                emptyList()
+            }
         val files = endpoints.associateWith { File(tempDir, "xtream-${playlist.id}-$it.json") }
         try {
             var done = 0
@@ -256,12 +258,12 @@ class PlaylistSyncer(
                     Triple(ContentKind.SERIES, "get_series_categories", "get_series"),
                 )) {
                     val categoryNames = LinkedHashMap<String, String>()
-                    readJson(files.getValue(catAction)) { reader ->
+                    readJson(files[catAction]) { reader ->
                         parser.parseCategories(reader) { categoryNames[it.id] = it.name }
                     }
                     val categoryCounts = HashMap<String, Int>()
                     val batch = ArrayList<StreamEntity>(BATCH)
-                    readJson(files.getValue(itemsAction)) { reader ->
+                    readJson(files[itemsAction]) { reader ->
                         parser.parseItems(reader) { item ->
                             if (!job.isActive) throw CancellationException("Sync cancelled")
                             val categoryId = item.categoryId?.takeIf { it in categoryNames }
@@ -322,8 +324,8 @@ class PlaylistSyncer(
         backdrop = backdrop,
     )
 
-    private inline fun readJson(file: File, block: (java.io.Reader) -> Unit) {
-        if (!file.exists() || file.length() == 0L) return
+    private inline fun readJson(file: File?, block: (java.io.Reader) -> Unit) {
+        if (file == null || !file.exists() || file.length() == 0L) return
         file.inputStream().gunzipIfNeeded().reader(Charsets.UTF_8).buffered(256 * 1024).use(block)
     }
 

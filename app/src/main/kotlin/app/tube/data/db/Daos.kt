@@ -9,6 +9,13 @@ import androidx.room.Upsert
 import app.tube.core.ContentKind
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Excludes streams (aliased `s`) whose category the user hid for this playlist.
+ * Streams without a category are always visible.
+ */
+private const val VISIBLE =
+    "NOT EXISTS (SELECT 1 FROM hidden_categories h WHERE h.playlistId = s.playlistId AND h.kind = s.kind AND h.categoryId = s.categoryId)"
+
 @Dao
 interface PlaylistDao {
     @Query("SELECT * FROM playlists ORDER BY createdAt")
@@ -101,8 +108,31 @@ interface ContentDao {
 
     // ---- Categories ----
 
-    @Query("SELECT * FROM categories WHERE playlistId = :playlistId AND kind = :kind ORDER BY sortOrder")
+    /** Categories shown in the browse screens (hidden ones excluded). */
+    @Query(
+        """SELECT * FROM categories c WHERE c.playlistId = :playlistId AND c.kind = :kind
+           AND NOT EXISTS (SELECT 1 FROM hidden_categories h
+                           WHERE h.playlistId = c.playlistId AND h.kind = c.kind AND h.categoryId = c.categoryId)
+           ORDER BY c.sortOrder"""
+    )
     fun observeCategories(playlistId: Long, kind: ContentKind): Flow<List<CategoryEntity>>
+
+    /** Every category with its visibility, for the playlist's category filter. */
+    @Query(
+        """SELECT c.*, EXISTS (SELECT 1 FROM hidden_categories h
+                               WHERE h.playlistId = c.playlistId AND h.kind = c.kind AND h.categoryId = c.categoryId) AS hidden
+           FROM categories c WHERE c.playlistId = :playlistId AND c.kind = :kind ORDER BY c.sortOrder"""
+    )
+    fun observeCategoryVisibility(playlistId: Long, kind: ContentKind): Flow<List<CategoryVisibility>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun hideCategories(items: List<HiddenCategoryEntity>)
+
+    @Query("DELETE FROM hidden_categories WHERE playlistId = :playlistId AND kind = :kind AND categoryId IN (:categoryIds)")
+    suspend fun showCategories(playlistId: Long, kind: ContentKind, categoryIds: List<String>)
+
+    @Query("DELETE FROM hidden_categories WHERE playlistId = :playlistId")
+    fun deleteHiddenCategories(playlistId: Long)
 
     // ---- Live channels ----
 
@@ -116,7 +146,7 @@ interface ContentDao {
                 AND p.startMs <= :now AND p.stopMs > :now ORDER BY p.startMs DESC LIMIT 1) AS nowStop,
              EXISTS(SELECT 1 FROM favorites f WHERE f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId) AS isFavorite
            FROM streams s
-           WHERE s.playlistId = :playlistId AND s.kind = 'LIVE'
+           WHERE s.playlistId = :playlistId AND s.kind = 'LIVE' AND """ + VISIBLE + """
            ORDER BY s.sortOrder"""
     )
     fun pagedChannels(playlistId: Long, now: Long): PagingSource<Int, ChannelRow>
@@ -147,21 +177,21 @@ interface ContentDao {
              1 AS isFavorite
            FROM streams s INNER JOIN favorites f
              ON f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId
-           WHERE s.playlistId = :playlistId AND s.kind = 'LIVE'
+           WHERE s.playlistId = :playlistId AND s.kind = 'LIVE' AND """ + VISIBLE + """
            ORDER BY f.addedAt DESC"""
     )
     fun pagedFavoriteChannels(playlistId: Long, now: Long): PagingSource<Int, ChannelRow>
 
     /** Channels of one category (or all), used by the player to zap between channels. */
     @Query(
-        """SELECT * FROM streams WHERE playlistId = :playlistId AND kind = 'LIVE'
-           AND (:categoryId IS NULL OR categoryId = :categoryId) ORDER BY sortOrder"""
+        """SELECT * FROM streams s WHERE s.playlistId = :playlistId AND s.kind = 'LIVE'
+           AND (:categoryId IS NULL OR s.categoryId = :categoryId) AND """ + VISIBLE + """ ORDER BY s.sortOrder"""
     )
     suspend fun channelList(playlistId: Long, categoryId: String?): List<StreamEntity>
 
     // ---- Movies / series ----
 
-    @Query("SELECT * FROM streams WHERE playlistId = :playlistId AND kind = :kind ORDER BY sortOrder")
+    @Query("SELECT * FROM streams s WHERE s.playlistId = :playlistId AND s.kind = :kind AND " + VISIBLE + " ORDER BY s.sortOrder")
     fun pagedItems(playlistId: Long, kind: ContentKind): PagingSource<Int, StreamEntity>
 
     @Query("SELECT * FROM streams WHERE playlistId = :playlistId AND kind = :kind AND categoryId = :categoryId ORDER BY sortOrder")
@@ -170,14 +200,14 @@ interface ContentDao {
     @Query(
         """SELECT s.* FROM streams s INNER JOIN favorites f
              ON f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId
-           WHERE s.playlistId = :playlistId AND s.kind = :kind ORDER BY f.addedAt DESC"""
+           WHERE s.playlistId = :playlistId AND s.kind = :kind AND """ + VISIBLE + """ ORDER BY f.addedAt DESC"""
     )
     fun pagedFavoriteItems(playlistId: Long, kind: ContentKind): PagingSource<Int, StreamEntity>
 
     @Query(
         """SELECT s.* FROM streams s INNER JOIN favorites f
              ON f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId
-           WHERE s.playlistId = :playlistId AND s.kind = :kind ORDER BY f.addedAt DESC LIMIT :limit"""
+           WHERE s.playlistId = :playlistId AND s.kind = :kind AND """ + VISIBLE + """ ORDER BY f.addedAt DESC LIMIT :limit"""
     )
     fun observeFavoriteItems(playlistId: Long, kind: ContentKind, limit: Int): Flow<List<StreamEntity>>
 
@@ -188,8 +218,9 @@ interface ContentDao {
     suspend fun getStream(playlistId: Long, kind: ContentKind, streamId: String): StreamEntity?
 
     @Query(
-        """SELECT * FROM streams WHERE playlistId = :playlistId AND kind = :kind AND name LIKE '%' || :query || '%'
-           ORDER BY CASE WHEN name LIKE :query || '%' THEN 0 ELSE 1 END, sortOrder LIMIT :limit"""
+        """SELECT * FROM streams s WHERE s.playlistId = :playlistId AND s.kind = :kind AND s.name LIKE '%' || :query || '%'
+           AND """ + VISIBLE + """
+           ORDER BY CASE WHEN s.name LIKE :query || '%' THEN 0 ELSE 1 END, s.sortOrder LIMIT :limit"""
     )
     suspend fun search(playlistId: Long, kind: ContentKind, query: String, limit: Int): List<StreamEntity>
 

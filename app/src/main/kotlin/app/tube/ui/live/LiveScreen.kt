@@ -80,7 +80,8 @@ fun LiveScreen(
     val schedule by vm.schedule.collectAsStateWithLifecycle()
     val channels = vm.channels.collectAsLazyPagingItems()
     val options = remember(categories, session.active?.liveCount) {
-        categoryOptions(ContentKind.LIVE, categories, session.active?.liveCount)
+        // Count only what's visible once categories are known (hidden ones are excluded).
+        categoryOptions(ContentKind.LIVE, categories, if (categories.isEmpty()) session.active?.liveCount else categories.sumOf { it.itemCount })
     }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
