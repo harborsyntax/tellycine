@@ -5,7 +5,7 @@ name: Release
 on:
   push:
     branches: [ "**" ]
-    paths-ignore: [ "**.md" ]
+    paths-ignore: [ "README.md" ]
   workflow_dispatch:
 
 permissions:
@@ -66,4 +66,9 @@ jobs:
 
           This build is signed with a debug key for side-loading. Mosaic does not provide any content.
           NOTES
+          # Per-version highlights, if present, go first.
+          if [ -f "release-notes/${TAG}.md" ]; then
+            { cat "release-notes/${TAG}.md"; echo; echo "---"; echo; cat notes.md; } > notes-full.md
+            mv notes-full.md notes.md
+          fi
           gh release create "$TAG" "$apk" "$apk.sha256" --target "$GITHUB_SHA" --title "Mosaic ${TAG}" --notes-file notes.md
