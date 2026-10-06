@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Mosaic app icon</title>
+  <rect width="1024" height="1024" fill="#2C2C2A"/>
+  <rect x="159.3" y="159.3" width="204.8" height="204.8" rx="45.5" fill="#5F5E5A"/>
+  <rect x="409.6" y="159.3" width="204.8" height="204.8" rx="45.5" fill="#888780"/>
+  <rect x="660" y="159.3" width="204.8" height="204.8" rx="45.5" fill="#B4B2A9"/>
+  <rect x="159.3" y="409.6" width="204.8" height="204.8" rx="45.5" fill="#444441"/>
+  <rect x="409.6" y="409.6" width="204.8" height="204.8" rx="45.5" fill="#EF9F27"/>
+  <polygon points="466.5,443.7 466.5,580.3 580.3,512" fill="#412402"/>
+  <rect x="660" y="409.6" width="204.8" height="204.8" rx="45.5" fill="#888780"/>
+  <rect x="159.3" y="660" width="204.8" height="204.8" rx="45.5" fill="#B4B2A9"/>
+  <rect x="409.6" y="660" width="204.8" height="204.8" rx="45.5" fill="#5F5E5A"/>
+  <rect x="660" y="660" width="204.8" height="204.8" rx="45.5" fill="#444441"/>
+</svg>
