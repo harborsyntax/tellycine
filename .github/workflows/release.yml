@@ -1,0 +1,74 @@
+name: Release
+
+# Publishes a release whenever a push carries a versionName (app/build.gradle.kts)
+# that has not been released yet. Bump versionName to cut a new release.
+on:
+  push:
+    branches: [ "**" ]
+    paths-ignore: [ "README.md" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check whether this version is already released
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts)
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          if gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v$version already exists; nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-java@v4
+        if: steps.version.outputs.skip != 'true'
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.version.outputs.skip != 'true'
+
+      - name: Test and build release APK
+        if: steps.version.outputs.skip != 'true'
+        run: ./gradlew --no-daemon :core:test :app:assembleRelease
+
+      - name: Create GitHub release
+        if: steps.version.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          apk="mosaic-${TAG}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$apk"
+          sha256sum "$apk" > "$apk.sha256"
+          cat > notes.md <<NOTES
+          Mosaic ${TAG} — an IPTV player for Android phones and tablets (Android 8.0+).
+
+          **Install:** download \`${apk}\` on your device and open it (allow installing from unknown sources when asked).
+
+          - M3U/M3U8 links, local M3U files and Xtream Codes logins
+          - XMLTV TV guide with now/next and per-channel schedules
+          - Live TV, movies and series with categories, favourites, continue watching and search
+          - Multiple playlists, built to handle very large playlists and guides
+          - Media3 player with picture-in-picture, track selection, resume and channel zapping
+          - Material You design with adaptive phone/tablet layouts
+
+          This build is signed with a debug key for side-loading. Mosaic does not provide any content.
+          NOTES
+          # Per-version highlights, if present, go first.
+          if [ -f "release-notes/${TAG}.md" ]; then
+            { cat "release-notes/${TAG}.md"; echo; echo "---"; echo; cat notes.md; } > notes-full.md
+            mv notes-full.md notes.md
+          fi
+          gh release create "$TAG" "$apk" "$apk.sha256" --target "$GITHUB_SHA" --title "Mosaic ${TAG}" --notes-file notes.md

@@ -1,20 +1,32 @@
-# Tube
+# Mosaic
 
 An IPTV player for Android phones and tablets, built with Jetpack Compose and Material 3.
 
-Tube is a player only. It does not provide any channels or content; you add your own
+Mosaic is a player only. It does not provide any channels or content; you add your own
 playlists from your provider.
 
 ## Features
 
 - **Sources**: M3U/M3U8 links, local M3U files, and Xtream Codes logins.
-  Paste an Xtream `get.php` link and Tube offers to switch to the Xtream API automatically.
+  Paste an Xtream `get.php` link and Mosaic offers to switch to the Xtream API automatically.
 - **TV guide**: XMLTV guides (plain or `.gz`), taken from the playlist's `url-tvg` header,
   from the Xtream provider, or from a URL you enter. Channels show what's on now with a
   progress bar, and long-pressing a channel opens its schedule.
+- **Catch-up TV**: replay past programmes, or restart the current one, on channels with an
+  archive. Works with Xtream Codes timeshift (honouring the server's timezone) and M3U
+  `catchup`/`catchup-source` attributes (`default`, `append`, `shift`, `flussonic`).
+- **Dispatcharr aware**: Dispatcharr's Xtream API is detected automatically. Catch-up uses its
+  UTC timeshift, its placeholder expiry date is hidden, and pasting a Dispatcharr
+  `/output/m3u` link suggests switching to its Xtream login.
+- **Dispatcharr recordings**: connect your Dispatcharr login per playlist to browse, play,
+  schedule (from any channel's guide) and delete DVR recordings. Mosaic stores only the
+  account's API key, reusing the existing one rather than regenerating it.
 - **Live TV, movies and series** in separate tabs, browsed by category, plus favourites,
   "continue watching" and recently watched channels.
 - **Multiple playlists**: add as many as you like and switch between them from the title bar.
+- **Per-playlist filtering**: tick or untick each playlist's categories (Live TV, Movies and
+  Series separately) to hide them everywhere. You can also turn movies & series off for a
+  playlist, which skips downloading them altogether.
 - **Search** across channels, movies and series.
 - **Player** built on Media3/ExoPlayer: HLS, MPEG-TS, DASH and progressive files, audio
   and subtitle track selection, resume, channel up/down and an in-player channel list,
@@ -32,7 +44,7 @@ playlists from your provider.
   (WAL mode). The UI keeps showing the old data until the import commits, and a failed
   refresh never leaves a half-empty playlist.
 - Only guide entries for channels in your playlist, within the configured window
-  (1–7 days), are stored. Channels are matched on `tvg-id`, falling back to the
+  (1–7 days ahead, plus up to 7 days back for catch-up channels), are stored. Channels are matched on `tvg-id`, falling back to the
   display name.
 - Lists are paged from Room with Paging 3, so scrolling stays smooth at any size.
 - On launch, playlists older than 24 h and guides older than 12 h refresh in the background.
@@ -43,6 +55,13 @@ playlists from your provider.
 | --- | --- |
 | `core` | Pure Kotlin/JVM parsers (M3U, XMLTV, Xtream JSON) and Xtream URL helpers, with unit tests |
 | `app`  | Android app: Room database, sync engine, Compose UI, Media3 player |
+
+## Branding
+
+The launcher icon is the Mosaic tile grid (`res/drawable/ic_launcher_foreground.xml`, with a
+single-colour `ic_launcher_monochrome.xml` for Android 13+ themed icons). The in-app logo pairs
+the grid with a "Mosaic" wordmark set in Figtree Bold (SIL Open Font License) and converted to
+vector outlines (`mosaic_wordmark.xml`), so it renders identically on every device.
 
 ## Building
 
