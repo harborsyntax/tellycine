@@ -53,6 +53,13 @@ playlists from your provider.
 | `core` | Pure Kotlin/JVM parsers (M3U, XMLTV, Xtream JSON) and Xtream URL helpers, with unit tests |
 | `app`  | Android app: Room database, sync engine, Compose UI, Media3 player |
 
+## Branding
+
+The launcher icon is the Mosaic tile grid (`res/drawable/ic_launcher_foreground.xml`, with a
+single-colour `ic_launcher_monochrome.xml` for Android 13+ themed icons). The in-app logo pairs
+the grid with a "Mosaic" wordmark set in Figtree Bold (SIL Open Font License) and converted to
+vector outlines (`mosaic_wordmark.xml`), so it renders identically on every device.
+
 ## Building
 
 Requirements: JDK 17 and the Android SDK (compileSdk 35).

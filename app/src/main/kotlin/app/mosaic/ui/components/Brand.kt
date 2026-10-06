@@ -30,17 +30,17 @@ fun MosaicLogo(
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(height * 0.4f),
+        horizontalArrangement = Arrangement.spacedBy(height * 0.32f),
     ) {
         if (showMark) {
             Image(painterResource(R.drawable.mosaic_mark), contentDescription = null, modifier = Modifier.size(height))
         }
-        // Wordmark viewport is 314×80 with the x-height filling the lower half, so scale from its height.
+        // The wordmark's capital height is ~3/4 of the mark, matching the approved lockup.
         Icon(
             painterResource(R.drawable.mosaic_wordmark),
             contentDescription = "Mosaic",
             tint = color,
-            modifier = Modifier.height(height * 1.15f),
+            modifier = Modifier.height(height * 0.75f),
         )
     }
 }
