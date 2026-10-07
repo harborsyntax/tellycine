@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.mosaic.cast.CastButton
 
 /**
  * Top app bar for the main tabs. The subtitle doubles as a playlist switcher when more
@@ -89,6 +90,7 @@ fun PlaylistTopBar(
                 }
             },
             actions = {
+                CastButton()
                 if (onSearch != null) {
                     IconButton(onClick = onSearch) { Icon(Icons.Filled.Search, "Search") }
                 }

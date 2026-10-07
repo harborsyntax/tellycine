@@ -1,6 +1,7 @@
 package app.mosaic
 
 import android.content.Context
+import app.mosaic.cast.CastManager
 import app.mosaic.data.db.MosaicDatabase
 import app.mosaic.data.net.Downloader
 import app.mosaic.data.net.createHttpClient
@@ -31,6 +32,7 @@ class AppContainer(context: Context) {
     val content = ContentRepository(database)
     val details = DetailsRepository(downloader)
     val dvr = DvrRepository(database, httpClient)
+    val cast = CastManager(context)
 
     /** Cached so playback can be launched synchronously from click handlers. */
     val externalPlayerDefault: StateFlow<Boolean> = settings.settings

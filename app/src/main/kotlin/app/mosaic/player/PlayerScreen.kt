@@ -29,6 +29,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.CastConnected
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -57,9 +58,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.common.Player
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import app.mosaic.cast.CastButton
 import app.mosaic.data.db.StreamEntity
 import app.mosaic.ui.components.Artwork
 import kotlinx.coroutines.delay
@@ -73,7 +75,8 @@ internal val RESIZE_MODES = listOf(
 @OptIn(UnstableApi::class)
 @Composable
 fun PlayerScreen(
-    player: ExoPlayer,
+    player: Player,
+    castingTo: String?,
     request: PlayRequest?,
     channels: List<StreamEntity>,
     error: String?,
@@ -121,6 +124,11 @@ fun PlayerScreen(
                 }
             },
             update = { view ->
+                if (view.player !== player) view.player = player
+                // While casting there is no local video, so keep the remote controls on screen.
+                view.controllerShowTimeoutMs = if (castingTo != null) 0 else 3500
+                view.controllerHideOnTouch = castingTo == null
+                if (castingTo != null) view.showController()
                 view.useController = !inPip
                 view.resizeMode = RESIZE_MODES[resizeMode].first
                 val live = request?.isLive == true
@@ -140,6 +148,7 @@ fun PlayerScreen(
                 TopControls(
                     request = request,
                     hasChannels = channels.size > 1,
+                    casting = castingTo != null,
                     pipSupported = pipSupported,
                     onBack = onBack,
                     onZap = onZap,
@@ -159,6 +168,17 @@ fun PlayerScreen(
                     modifier = Modifier.align(Alignment.Center),
                 ) {
                     Text(label, color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp, 10.dp))
+                }
+            }
+
+            if (castingTo != null && error == null) {
+                Column(
+                    Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Icon(Icons.Filled.CastConnected, null, Modifier.size(56.dp), tint = Color.White)
+                    Text("Casting to $castingTo", color = Color.White, style = MaterialTheme.typography.titleMedium)
                 }
             }
 
@@ -190,6 +210,7 @@ fun PlayerScreen(
 private fun TopControls(
     request: PlayRequest?,
     hasChannels: Boolean,
+    casting: Boolean,
     pipSupported: Boolean,
     onBack: () -> Unit,
     onZap: (Int) -> Unit,
@@ -229,7 +250,11 @@ private fun TopControls(
             IconButton(onClick = { onZap(1) }) { Icon(Icons.Filled.KeyboardArrowDown, "Next channel", tint = Color.White) }
             IconButton(onClick = onToggleChannels) { Icon(Icons.AutoMirrored.Filled.List, "Channel list", tint = Color.White) }
         }
-        IconButton(onClick = onCycleResize) { Icon(Icons.Filled.AspectRatio, "Resize", tint = Color.White) }
+        // Recordings need an auth header the TV can't send, so they can't be cast.
+        if (request?.apiKey == null) CastButton(onDark = true)
+        if (!casting) {
+            IconButton(onClick = onCycleResize) { Icon(Icons.Filled.AspectRatio, "Resize", tint = Color.White) }
+        }
         if (pipSupported) {
             IconButton(onClick = onEnterPip) { Icon(Icons.Filled.PictureInPictureAlt, "Picture in picture", tint = Color.White) }
         }

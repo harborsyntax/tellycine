@@ -15,8 +15,8 @@ android {
         applicationId = "app.mosaic"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.3.0"
+        versionCode = 5
+        versionName = "1.4.0"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -93,6 +93,10 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.exoplayer.dash)
     implementation(libs.androidx.media3.ui)
+    implementation(libs.androidx.media3.cast)
+    implementation(libs.androidx.mediarouter)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.fragment)
     implementation(libs.androidx.media3.datasource.okhttp)
 
     implementation(libs.androidx.datastore.preferences)

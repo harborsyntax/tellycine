@@ -14,10 +14,12 @@ import kotlinx.coroutines.launch
 
 /**
  * Starts playback with the user's default player: the built-in one, or another app.
- * Requests that need an auth header (Dispatcharr recordings) always use the built-in player.
+ * Requests that need an auth header (Dispatcharr recordings) always use the built-in player,
+ * as does everything while a Chromecast is connected.
  */
 fun Context.play(request: PlayRequest) {
-    val external = container.externalPlayerDefault.value && request.apiKey == null
+    // While casting, everything goes through the built-in player, which sends it to the TV.
+    val external = container.externalPlayerDefault.value && request.apiKey == null && !container.cast.isConnected()
     if (external && openExternally(request, chooser = false)) return
     startActivity(request.toIntent(this))
 }
