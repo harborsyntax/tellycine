@@ -32,9 +32,9 @@ class CastMediaItemConverter : MediaItemConverter {
             .setStreamType(if (live) MediaInfo.STREAM_TYPE_LIVE else info.streamType)
             .setContentType(info.contentType)
             .setContentUrl(info.contentUrl)
-            .setMetadata(info.metadata)
             // Kept so the item converts back to a MediaItem (Media3 stores it there).
             .setCustomData(info.customData)
+        info.metadata?.let { builder.setMetadata(it) }
         if (live) builder.setStreamDuration(MediaInfo.UNKNOWN_DURATION)
         if (tsSegments) {
             builder.setHlsSegmentFormat(HlsSegmentFormat.TS)
