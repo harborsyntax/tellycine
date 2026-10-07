@@ -35,7 +35,10 @@ data class PlaylistEntity(
     val seriesCount: Int = 0,
     val programmeCount: Int = 0,
     val expiresAt: Long? = null,
+    /** Connection limit reported by an Xtream server at the last refresh. */
     val maxConnections: Int? = null,
+    /** Connection limit entered by the user; overrides [maxConnections]. */
+    val connectionLimit: Int? = null,
     /** IANA zone reported by an Xtream server; catch-up start times are expressed in it. */
     val serverTimezone: String? = null,
     /** Server software when it identifies itself, e.g. "Dispatcharr". */
@@ -49,6 +52,9 @@ data class PlaylistEntity(
     val dvrUsername: String? = null,
 ) {
     val isDispatcharr get() = serverSoftware == app.mosaic.core.xtream.XtreamAccount.SOFTWARE_DISPATCHARR
+
+    /** How many streams the account may play at once, if known. */
+    val effectiveMaxConnections get() = connectionLimit ?: maxConnections
 
     /** Connected to Dispatcharr's DVR, so recordings can be listed and scheduled. */
     val hasDvr get() = isDispatcharr && !dvrApiKey.isNullOrBlank()
