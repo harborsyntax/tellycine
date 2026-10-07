@@ -2,6 +2,7 @@ package app.mosaic.player
 
 import app.mosaic.data.db.PlaylistEntity
 import app.mosaic.cast.CastMedia
+import app.mosaic.cast.CastMediaItemConverter
 import android.widget.Toast
 import androidx.media3.cast.SessionAvailabilityListener
 import androidx.media3.cast.CastPlayer
@@ -153,7 +154,7 @@ class PlayerActivity : FragmentActivity() {
 
     private fun setUpCast() {
         val castContext = container.cast.castContext ?: return
-        castPlayer = CastPlayer(castContext).also { cast ->
+        castPlayer = CastPlayer(castContext, CastMediaItemConverter()).also { cast ->
             cast.addListener(listener)
             cast.setSessionAvailabilityListener(object : SessionAvailabilityListener {
                 override fun onCastSessionAvailable() = moveToCast()
