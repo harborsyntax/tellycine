@@ -1,5 +1,7 @@
 package app.mosaic.ui.vod
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,10 +20,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.mosaic.ui.components.Artwork
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PosterCard(
     title: String,
@@ -30,12 +34,13 @@ fun PosterCard(
     rating: Double?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
 ) {
+    val shape = RoundedCornerShape(16.dp)
     Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
+        shape = shape,
         color = MaterialTheme.colorScheme.surface,
-        modifier = modifier,
+        modifier = modifier.clip(shape).combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Box {

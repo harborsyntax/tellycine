@@ -96,4 +96,16 @@ class PhoneScreenshots {
         d.waitForText("Documentaries")
         d.shot("category-filter")
     }
+
+    /** The Library long-press menu, in its own run so the open menu can't affect the main sequence. */
+    @Test
+    fun libraryMenu() {
+        val d = ScreenshotDriver(compose)
+        d.launch()
+        d.openTab("Library", "Favourite channels")
+        // A favourite channel that isn't also in recently watched.
+        compose.onAllNodesWithText("Channel Bright", useUnmergedTree = true).onFirst().performTouchInput { longClick() }
+        d.waitForText("Remove from favourites")
+        d.shot("library-menu")
+    }
 }

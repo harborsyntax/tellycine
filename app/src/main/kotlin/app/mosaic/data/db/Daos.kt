@@ -307,6 +307,16 @@ interface ContentDao {
 
     @Query("DELETE FROM history")
     suspend fun clearAllHistory()
+
+    /** Clears what Continue watching shows; finished titles keep their watched state. */
+    @Query(
+        """DELETE FROM history WHERE playlistId = :playlistId AND kind != 'LIVE'
+           AND positionMs > 30000 AND (durationMs <= 0 OR positionMs < durationMs * 0.95)"""
+    )
+    suspend fun clearContinueWatching(playlistId: Long)
+
+    @Query("DELETE FROM history WHERE playlistId = :playlistId AND kind = 'LIVE'")
+    suspend fun clearRecentChannels(playlistId: Long)
 }
 
 @Dao

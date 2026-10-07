@@ -134,6 +134,14 @@ class ContentRepository(db: MosaicDatabase) {
     }
 
     suspend fun removeHistory(playlistId: Long, key: String) = dao.removeHistory(playlistId, key)
+
+    /** Puts back a history entry exactly as it was, e.g. to undo a removal. */
+    suspend fun restoreHistory(item: HistoryEntity) = dao.upsertHistory(item)
+    suspend fun clearContinueWatching(playlistId: Long) = dao.clearContinueWatching(playlistId)
+    suspend fun clearRecentChannels(playlistId: Long) = dao.clearRecentChannels(playlistId)
+    suspend fun setFavorite(playlistId: Long, kind: ContentKind, streamId: String, favorite: Boolean) {
+        if (favorite) dao.addFavorite(FavoriteEntity(playlistId, kind, streamId)) else dao.removeFavorite(playlistId, kind, streamId)
+    }
     suspend fun clearHistory() = dao.clearAllHistory()
 
     companion object {
