@@ -12,6 +12,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -19,6 +21,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -36,6 +39,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
@@ -48,12 +52,17 @@ import app.mosaic.AppContainer
 import app.mosaic.core.ContentKind
 import app.mosaic.data.db.PlaylistEntity
 import app.mosaic.data.db.StreamEntity
-import app.mosaic.data.repo.ContentRepository
+import app.mosaic.data.repo.CatchupResolver
+import app.mosaic.data.repo.ProgrammeHit
 import app.mosaic.player.PlayRequest
 import app.mosaic.player.play
 import app.mosaic.ui.components.Artwork
 import app.mosaic.ui.components.EmptyState
 import app.mosaic.ui.components.SectionHeader
+import app.mosaic.ui.components.formatDay
+import app.mosaic.ui.components.formatTime
+import app.mosaic.ui.live.liveRequest
+import app.mosaic.ui.live.replayRequest
 import app.mosaic.ui.components.mosaicViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -67,14 +76,24 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 
+/** What the search is narrowed to; [ALL] shows a few of each. */
+enum class SearchFilter(val label: String, val needsVod: Boolean = false) {
+    ALL("All"),
+    LIVE("Live TV"),
+    GUIDE("TV guide"),
+    MOVIES("Movies", needsVod = true),
+    SERIES("Series", needsVod = true),
+}
+
 data class SearchResults(
     val query: String = "",
     val searching: Boolean = false,
     val live: List<StreamEntity> = emptyList(),
+    val programmes: List<ProgrammeHit> = emptyList(),
     val movies: List<StreamEntity> = emptyList(),
     val series: List<StreamEntity> = emptyList(),
 ) {
-    val isEmpty get() = live.isEmpty() && movies.isEmpty() && series.isEmpty()
+    val isEmpty get() = live.isEmpty() && programmes.isEmpty() && movies.isEmpty() && series.isEmpty()
 }
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
@@ -83,8 +102,8 @@ class SearchViewModel(container: AppContainer) : ViewModel() {
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
-    private val _filter = MutableStateFlow<ContentKind?>(null)
-    val filter: StateFlow<ContentKind?> = _filter.asStateFlow()
+    private val _filter = MutableStateFlow(SearchFilter.ALL)
+    val filter: StateFlow<SearchFilter> = _filter.asStateFlow()
 
     val playlist: StateFlow<PlaylistEntity?> = container.playlists.activePlaylist
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -97,13 +116,22 @@ class SearchViewModel(container: AppContainer) : ViewModel() {
                     return@flow
                 }
                 emit(SearchResults(query = q, searching = true))
-                val limit = if (f == null) 40 else 300
+                val limit = if (f == SearchFilter.ALL) 40 else 300
+                fun wants(kind: SearchFilter) = f == SearchFilter.ALL || f == kind
+                val now = System.currentTimeMillis()
                 emit(
                     SearchResults(
                         query = q,
-                        live = if (f == null || f == ContentKind.LIVE) content.search(p.id, ContentKind.LIVE, q, limit) else emptyList(),
-                        movies = if (f == null || f == ContentKind.MOVIE) content.search(p.id, ContentKind.MOVIE, q, limit) else emptyList(),
-                        series = if (f == null || f == ContentKind.SERIES) content.search(p.id, ContentKind.SERIES, q, limit) else emptyList(),
+                        live = if (wants(SearchFilter.LIVE)) content.search(p.id, ContentKind.LIVE, q, limit) else emptyList(),
+                        // Past programmes are only useful when they can still be replayed.
+                        programmes = if (wants(SearchFilter.GUIDE)) {
+                            content.searchProgrammes(p.id, q, limit, now)
+                                .filter { it.programme.stopMs > now || CatchupResolver.isReplayable(p, it.channel, it.programme, now) }
+                        } else {
+                            emptyList()
+                        },
+                        movies = if (wants(SearchFilter.MOVIES)) content.search(p.id, ContentKind.MOVIE, q, limit) else emptyList(),
+                        series = if (wants(SearchFilter.SERIES)) content.search(p.id, ContentKind.SERIES, q, limit) else emptyList(),
                     )
                 )
             }
@@ -114,21 +142,25 @@ class SearchViewModel(container: AppContainer) : ViewModel() {
         _query.value = q
     }
 
-    fun setFilter(kind: ContentKind?) {
-        _filter.value = kind
+    fun setFilter(filter: SearchFilter) {
+        _filter.value = filter
     }
 
-    fun channelRequest(s: StreamEntity) = PlayRequest(
-        playlistId = s.playlistId,
-        kind = ContentKind.LIVE,
-        streamId = s.streamId,
-        historyKey = ContentRepository.liveKey(s.streamId),
-        url = s.url,
-        title = s.name,
-        artwork = s.logo,
-        userAgent = s.userAgent ?: playlist.value?.userAgent,
-        referrer = s.referrer,
-    )
+    fun channelRequest(s: StreamEntity) = liveRequest(playlist.value, s)
+
+    fun canReplay(hit: ProgrammeHit) = CatchupResolver.isReplayable(playlist.value, hit.channel, hit.programme)
+
+    /**
+     * Replays a programme that has aired (or is airing, from the start) when the archive allows;
+     * otherwise tunes to the channel live.
+     */
+    fun programmeRequest(hit: ProgrammeHit): PlayRequest {
+        val p = hit.programme
+        val now = System.currentTimeMillis()
+        val onNow = p.startMs <= now && p.stopMs > now
+        return (if (!onNow) replayRequest(playlist.value, hit.channel, p) else null)
+            ?: liveRequest(playlist.value, hit.channel, subtitle = if (onNow) p.title else null)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -152,7 +184,7 @@ fun SearchScreen(onBack: () -> Unit, onOpen: (StreamEntity) -> Unit) {
                     TextField(
                         value = query,
                         onValueChange = vm::setQuery,
-                        placeholder = { Text("Search channels, movies, series") },
+                        placeholder = { Text(if (vodEnabled) "Search channels, TV guide, movies, series" else "Search channels and TV guide") },
                         singleLine = true,
                         trailingIcon = {
                             if (query.isNotEmpty()) IconButton(onClick = { vm.setQuery("") }) { Icon(Icons.Filled.Close, "Clear") }
@@ -175,13 +207,9 @@ fun SearchScreen(onBack: () -> Unit, onOpen: (StreamEntity) -> Unit) {
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    val options = if (vodEnabled) {
-                        listOf(null to "All", ContentKind.LIVE to "Live TV", ContentKind.MOVIE to "Movies", ContentKind.SERIES to "Series")
-                    } else {
-                        listOf(null to "All", ContentKind.LIVE to "Live TV")
-                    }
-                    items(options, key = { it.second }) { (kind, label) ->
-                        FilterChip(selected = filter == kind, onClick = { vm.setFilter(kind) }, label = { Text(label) })
+                    val options = SearchFilter.entries.filter { vodEnabled || !it.needsVod }
+                    items(options, key = { it.name }) { option ->
+                        FilterChip(selected = filter == option, onClick = { vm.setFilter(option) }, label = { Text(option.label) })
                     }
                 }
             }
@@ -197,6 +225,7 @@ fun SearchScreen(onBack: () -> Unit, onOpen: (StreamEntity) -> Unit) {
                 }
             }
             section("Live TV", results.live) { s -> context.play(vm.channelRequest(s)) }
+            programmeSection(results.programmes, vm::canReplay) { hit -> context.play(vm.programmeRequest(hit)) }
             section("Movies", results.movies, onOpen)
             section("Series", results.series, onOpen)
         }
@@ -225,6 +254,47 @@ private fun androidx.compose.foundation.lazy.LazyListScope.section(
             headlineContent = { Text(s.name, maxLines = 2, overflow = TextOverflow.Ellipsis) },
             supportingContent = listOfNotNull(s.year, s.genre).joinToString(" · ").takeIf { it.isNotBlank() }?.let { meta ->
                 @Composable { Text(meta, style = MaterialTheme.typography.bodySmall) }
+            },
+        )
+    }
+}
+
+private fun androidx.compose.foundation.lazy.LazyListScope.programmeSection(
+    hits: List<ProgrammeHit>,
+    canReplay: (ProgrammeHit) -> Boolean,
+    onClick: (ProgrammeHit) -> Unit,
+) {
+    if (hits.isEmpty()) return
+    item(key = "h-guide") { SectionHeader("TV guide") }
+    items(hits, key = { "guide-${it.programme.id}" }) { hit ->
+        val p = hit.programme
+        val now = remember(hit) { System.currentTimeMillis() }
+        val onNow = p.startMs <= now && p.stopMs > now
+        val replay = !onNow && p.stopMs <= now && canReplay(hit)
+        ListItem(
+            modifier = Modifier.clickable { onClick(hit) },
+            colors = if (onNow) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else ListItemDefaults.colors(),
+            leadingContent = {
+                Artwork(
+                    url = hit.channel.logo,
+                    fallbackText = hit.channel.name,
+                    contentScale = ContentScale.Fit,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.size(64.dp, 44.dp),
+                )
+            },
+            overlineContent = {
+                val time = "${formatTime(p.startMs)} – ${formatTime(p.stopMs)}"
+                Text(if (onNow) "$time  ·  On now" else "${formatDay(p.startMs)}  $time", maxLines = 1, overflow = TextOverflow.Ellipsis)
+            },
+            headlineContent = {
+                Text(p.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = if (onNow) FontWeight.SemiBold else null)
+            },
+            supportingContent = { Text(hit.channel.name, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            trailingContent = if (replay || onNow) {
+                { Icon(if (replay) Icons.Filled.Replay else Icons.Filled.PlayArrow, if (replay) "Watch again" else "Watch live") }
+            } else {
+                null
             },
         )
     }

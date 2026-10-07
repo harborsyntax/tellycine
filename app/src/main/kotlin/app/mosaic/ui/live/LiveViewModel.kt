@@ -16,9 +16,6 @@ import app.mosaic.data.db.ProgrammeEntity
 import app.mosaic.data.repo.Categories
 import app.mosaic.data.repo.CatchupResolver
 import app.mosaic.data.sync.PlaylistSyncer
-import app.mosaic.ui.components.formatDay
-import app.mosaic.ui.components.formatTime
-import app.mosaic.data.repo.ContentRepository
 import app.mosaic.player.PlayRequest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -216,25 +213,8 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
         CatchupResolver.isReplayable(playlist.value, row.stream, programme)
 
     /** Play request for a past (or in-progress, from the start) programme, or null if unavailable. */
-    fun replayRequest(row: ChannelRow, programme: ProgrammeEntity): PlayRequest? {
-        val p = playlist.value ?: return null
-        if (!CatchupResolver.isReplayable(p, row.stream, programme)) return null
-        val url = CatchupResolver.url(p, row.stream, programme) ?: return null
-        val s = row.stream
-        return PlayRequest(
-            playlistId = s.playlistId,
-            kind = ContentKind.LIVE,
-            streamId = s.streamId,
-            historyKey = ContentRepository.liveKey(s.streamId),
-            url = url,
-            title = programme.title,
-            subtitle = "${s.name} · ${formatDay(programme.startMs)} ${formatTime(programme.startMs)}",
-            artwork = s.logo,
-            userAgent = s.userAgent ?: p.userAgent,
-            referrer = s.referrer,
-            catchup = true,
-        )
-    }
+    fun replayRequest(row: ChannelRow, programme: ProgrammeEntity): PlayRequest? =
+        replayRequest(playlist.value, row.stream, programme)
 
     fun dismissSchedule() {
         _schedule.value = null
@@ -242,20 +222,6 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
 
     fun hasCatchup(row: ChannelRow) = CatchupResolver.supports(playlist.value, row.stream)
 
-    fun playRequest(row: ChannelRow): PlayRequest {
-        val s = row.stream
-        return PlayRequest(
-            playlistId = s.playlistId,
-            kind = ContentKind.LIVE,
-            streamId = s.streamId,
-            historyKey = ContentRepository.liveKey(s.streamId),
-            url = s.url,
-            title = s.name,
-            subtitle = row.nowTitle,
-            artwork = s.logo,
-            userAgent = s.userAgent ?: playlist.value?.userAgent,
-            referrer = s.referrer,
-            categoryId = _selected.value,
-        )
-    }
+    fun playRequest(row: ChannelRow): PlayRequest =
+        liveRequest(playlist.value, row.stream, subtitle = row.nowTitle, categoryId = _selected.value)
 }

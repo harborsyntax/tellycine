@@ -1,5 +1,12 @@
 package app.mosaic.screenshots
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.RectF
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,13 +27,18 @@ import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import java.io.File
+import java.io.FileOutputStream
 
 typealias ComposeRule = AndroidComposeTestRule<ActivityScenarioRule<ComponentActivity>, ComponentActivity>
 
-/** Drives the real app UI through screens and saves PNGs to docs/images/screens/. */
+/**
+ * Drives the real app UI through screens and saves PNGs to docs/images/screens/, in the dark
+ * theme with rounded corners like a device screen.
+ */
 @OptIn(ExperimentalRoborazziApi::class)
 class ScreenshotDriver(private val compose: ComposeRule) {
-    private var theme by mutableStateOf(ThemeMode.LIGHT)
+    private var theme by mutableStateOf(ThemeMode.DARK)
     val app: MosaicApp get() = ApplicationProvider.getApplicationContext()
 
     fun launch() {
@@ -80,6 +92,28 @@ class ScreenshotDriver(private val compose: ComposeRule) {
     fun shot(name: String) {
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
-        captureScreenRoboImage("../docs/images/screens/$name.png")
+        val file = File("../docs/images/screens/$name.png")
+        captureScreenRoboImage(file.path)
+        roundCorners(file)
+    }
+
+    /** Makes the corners transparent, with a radius proportional to the shorter side. */
+    private fun roundCorners(file: File) {
+        val source = BitmapFactory.decodeFile(file.path)
+        val w = source.width.toFloat()
+        val h = source.height.toFloat()
+        val radius = minOf(w, h) * CORNER_FRACTION
+        val out = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        canvas.drawRoundRect(RectF(0f, 0f, w, h), radius, radius, paint)
+        // Keep the screenshot only where the rounded shape was drawn (anti-aliased edges included).
+        paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+        canvas.drawBitmap(source, 0f, 0f, paint)
+        FileOutputStream(file).use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    private companion object {
+        const val CORNER_FRACTION = 0.06f
     }
 }

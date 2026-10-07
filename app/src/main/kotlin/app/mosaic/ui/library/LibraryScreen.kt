@@ -225,7 +225,7 @@ fun LibraryScreen(
 
     Scaffold(
         topBar = {
-            PlaylistTopBar("Library", session, onSelectPlaylist, onSearch, scrollBehavior) {
+            PlaylistTopBar(session, onSelectPlaylist, onSearch, scrollBehavior) {
                 LibrarySortMenu(state.sort, state.groupByCategory, vm::setSort, vm::setGroupByCategory)
             }
         },

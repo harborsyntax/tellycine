@@ -32,15 +32,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.mosaic.cast.CastButton
+import app.mosaic.ui.components.MosaicLogo
 
 /**
- * Top app bar for the main tabs. The subtitle doubles as a playlist switcher when more
- * than one playlist exists, and a thin progress bar shows background refreshes.
+ * Top app bar for the main tabs: the Mosaic logo over the active playlist's name, which doubles
+ * as a playlist switcher when more than one playlist exists. The tab itself is named by the
+ * navigation bar. A thin progress bar shows background refreshes.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistTopBar(
-    title: String,
     session: SessionState,
     onSelectPlaylist: (Long) -> Unit,
     onSearch: (() -> Unit)?,
@@ -51,7 +52,7 @@ fun PlaylistTopBar(
         TopAppBar(
             title = {
                 Column {
-                    Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    MosaicLogo(height = 26.dp)
                     val active = session.active
                     if (active != null) {
                         var open by remember { mutableStateOf(false) }
