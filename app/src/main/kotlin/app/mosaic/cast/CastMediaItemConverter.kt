@@ -30,11 +30,11 @@ class CastMediaItemConverter : MediaItemConverter {
 
         val builder = MediaInfo.Builder(info.contentId)
             .setStreamType(if (live) MediaInfo.STREAM_TYPE_LIVE else info.streamType)
-            .setContentType(info.contentType)
-            .setContentUrl(info.contentUrl)
-            // Kept so the item converts back to a MediaItem (Media3 stores it there).
-            .setCustomData(info.customData)
+        info.contentType?.let { builder.setContentType(it) }
+        info.contentUrl?.let { builder.setContentUrl(it) }
         info.metadata?.let { builder.setMetadata(it) }
+        // Kept so the item converts back to a MediaItem (Media3 stores it there).
+        info.customData?.let { builder.setCustomData(it) }
         if (live) builder.setStreamDuration(MediaInfo.UNKNOWN_DURATION)
         if (tsSegments) {
             builder.setHlsSegmentFormat(HlsSegmentFormat.TS)
