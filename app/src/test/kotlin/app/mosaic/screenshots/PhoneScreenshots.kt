@@ -70,7 +70,8 @@ class PhoneScreenshots {
         d.openTab("Library", "Continue watching")
         d.shot("library")
         d.setLibraryGrouping(true)
-        d.waitForText("Documentaries")
+        // The first group header in "Continue watching" (lower sections are off-screen and not composed).
+        d.waitForText("Sci-Fi")
         d.shot("library-grouped")
         d.setLibraryGrouping(false)
 
