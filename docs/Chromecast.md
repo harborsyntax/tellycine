@@ -12,7 +12,8 @@
 | --- | --- |
 | HLS (`.m3u8`), DASH, MP4 movies and episodes | ✅ |
 | Xtream Codes live channels | ✅ Mosaic switches them to the provider's HLS stream |
-| Raw MPEG-TS streams, including **Dispatcharr live channels** | ❌ Chromecast can't play raw TS |
+| **Dispatcharr live channels** | ✅ On Dispatcharr 0.25 or newer, Mosaic casts its MP4 output. See [Dispatcharr](Dispatcharr.md#casting-live-channels) |
+| Other raw MPEG-TS streams | ❌ Chromecast can't play raw TS |
 | Streams that need a specific user agent or referrer | ⚠️ Often fail, because the TV fetches the stream itself |
 | Dispatcharr recordings | ❌ They play on your phone only |
 

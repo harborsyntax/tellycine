@@ -16,26 +16,31 @@ object CastMedia {
     const val EXTRA_TS_SEGMENTS = "app.mosaic.cast.TS_SEGMENTS"
 
     /**
-     * Chromecast cannot play raw MPEG-TS, so standard Xtream live channels are switched to
-     * the panel's HLS output. Dispatcharr only serves TS, so its URLs are left unchanged.
+     * Chromecast cannot play raw MPEG-TS, so Xtream live channels are switched to a format it can:
+     * the panel's HLS output, or for Dispatcharr (0.25+) its fragmented MP4 output, optionally
+     * through [outputProfileId] (an output profile re-encoding the audio to AAC).
      */
-    fun castUrl(request: PlayRequest, playlist: PlaylistEntity?): String {
+    fun castUrl(request: PlayRequest, playlist: PlaylistEntity?, outputProfileId: Long? = null): String {
         val url = request.url
-        if (request.isLive && playlist?.type == PlaylistType.XTREAM && !playlist.isDispatcharr) {
+        if (request.isLive && playlist?.type == PlaylistType.XTREAM) {
             val path = Uri.parse(url).path.orEmpty()
             if (path.contains("/live/") && path.endsWith(".ts")) {
-                return url.replaceFirst(Regex("""\.ts(?=($|\?))"""), ".m3u8")
+                val ts = Regex("""\.ts(?=($|\?))""")
+                if (!playlist.isDispatcharr) return url.replaceFirst(ts, ".m3u8")
+                val mp4 = url.replaceFirst(ts, ".mp4")
+                return if (outputProfileId == null) mp4
+                else Uri.parse(mp4).buildUpon().appendQueryParameter("output_profile", outputProfileId.toString()).build().toString()
             }
         }
         return url
     }
 
-    fun mediaItem(request: PlayRequest, playlist: PlaylistEntity?): MediaItem {
-        val url = castUrl(request, playlist)
+    fun mediaItem(request: PlayRequest, playlist: PlaylistEntity?, outputProfileId: Long? = null): MediaItem {
+        val url = castUrl(request, playlist, outputProfileId)
         val extras = Bundle().apply {
             putBoolean(EXTRA_LIVE, request.isLive)
             // Xtream's HLS output (switched to above) is a playlist of MPEG-TS segments.
-            putBoolean(EXTRA_TS_SEGMENTS, url != request.url)
+            putBoolean(EXTRA_TS_SEGMENTS, url != request.url && Uri.parse(url).path.orEmpty().endsWith(".m3u8"))
         }
         return MediaItem.Builder()
             .setUri(url)

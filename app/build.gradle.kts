@@ -15,8 +15,8 @@ android {
         applicationId = "app.mosaic"
         minSdk = 26
         targetSdk = 35
-        versionCode = 16
-        versionName = "1.10.1"
+        versionCode = 17
+        versionName = "1.11.0"
         vectorDrawables.useSupportLibrary = true
     }
 

@@ -68,4 +68,27 @@ class DispatcharrParserTest {
         assertEquals("http://provider/live/u/p/1.ts", sources[0].url)
         assertEquals("BBC One backup", sources[1].name)
     }
+
+    @Test
+    fun picksTheBuiltInAacOutputProfile() {
+        val profiles = DispatcharrParser.parseOutputProfiles(
+            """{"count": 3, "results": [
+                {"id": 1, "name": "Media Server (AC3 Audio)", "command": "ffmpeg", "parameters": "-i pipe:0 -c:v copy -c:a ac3 -b:a 384k -c:s copy -f mpegts pipe:1", "is_active": true, "locked": true},
+                {"id": 2, "name": "Web Player (AAC Audio)", "command": "ffmpeg", "parameters": "-i pipe:0 -c:v copy -c:a aac -b:a 192k -c:s copy -f mpegts pipe:1", "is_active": true, "locked": true},
+                {"id": 7, "name": "720p", "command": "ffmpeg", "parameters": "-i pipe:0 -c:v libx264 -c:a aac -f mpegts pipe:1", "is_active": true, "locked": false}
+            ]}""".reader()
+        )
+        assertEquals(3, profiles.size)
+        assertEquals(2L, DispatcharrParser.aacProfile(profiles)?.id)
+    }
+
+    @Test
+    fun fallsBackToAnActiveProfileEncodingAac() {
+        val profiles = DispatcharrParser.parseOutputProfiles(
+            """[{"id": 2, "name": "Web Player (AAC Audio)", "parameters": "-c:a aac", "is_active": false},
+                {"id": 5, "name": "Phones", "parameters": "-i pipe:0 -c:v copy -acodec AAC -f mpegts pipe:1", "is_active": true}]""".reader()
+        )
+        assertEquals(5L, DispatcharrParser.aacProfile(profiles)?.id)
+        assertEquals(null, DispatcharrParser.aacProfile(profiles.filter { it.id == 2L }))
+    }
 }
