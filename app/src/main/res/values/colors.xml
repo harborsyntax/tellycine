@@ -2,4 +2,8 @@
 <resources>
     <color name="ic_launcher_background">#2C2C2A</color>
     <color name="window_background">#FFF8F4</color>
+    <!-- Opaque brand colours for AppCompat dialogs (e.g. the Cast picker). -->
+    <color name="brand_primary">#845400</color>
+    <color name="brand_primary_dark">#643F00</color>
+    <color name="brand_primary_on_dark">#FFB951</color>
 </resources>
