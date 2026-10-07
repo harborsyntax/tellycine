@@ -84,117 +84,120 @@ fun DetailScreen(
     val next by vm.nextEpisode.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            val wide = maxWidth >= 720.dp
-            val seasonEpisodes = remember(info.episodes, season) { info.episodes.filter { it.season == season } }
+    // A Surface (not a plain background) so text defaults to onSurface and stays readable in dark mode.
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+        Box(Modifier.fillMaxSize()) {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val wide = maxWidth >= 720.dp
+                val seasonEpisodes = remember(info.episodes, season) { info.episodes.filter { it.season == season } }
 
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
-                item(key = "header") {
-                    Header(info, wide)
-                }
-                item(key = "actions") {
-                    Column(
-                        Modifier.padding(horizontal = 16.dp).widthIn(max = 900.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            when (kind) {
-                                ContentKind.MOVIE -> {
-                                    val h = history[ContentRepository.movieKey(streamId)]
-                                    val resume = h?.resumePosition() ?: 0L
-                                    PlayButton(
-                                        label = if (resume > 0) "Resume" else "Play",
-                                        progress = h?.progress(),
-                                        enabled = info.stream != null,
-                                    ) { vm.moviePlayRequest(resume)?.let(context::play) }
-                                }
-                                else -> {
-                                    val n = next
-                                    if (n != null) {
-                                        val (ep, h) = n
+                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
+                    item(key = "header") {
+                        Header(info, wide)
+                    }
+                    item(key = "actions") {
+                        Column(
+                            Modifier.padding(horizontal = 16.dp).widthIn(max = 900.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                when (kind) {
+                                    ContentKind.MOVIE -> {
+                                        val h = history[ContentRepository.movieKey(streamId)]
                                         val resume = h?.resumePosition() ?: 0L
                                         PlayButton(
-                                            label = "${if (resume > 0) "Resume" else "Play"} S${ep.season} E${ep.number}",
+                                            label = if (resume > 0) "Resume" else "Play",
                                             progress = h?.progress(),
-                                            enabled = true,
-                                        ) { context.play(vm.episodePlayRequest(ep, resume)) }
+                                            enabled = info.stream != null,
+                                        ) { vm.moviePlayRequest(resume)?.let(context::play) }
+                                    }
+                                    else -> {
+                                        val n = next
+                                        if (n != null) {
+                                            val (ep, h) = n
+                                            val resume = h?.resumePosition() ?: 0L
+                                            PlayButton(
+                                                label = "${if (resume > 0) "Resume" else "Play"} S${ep.season} E${ep.number}",
+                                                progress = h?.progress(),
+                                                enabled = true,
+                                            ) { context.play(vm.episodePlayRequest(ep, resume)) }
+                                        }
                                     }
                                 }
-                            }
-                            FilledTonalIconToggleButton(checked = favorite, onCheckedChange = { vm.toggleFavorite() }) {
-                                if (favorite) Icon(Icons.Filled.Favorite, "Remove from favourites")
-                                else Icon(Icons.Filled.FavoriteBorder, "Add to favourites")
-                            }
-                        }
-                        if (info.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-                        info.error?.let { error ->
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Icon(Icons.Filled.ErrorOutline, null, tint = MaterialTheme.colorScheme.error)
-                                Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
-                        info.plot?.let { plot -> ExpandableText(plot) }
-                        info.director?.takeIf { it.isNotBlank() }?.let { Credit("Director", it) }
-                        info.cast?.takeIf { it.isNotBlank() }?.let { Credit("Cast", it) }
-                    }
-                }
-
-                if (info.seasons.isNotEmpty()) {
-                    item(key = "seasons") {
-                        val seasons = info.seasons.keys.toList()
-                        val index = seasons.indexOf(season).coerceAtLeast(0)
-                        if (seasons.size > 1) {
-                            ScrollableTabRow(
-                                selectedTabIndex = index,
-                                edgePadding = 16.dp,
-                                modifier = Modifier.padding(top = 16.dp),
-                            ) {
-                                seasons.forEach { s ->
-                                    Tab(
-                                        selected = s == season,
-                                        onClick = { vm.selectSeason(s) },
-                                        text = { Text(info.seasons[s] ?: "Season $s") },
-                                    )
+                                FilledTonalIconToggleButton(checked = favorite, onCheckedChange = { vm.toggleFavorite() }) {
+                                    if (favorite) Icon(Icons.Filled.Favorite, "Remove from favourites")
+                                    else Icon(Icons.Filled.FavoriteBorder, "Add to favourites")
                                 }
                             }
-                        } else {
+                            if (info.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                            info.error?.let { error ->
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Icon(Icons.Filled.ErrorOutline, null, tint = MaterialTheme.colorScheme.error)
+                                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                            info.plot?.let { plot -> ExpandableText(plot) }
+                            info.director?.takeIf { it.isNotBlank() }?.let { Credit("Director", it) }
+                            info.cast?.takeIf { it.isNotBlank() }?.let { Credit("Cast", it) }
+                        }
+                    }
+
+                    if (info.seasons.isNotEmpty()) {
+                        item(key = "seasons") {
+                            val seasons = info.seasons.keys.toList()
+                            val index = seasons.indexOf(season).coerceAtLeast(0)
+                            if (seasons.size > 1) {
+                                ScrollableTabRow(
+                                    selectedTabIndex = index,
+                                    edgePadding = 16.dp,
+                                    modifier = Modifier.padding(top = 16.dp),
+                                ) {
+                                    seasons.forEach { s ->
+                                        Tab(
+                                            selected = s == season,
+                                            onClick = { vm.selectSeason(s) },
+                                            text = { Text(info.seasons[s] ?: "Season $s") },
+                                        )
+                                    }
+                                }
+                            } else {
+                                Text(
+                                    info.seasons[seasons.first()] ?: "Episodes",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 4.dp),
+                                )
+                            }
+                        }
+                        items(seasonEpisodes, key = { "ep-${it.id}" }) { ep ->
+                            val h = history[ContentRepository.episodeKey(ep.id)]
+                            EpisodeRow(ep, h, wide) {
+                                context.play(vm.episodePlayRequest(ep, h?.resumePosition() ?: 0L))
+                            }
+                        }
+                    } else if (kind == ContentKind.SERIES && !info.loading && info.stream != null) {
+                        item(key = "no-episodes") {
                             Text(
-                                info.seasons[seasons.first()] ?: "Episodes",
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 4.dp),
+                                "No episodes found.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(16.dp),
                             )
                         }
                     }
-                    items(seasonEpisodes, key = { "ep-${it.id}" }) { ep ->
-                        val h = history[ContentRepository.episodeKey(ep.id)]
-                        EpisodeRow(ep, h, wide) {
-                            context.play(vm.episodePlayRequest(ep, h?.resumePosition() ?: 0L))
-                        }
-                    }
-                } else if (kind == ContentKind.SERIES && !info.loading && info.stream != null) {
-                    item(key = "no-episodes") {
-                        Text(
-                            "No episodes found.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(16.dp),
-                        )
-                    }
                 }
             }
-        }
 
-        TopAppBar(
-            title = {},
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", Modifier.padding(6.dp))
+            TopAppBar(
+                title = {},
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", Modifier.padding(6.dp))
+                        }
                     }
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-        )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+            )
+        }
     }
 }
 
