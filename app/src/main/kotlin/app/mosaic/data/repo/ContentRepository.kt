@@ -101,7 +101,9 @@ class ContentRepository(db: MosaicDatabase) {
             .flatMap { dao.channelsForGuideIds(playlistId, it) }
             .groupBy { it.epgChannelId }
             .mapValues { (_, list) -> list.minBy { it.sortOrder } }
-        return programmes.mapNotNull { p -> channels[p.channelId]?.let { ProgrammeHit(p, it) } }
+        return programmes
+            .distinctBy { it.channelId to it.startMs }
+            .mapNotNull { p -> channels[p.channelId]?.let { ProgrammeHit(p, it) } }
     }
 
     suspend fun episodes(playlistId: Long, seriesId: String) = dao.episodes(playlistId, seriesId)
@@ -111,7 +113,9 @@ class ContentRepository(db: MosaicDatabase) {
         channelId: String,
         fromMs: Long = System.currentTimeMillis(),
         limit: Int = 300,
-    ): List<ProgrammeEntity> = dao.schedule(playlistId, channelId, fromMs, limit)
+    ): List<ProgrammeEntity> =
+        // Guides imported before 1.9.1 may hold the same programme more than once.
+        dao.schedule(playlistId, channelId, fromMs, limit).distinctBy { it.startMs }
 
     fun isFavorite(playlistId: Long, kind: ContentKind, streamId: String) = dao.observeIsFavorite(playlistId, kind, streamId)
 

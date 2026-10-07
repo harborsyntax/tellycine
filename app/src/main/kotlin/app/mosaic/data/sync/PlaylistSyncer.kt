@@ -7,6 +7,7 @@ import app.mosaic.core.ContentKind
 import app.mosaic.core.gunzipIfNeeded
 import app.mosaic.core.m3u.M3uHeader
 import app.mosaic.core.m3u.M3uParser
+import app.mosaic.core.xmltv.EpgMatcher
 import app.mosaic.core.xmltv.XmltvParser
 import app.mosaic.core.xtream.XtreamAccount
 import app.mosaic.core.xtream.XtreamItem
@@ -386,8 +387,8 @@ class PlaylistSyncer(
             val archive = catchupDays[epgId]?.coerceAtMost(MAX_CATCHUP_GUIDE_DAYS) ?: return defaultFrom
             return minOf(defaultFrom, now - archive * 24 * HOUR)
         }
-        // XMLTV channel id -> playlist epg ids it feeds (matches by id and by display name).
-        val aliases = HashMap<String, Set<String>>()
+        // Which XMLTV channel feeds each playlist channel, and which programmes were already stored.
+        val matcher = EpgMatcher(wanted)
         val batch = ArrayList<ProgrammeEntity>(BATCH)
         var stored = 0
 
@@ -398,24 +399,15 @@ class PlaylistSyncer(
                     file.inputStream().gunzipIfNeeded().use { input ->
                         XmltvParser { Xml.newPullParser() }.parse(
                             input,
-                            onChannel = { ch ->
-                                val idL = ch.id.lowercase()
-                                val targets = HashSet<String>(2)
-                                if (idL in wanted) targets += idL
-                                ch.displayNames.forEach { dn -> dn.lowercase().let { if (it in wanted) targets += it } }
-                                if (targets.isNotEmpty()) aliases[idL] = targets
-                            },
+                            onChannel = { ch -> matcher.onChannel(ch.id, ch.displayNames) },
                             acceptProgramme = accept@{ channel, start, stop ->
                                 if (!job.isActive) throw CancellationException("Sync cancelled")
                                 if (start >= to) return@accept false
-                                val idL = channel.lowercase()
-                                val targets = aliases[idL] ?: if (idL in wanted) setOf(idL) else return@accept false
-                                targets.any { stop > fromFor(it) }
+                                matcher.targetsFor(channel).any { stop > fromFor(it) }
                             },
                         ) { prog ->
-                            val idL = prog.channelId.lowercase()
-                            for (target in aliases[idL] ?: setOf(idL)) {
-                                if (prog.stopMs <= fromFor(target)) continue
+                            for (target in matcher.targetsFor(prog.channelId)) {
+                                if (prog.stopMs <= fromFor(target) || !matcher.isNew(target, prog.startMs)) continue
                                 batch += ProgrammeEntity(
                                     playlistId = pid,
                                     channelId = target,

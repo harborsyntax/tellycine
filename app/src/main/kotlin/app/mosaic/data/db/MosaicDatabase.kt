@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         HiddenCategoryEntity::class,
         DownloadEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class MosaicDatabase : RoomDatabase() {
@@ -28,6 +28,13 @@ abstract class MosaicDatabase : RoomDatabase() {
     abstract fun downloads(): DownloadDao
 
     companion object {
+        /** Guides imported before this version could repeat programmes; mark them stale so they're re-imported. */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("UPDATE playlists SET epgSyncedAt = NULL")
+            }
+        }
+
         /** User-entered connection limit. */
         val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -81,7 +88,7 @@ abstract class MosaicDatabase : RoomDatabase() {
         fun create(context: Context): MosaicDatabase =
             Room.databaseBuilder(context, MosaicDatabase::class.java, "mosaic.db")
                 .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
     }
