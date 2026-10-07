@@ -84,11 +84,13 @@ class PhoneScreenshots {
         d.shot("category-filter")
         d.back()
 
+        d.openTab("Playlists", "Demo IPTV")
         d.click("Add playlist")
         d.waitForText("Playlist URL")
         d.shot("add-playlist")
         d.back()
 
+        d.openTab("Playlists", "Demo IPTV")
         compose.onNodeWithContentDescription("Settings").performClick()
         d.waitForText("Default player")
         d.shot("settings")
