@@ -92,9 +92,13 @@ Requirements: JDK 17 and the Android SDK (compileSdk 35).
 ```bash
 ./gradlew :core:test            # parser unit tests (JVM only)
 ./gradlew :app:assembleDebug    # app/build/outputs/apk/debug/
-./gradlew :app:assembleRelease  # minified, signed with the debug key for side-loading
+./gradlew :app:assembleRelease  # minified; debug-signed unless MOSAIC_KEYSTORE is set
 ```
 
 GitHub Actions builds both APKs on every push and uploads them as workflow artifacts.
-Before publishing anywhere, replace the debug signing config in `app/build.gradle.kts`
-with your own keystore.
+
+Releases are signed with the permanent Mosaic key, so new versions install over old ones.
+The Release workflow reads it from the repository secrets `MOSAIC_KEYSTORE_BASE64`,
+`MOSAIC_KEYSTORE_PASSWORD`, `MOSAIC_KEY_ALIAS` and `MOSAIC_KEY_PASSWORD`, and refuses to
+publish without them. Release APKs can be checked against the certificate SHA-256
+`B8:C7:BC:C0:A9:2A:60:3E:E9:36:5D:7D:7A:52:A2:03:CB:29:DE:8F:89:11:9F:C9:74:0A:34:12:C0:8E:F6:B6`.

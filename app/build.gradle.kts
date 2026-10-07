@@ -15,9 +15,24 @@ android {
         applicationId = "app.mosaic"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.4.1"
+        versionCode = 7
+        versionName = "1.4.2"
         vectorDrawables.useSupportLibrary = true
+    }
+
+    // Releases must always be signed with the same key, or Android refuses to update the app.
+    // CI provides it through the MOSAIC_* environment variables (from repository secrets);
+    // local and PR builds without them fall back to the debug key.
+    val releaseKeystore = System.getenv("MOSAIC_KEYSTORE")?.takeIf { it.isNotBlank() }
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("MOSAIC_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("MOSAIC_KEY_ALIAS")
+                keyPassword = System.getenv("MOSAIC_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -25,9 +40,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Signed with the debug key so the release APK can be side-loaded directly.
-            // Replace with a real signing config before publishing.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (releaseKeystore != null) "release" else "debug")
         }
         debug {
             applicationIdSuffix = ".debug"
