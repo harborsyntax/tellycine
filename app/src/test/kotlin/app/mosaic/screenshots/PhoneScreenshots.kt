@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -117,6 +118,8 @@ class PhoneScreenshots {
         d.launch()
         d.openTab("Live TV", "Mosaic News 24")
         compose.onNodeWithContentDescription("TV guide view").performClick()
+        // The choice is saved first; the toggle flips once the grid is showing.
+        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("List view").fetchSemanticsNodes().isNotEmpty() }
         d.waitForText("World Tonight")
         d.shot("tv-guide-grid")
     }
