@@ -50,7 +50,8 @@ class ScreenshotDriver(private val compose: ComposeRule) {
     fun waitForText(text: String, timeoutMs: Long = 15_000) {
         try {
             compose.waitUntil(timeoutMs) {
-                compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+                // Unmerged: some components (e.g. the extended FAB) don't expose their label when merged.
+                compose.onAllNodesWithText(text, substring = true, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
             }
         } catch (e: Throwable) {
             // Include what is on screen, so CI logs show why the text never appeared.
@@ -62,7 +63,7 @@ class ScreenshotDriver(private val compose: ComposeRule) {
 
     fun click(text: String) {
         waitForText(text)
-        compose.onAllNodesWithText(text).onFirst().performClick()
+        compose.onAllNodesWithText(text, useUnmergedTree = true).onFirst().performClick()
         compose.waitForIdle()
     }
 
