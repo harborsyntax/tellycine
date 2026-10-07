@@ -1,5 +1,7 @@
 package app.mosaic.player
 
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.foundation.layout.widthIn
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -77,6 +79,7 @@ internal val RESIZE_MODES = listOf(
 fun PlayerScreen(
     player: Player,
     castingTo: String?,
+    castNotice: String?,
     request: PlayRequest?,
     channels: List<StreamEntity>,
     error: String?,
@@ -179,6 +182,18 @@ fun PlayerScreen(
                 ) {
                     Icon(Icons.Filled.CastConnected, null, Modifier.size(56.dp), tint = Color.White)
                     Text("Casting to $castingTo", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                    castNotice?.let { notice ->
+                        Surface(
+                            color = Color.Black.copy(alpha = 0.65f),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.padding(horizontal = 24.dp).widthIn(max = 440.dp),
+                        ) {
+                            Row(Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Icon(Icons.AutoMirrored.Filled.VolumeOff, null, tint = Color(0xFFFFB74D))
+                                Text(notice, color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
                 }
             }
 
