@@ -56,6 +56,21 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.outlined.HeartBroken
+import androidx.compose.material.icons.outlined.RemoveCircleOutline
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.foundation.layout.Row
 import app.mosaic.AppContainer
 import app.mosaic.data.db.DownloadStatus
 import app.mosaic.core.ContentKind
@@ -190,6 +205,24 @@ class LibraryViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { content.removeHistory(item.playlistId, item.itemKey) }
     }
 
+    fun restore(item: HistoryEntity) {
+        viewModelScope.launch { content.restoreHistory(item) }
+    }
+
+    fun setFavorite(stream: StreamEntity, favorite: Boolean) {
+        viewModelScope.launch { content.setFavorite(stream.playlistId, stream.kind, stream.streamId, favorite) }
+    }
+
+    fun clearContinueWatching() {
+        val id = state.value.playlist?.id ?: return
+        viewModelScope.launch { content.clearContinueWatching(id) }
+    }
+
+    fun clearRecentChannels() {
+        val id = state.value.playlist?.id ?: return
+        viewModelScope.launch { content.clearRecentChannels(id) }
+    }
+
     suspend fun channelRequest(stream: StreamEntity): PlayRequest {
         val playlist = container.playlists.get(stream.playlistId)
         return PlayRequest(
@@ -242,6 +275,24 @@ fun LibraryScreen(
     val context = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val snackbar = remember { SnackbarHostState() }
+    var confirmClear by remember { mutableStateOf<ClearTarget?>(null) }
+
+    /** Shows [message] with an Undo action that runs [undo]. */
+    fun undoable(message: String, undo: () -> Unit) {
+        scope.launch {
+            snackbar.currentSnackbarData?.dismiss()
+            if (snackbar.showSnackbar(message, actionLabel = "Undo", duration = SnackbarDuration.Short) == SnackbarResult.ActionPerformed) undo()
+        }
+    }
+    fun removeHistory(item: HistoryEntity, from: String) {
+        vm.remove(item)
+        undoable("Removed from $from") { vm.restore(item) }
+    }
+    fun removeFavorite(stream: StreamEntity) {
+        vm.setFavorite(stream, false)
+        undoable("Removed from favourites") { vm.setFavorite(stream, true) }
+    }
 
     Scaffold(
         topBar = {
@@ -249,6 +300,7 @@ fun LibraryScreen(
                 LibrarySortMenu(state.sort, state.groupByCategory, vm::setSort, vm::setGroupByCategory)
             }
         },
+        snackbarHost = { SnackbarHost(snackbar) },
         contentWindowInsets = WindowInsets(0),
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { padding ->
@@ -300,34 +352,129 @@ fun LibraryScreen(
                     )
                 }
             }
-            section("cw", "Continue watching", state.continueWatching) { h ->
-                ContinueCard(
-                    item = h.history,
-                    onClick = { scope.launch { context.play(vm.historyRequest(h.history)) } },
-                    onRemove = { vm.remove(h.history) },
-                )
+            section("cw", "Continue watching", state.continueWatching, onClearAll = { confirmClear = ClearTarget.CONTINUE_WATCHING }) { h ->
+                ItemMenu(
+                    title = listOfNotNull(h.history.title, h.history.subtitle).joinToString(" · "),
+                    action = MenuAction("Remove from continue watching", Icons.Outlined.RemoveCircleOutline) {
+                        removeHistory(h.history, "continue watching")
+                    },
+                ) { onLongClick ->
+                    ContinueCard(
+                        item = h.history,
+                        onClick = { scope.launch { context.play(vm.historyRequest(h.history)) } },
+                        onLongClick = onLongClick,
+                        onRemove = { removeHistory(h.history, "continue watching") },
+                    )
+                }
             }
-            section("rc", "Recently watched channels", state.recentChannels) { h ->
-                ChannelTile(h.history.title, h.history.artwork) { scope.launch { context.play(vm.historyRequest(h.history)) } }
+            section("rc", "Recently watched channels", state.recentChannels, onClearAll = { confirmClear = ClearTarget.RECENT_CHANNELS }) { h ->
+                ItemMenu(
+                    title = h.history.title,
+                    action = MenuAction("Remove from recently watched", Icons.Outlined.RemoveCircleOutline) {
+                        removeHistory(h.history, "recently watched")
+                    },
+                ) { onLongClick ->
+                    ChannelTile(h.history.title, h.history.artwork, onLongClick) {
+                        scope.launch { context.play(vm.historyRequest(h.history)) }
+                    }
+                }
             }
             section("fc", "Favourite channels", state.channels) { s ->
-                ChannelTile(s.name, s.logo) { scope.launch { context.play(vm.channelRequest(s)) } }
+                ItemMenu(
+                    title = s.name,
+                    action = MenuAction("Remove from favourites", Icons.Outlined.HeartBroken) { removeFavorite(s) },
+                ) { onLongClick ->
+                    ChannelTile(s.name, s.logo, onLongClick) { scope.launch { context.play(vm.channelRequest(s)) } }
+                }
             }
             for ((key, label, groups) in listOf(
                 Triple("fm", "Favourite movies", state.movies),
                 Triple("fs", "Favourite series", state.series),
             )) {
                 section(key, label, groups) { s ->
-                    PosterCard(
+                    ItemMenu(
                         title = s.name,
-                        poster = s.logo,
-                        meta = s.year,
-                        rating = s.rating,
-                        onClick = { onOpen(s) },
-                        modifier = Modifier.width(120.dp),
-                    )
+                        action = MenuAction("Remove from favourites", Icons.Outlined.HeartBroken) { removeFavorite(s) },
+                    ) { onLongClick ->
+                        PosterCard(
+                            title = s.name,
+                            poster = s.logo,
+                            meta = s.year,
+                            rating = s.rating,
+                            onClick = { onOpen(s) },
+                            onLongClick = onLongClick,
+                            modifier = Modifier.width(120.dp),
+                        )
+                    }
                 }
             }
+        }
+    }
+
+    confirmClear?.let { target ->
+        AlertDialog(
+            onDismissRequest = { confirmClear = null },
+            title = { Text(target.title) },
+            text = { Text(target.message) },
+            confirmButton = {
+                TextButton(onClick = {
+                    when (target) {
+                        ClearTarget.CONTINUE_WATCHING -> vm.clearContinueWatching()
+                        ClearTarget.RECENT_CHANNELS -> vm.clearRecentChannels()
+                    }
+                    confirmClear = null
+                }) { Text("Clear all") }
+            },
+            dismissButton = { TextButton(onClick = { confirmClear = null }) { Text("Cancel") } },
+        )
+    }
+}
+
+/** History lists with a "Clear all" action, and what their confirmation says. */
+private enum class ClearTarget(val title: String, val message: String) {
+    CONTINUE_WATCHING(
+        "Clear continue watching?",
+        "Everything you haven't finished will be removed from this list, and its resume point forgotten. " +
+            "Your favourites and downloads aren't affected.",
+    ),
+    RECENT_CHANNELS(
+        "Clear recently watched channels?",
+        "Your recently watched channels will be cleared. Favourite channels aren't affected.",
+    ),
+}
+
+private class MenuAction(val label: String, val icon: ImageVector, val onClick: () -> Unit)
+
+/**
+ * Wraps a Library item so a long press opens a small menu, headed by the item's name, with
+ * [action]. [content] receives the long-press handler to attach to the item.
+ */
+@Composable
+private fun ItemMenu(title: String, action: MenuAction, content: @Composable (onLongClick: () -> Unit) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
+    Box {
+        content {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            open = true
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            Text(
+                title,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).widthIn(max = 260.dp),
+            )
+            DropdownMenuItem(
+                text = { Text(action.label) },
+                leadingIcon = { Icon(action.icon, null) },
+                onClick = {
+                    open = false
+                    action.onClick()
+                },
+            )
         }
     }
 }
@@ -337,10 +484,20 @@ private fun <T> LazyListScope.section(
     key: String,
     title: String,
     groups: List<LibraryGroup<T>>,
+    onClearAll: (() -> Unit)? = null,
     itemContent: @Composable (T) -> Unit,
 ) {
     if (groups.isEmpty()) return
-    item(key = "$key-h") { SectionHeader(title) }
+    item(key = "$key-h") {
+        if (onClearAll == null) {
+            SectionHeader(title)
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SectionHeader(title, Modifier.weight(1f))
+                TextButton(onClick = onClearAll, modifier = Modifier.padding(end = 8.dp)) { Text("Clear all") }
+            }
+        }
+    }
     for (group in groups) {
         if (group.label != null) {
             item(key = "$key-g-${group.key}") {
@@ -409,9 +566,10 @@ private fun LibrarySortMenu(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ContinueCard(item: HistoryEntity, onClick: () -> Unit, onRemove: () -> Unit) {
-    Column(Modifier.width(220.dp).clickable(onClick = onClick)) {
+private fun ContinueCard(item: HistoryEntity, onClick: () -> Unit, onLongClick: () -> Unit, onRemove: () -> Unit) {
+    Column(Modifier.width(220.dp).combinedClickable(onClick = onClick, onLongClick = onLongClick)) {
         Box {
             Artwork(
                 url = item.artwork,
@@ -437,10 +595,11 @@ private fun ContinueCard(item: HistoryEntity, onClick: () -> Unit, onRemove: () 
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ChannelTile(name: String, logo: String?, onClick: () -> Unit) {
+private fun ChannelTile(name: String, logo: String?, onLongClick: () -> Unit, onClick: () -> Unit) {
     Column(
-        Modifier.width(112.dp).clickable(onClick = onClick),
+        Modifier.width(112.dp).combinedClickable(onClick = onClick, onLongClick = onLongClick),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Artwork(
