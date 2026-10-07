@@ -45,6 +45,7 @@ import app.mosaic.ui.playlists.CategoryFilterScreen
 import app.mosaic.ui.playlists.EditPlaylistScreen
 import app.mosaic.ui.playlists.PlaylistsScreen
 import app.mosaic.ui.recordings.RecordingsScreen
+import app.mosaic.ui.downloads.DownloadsScreen
 import app.mosaic.ui.search.SearchScreen
 import app.mosaic.ui.settings.SettingsScreen
 import app.mosaic.ui.vod.VodScreen
@@ -65,6 +66,7 @@ private object Routes {
     const val SETTINGS = "settings"
     const val CATEGORIES = "playlist/{id}/categories"
     const val RECORDINGS = "playlist/{id}/recordings"
+    const val DOWNLOADS = "downloads"
 
     fun detail(s: StreamEntity) = "detail/${s.kind.name}/${s.playlistId}/${Uri.encode(s.streamId)}"
     fun edit(id: Long?) = "playlist/edit?id=${id ?: -1}"
@@ -121,7 +123,10 @@ fun MosaicNavHost(nav: NavHostController = rememberNavController()) {
             SearchScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.detail(it)) })
         }
         composable(Routes.SETTINGS) {
-            SettingsScreen(onBack = { nav.popBackStack() })
+            SettingsScreen(onBack = { nav.popBackStack() }, onOpenDownloads = { nav.navigate(Routes.DOWNLOADS) })
+        }
+        composable(Routes.DOWNLOADS) {
+            DownloadsScreen(onBack = { nav.popBackStack() })
         }
     }
 }
@@ -176,6 +181,7 @@ private fun TabContent(tab: Tab, session: SessionState, nav: NavHostController, 
         Tab.LIBRARY -> LibraryScreen(
             session, onSelectPlaylist, onSearch, onOpen,
             onOpenRecordings = { nav.navigate(Routes.recordings(it)) },
+            onOpenDownloads = { nav.navigate(Routes.DOWNLOADS) },
             onConnectDvr = { nav.navigate(Routes.edit(it)) },
         )
         Tab.PLAYLISTS -> PlaylistsScreen(

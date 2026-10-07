@@ -57,6 +57,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import android.widget.Toast
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.mosaic.core.ContentKind
 import app.mosaic.data.db.HistoryEntity
@@ -65,6 +67,8 @@ import app.mosaic.player.play
 import app.mosaic.ui.components.Artwork
 import app.mosaic.ui.components.formatDuration
 import app.mosaic.ui.components.mosaicViewModel
+import app.mosaic.ui.downloads.DownloadButton
+import app.mosaic.ui.downloads.downloadStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,7 +86,11 @@ fun DetailScreen(
     val history by vm.history.collectAsStateWithLifecycle()
     val season by vm.selectedSeason.collectAsStateWithLifecycle()
     val next by vm.nextEpisode.collectAsStateWithLifecycle()
+    val downloads by vm.downloads.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    LaunchedEffect(vm) {
+        vm.messages.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+    }
 
     // A Surface (not a plain background) so text defaults to onSurface and stays readable in dark mode.
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
@@ -128,6 +136,26 @@ fun DetailScreen(
                                     if (favorite) Icon(Icons.Filled.Favorite, "Remove from favourites")
                                     else Icon(Icons.Filled.FavoriteBorder, "Add to favourites")
                                 }
+                                if (kind == ContentKind.MOVIE && info.stream != null) {
+                                    val d = downloads[ContentRepository.movieKey(streamId)]
+                                    DownloadButton(
+                                        download = d,
+                                        fileOk = d != null && vm.isDownloadOk(d),
+                                        onDownload = { vm.download() },
+                                        onRetry = vm::retryDownload,
+                                        onRemove = vm::removeDownload,
+                                        filled = true,
+                                    )
+                                }
+                            }
+                            if (kind == ContentKind.MOVIE) {
+                                downloads[ContentRepository.movieKey(streamId)]?.let { d ->
+                                    Text(
+                                        downloadStatus(context, d, vm.isDownloadOk(d)),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                             if (info.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
                             info.error?.let { error ->
@@ -170,7 +198,23 @@ fun DetailScreen(
                         }
                         items(seasonEpisodes, key = { "ep-${it.id}" }) { ep ->
                             val h = history[ContentRepository.episodeKey(ep.id)]
-                            EpisodeRow(ep, h, wide) {
+                            val d = downloads[ContentRepository.episodeKey(ep.id)]
+                            val fileOk = d != null && vm.isDownloadOk(d)
+                            EpisodeRow(
+                                ep = ep,
+                                history = h,
+                                wide = wide,
+                                downloadStatus = d?.let { downloadStatus(context, it, fileOk) },
+                                downloadButton = {
+                                    DownloadButton(
+                                        download = d,
+                                        fileOk = fileOk,
+                                        onDownload = { vm.download(ep) },
+                                        onRetry = vm::retryDownload,
+                                        onRemove = vm::removeDownload,
+                                    )
+                                },
+                            ) {
                                 context.play(vm.episodePlayRequest(ep, h?.resumePosition() ?: 0L))
                             }
                         }
@@ -302,7 +346,14 @@ private fun Credit(label: String, value: String) {
 }
 
 @Composable
-private fun EpisodeRow(ep: EpisodeUi, history: HistoryEntity?, wide: Boolean, onClick: () -> Unit) {
+private fun EpisodeRow(
+    ep: EpisodeUi,
+    history: HistoryEntity?,
+    wide: Boolean,
+    downloadStatus: String?,
+    downloadButton: @Composable () -> Unit,
+    onClick: () -> Unit,
+) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -344,7 +395,11 @@ private fun EpisodeRow(ep: EpisodeUi, history: HistoryEntity?, wide: Boolean, on
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            downloadStatus?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1)
+            }
         }
+        downloadButton()
     }
 }
 

@@ -34,6 +34,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.outlined.DownloadForOffline
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,6 +57,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.mosaic.AppContainer
+import app.mosaic.data.db.DownloadStatus
 import app.mosaic.core.ContentKind
 import app.mosaic.data.db.HistoryEntity
 import app.mosaic.data.db.PlaylistEntity
@@ -76,6 +78,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -101,8 +104,23 @@ private data class LibraryData(
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
+/** Counts for the Library's Downloads entry. */
+data class DownloadSummary(val done: Int = 0, val active: Int = 0, val failed: Int = 0) {
+    val count get() = done + active + failed
+}
+
 class LibraryViewModel(private val container: AppContainer) : ViewModel() {
     private val content = container.content
+
+    val downloads: StateFlow<DownloadSummary> = container.downloads.all
+        .map { list ->
+            DownloadSummary(
+                done = list.count { it.status == DownloadStatus.COMPLETED },
+                active = list.count { it.status.isActive },
+                failed = list.count { it.status == DownloadStatus.FAILED },
+            )
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DownloadSummary())
 
     val state: StateFlow<LibraryState> = container.playlists.activePlaylist
         .flatMapLatest { p ->
@@ -215,10 +233,12 @@ fun LibraryScreen(
     onSearch: () -> Unit,
     onOpen: (StreamEntity) -> Unit,
     onOpenRecordings: (Long) -> Unit,
+    onOpenDownloads: () -> Unit,
     onConnectDvr: (Long) -> Unit,
 ) {
     val vm = mosaicViewModel { c, _ -> LibraryViewModel(c) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val downloads by vm.downloads.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -233,7 +253,7 @@ fun LibraryScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { padding ->
         val dvrPlaylist = state.playlist?.takeIf { it.isDispatcharr }
-        if (state.isEmpty && dvrPlaylist == null) {
+        if (state.isEmpty && dvrPlaylist == null && downloads.count == 0) {
             EmptyState(
                 Icons.Filled.FavoriteBorder,
                 "Your library is empty",
@@ -243,6 +263,25 @@ fun LibraryScreen(
             return@Scaffold
         }
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+            if (downloads.count > 0) {
+                item(key = "downloads") {
+                    ListItem(
+                        modifier = Modifier.clickable(onClick = onOpenDownloads),
+                        leadingContent = { Icon(Icons.Outlined.DownloadForOffline, null, tint = MaterialTheme.colorScheme.primary) },
+                        headlineContent = { Text("Downloads") },
+                        supportingContent = {
+                            Text(
+                                buildList {
+                                    if (downloads.done > 0) add("${downloads.done} on this device")
+                                    if (downloads.active > 0) add("${downloads.active} downloading")
+                                    if (downloads.failed > 0) add("${downloads.failed} failed")
+                                }.joinToString(" · ")
+                            )
+                        },
+                        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                    )
+                }
+            }
             if (dvrPlaylist != null) {
                 item(key = "dvr") {
                     ListItem(

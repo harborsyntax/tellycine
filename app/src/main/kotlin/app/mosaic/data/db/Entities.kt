@@ -200,3 +200,37 @@ data class HistoryRow(
     val sortOrder: Int?,
     val number: Int?,
 )
+
+enum class DownloadStatus {
+    QUEUED, RUNNING, PAUSED, COMPLETED, FAILED;
+
+    val isActive get() = this == QUEUED || this == RUNNING || this == PAUSED
+}
+
+/** A movie or episode saved to the device through Android's download manager. */
+@Entity(tableName = "downloads", primaryKeys = ["playlistId", "itemKey"])
+data class DownloadEntity(
+    val playlistId: Long,
+    /** History key (`MOVIE:<id>` or `EPISODE:<id>`), so playback shares resume points with streaming. */
+    val itemKey: String,
+    val kind: ContentKind,
+    /** Movie id, or the series id for episodes. */
+    val streamId: String,
+    val title: String,
+    val subtitle: String?,
+    val artwork: String?,
+    val sourceUrl: String,
+    val userAgent: String?,
+    val referrer: String?,
+    val filePath: String,
+    /** Id in Android's [android.app.DownloadManager]. */
+    val systemId: Long,
+    val status: DownloadStatus,
+    val bytesDownloaded: Long,
+    /** -1 until the server reports a size. */
+    val bytesTotal: Long,
+    /** Why a download failed or is paused, in words. */
+    val error: String?,
+    val createdAt: Long,
+    val completedAt: Long?,
+)

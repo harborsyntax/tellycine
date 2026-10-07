@@ -17,10 +17,12 @@
 Tap a poster to open its details: artwork, rating, year, length, genre, plot, director and cast. Xtream accounts load the extra details from the provider.
 - **Play / Resume:** carries on where you stopped. A progress bar shows how far you got.
 - **Heart:** adds the title to favourites.
+- **Download:** saves the movie to your device to watch offline. See [Downloads](Downloads.md).
 
 ## Series
 - **Seasons and episodes:** choose a season from the tabs, then tap an episode.
 - **Main button:** offers the next episode to watch, or resumes the one you're part-way through.
 - **Progress:** partly watched episodes show a progress bar.
+- **Download:** each episode has its own download button. See [Downloads](Downloads.md).
 
 Xtream accounts load seasons and episodes from the provider. For M3U playlists, Mosaic groups episodes into shows using the `S01E02` pattern in their names.

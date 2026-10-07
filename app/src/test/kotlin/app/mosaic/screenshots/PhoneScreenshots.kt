@@ -71,6 +71,11 @@ class PhoneScreenshots {
         d.shot("library-grouped")
         d.setLibraryGrouping(false)
 
+        d.click("Downloads")
+        d.waitForText("used by downloads")
+        d.shot("downloads")
+        d.back()
+
         d.openTab("Playlists", "Demo IPTV")
         d.shot("playlists")
 

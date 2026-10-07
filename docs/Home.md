@@ -6,7 +6,7 @@
   <img src="images/screens/library.png" width="260" alt="Library">
 </p>
 
-Mosaic is an IPTV player for Android phones and tablets. It plays your own M3U playlists, Xtream Codes accounts and Dispatcharr servers, with a TV guide, catch-up, recordings and Chromecast, in a clean Material 3 design.
+Mosaic is an IPTV player for Android phones and tablets. It plays your own M3U playlists, Xtream Codes accounts and Dispatcharr servers, with a TV guide, catch-up, recordings, offline downloads and Chromecast, in a clean Material 3 design.
 
 > Mosaic is a player only. It doesn't provide any channels or content; you add playlists from your own provider.
 
@@ -20,6 +20,7 @@ Mosaic is an IPTV player for Android phones and tablets. It plays your own M3U p
 - [Catch-up TV](Catch-up.md)
 - [Movies & series](Movies-and-Series.md)
 - [Library](Library.md): favourites, continue watching, sorting and grouping
+- [Downloads](Downloads.md): save movies and episodes to watch offline
 - [Search](Search.md)
 - [Player](Player.md): controls, channel switching, picture-in-picture, external players
 - [Chromecast](Chromecast.md)

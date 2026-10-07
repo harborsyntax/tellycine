@@ -8,6 +8,7 @@ The **Library** tab collects what you watch most.
 </p>
 
 ## Sections
+- **Downloads:** shown once you've downloaded something. See [Downloads](Downloads.md).
 - **Recordings:** shown for Dispatcharr playlists. See [Dispatcharr](Dispatcharr.md).
 - **Continue watching:** movies and episodes you haven't finished. Tap **×** to remove one.
 - **Recently watched channels.**

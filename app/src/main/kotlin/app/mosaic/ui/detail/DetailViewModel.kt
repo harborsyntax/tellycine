@@ -5,16 +5,22 @@ import androidx.lifecycle.viewModelScope
 import app.mosaic.AppContainer
 import app.mosaic.core.ContentKind
 import app.mosaic.core.xtream.XtreamUrls
+import app.mosaic.data.db.DownloadEntity
 import app.mosaic.data.db.HistoryEntity
 import app.mosaic.data.db.PlaylistEntity
 import app.mosaic.data.db.PlaylistType
 import app.mosaic.data.db.StreamEntity
 import app.mosaic.data.repo.ContentRepository
+import app.mosaic.data.repo.DownloadRequest
 import app.mosaic.player.PlayRequest
 import app.mosaic.ui.components.formatDuration
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -72,15 +78,27 @@ class DetailViewModel(
     val isFavorite: StateFlow<Boolean> = content.isFavorite(playlistId, kind, streamId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    /** History keys for this title: the movie, or each episode. */
+    private val itemKeys = _info.map { info ->
+        if (kind == ContentKind.MOVIE) listOf(ContentRepository.movieKey(streamId))
+        else info.episodes.map { ContentRepository.episodeKey(it.id) }
+    }.distinctUntilChanged()
+
     /** Watch progress keyed by history key (movie key or episode keys). */
-    val history: StateFlow<Map<String, HistoryEntity>> = _info
-        .map { info ->
-            if (kind == ContentKind.MOVIE) listOf(ContentRepository.movieKey(streamId))
-            else info.episodes.map { ContentRepository.episodeKey(it.id) }
-        }
+    val history: StateFlow<Map<String, HistoryEntity>> = itemKeys
         .flatMapLatest { keys -> if (keys.isEmpty()) flowOf(emptyList()) else content.history(playlistId, keys) }
         .map { list -> list.associateBy { it.itemKey } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /** Downloads keyed by history key. */
+    val downloads: StateFlow<Map<String, DownloadEntity>> = itemKeys
+        .flatMapLatest { keys -> if (keys.isEmpty()) flowOf(emptyMap()) else container.downloads.observe(playlistId, keys) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
+
+    /** One-off messages, such as why a download couldn't start. */
+    val messages: SharedFlow<String> = _messages.asSharedFlow()
 
     /** The episode to offer on the main play button: the last one watched, else the first. */
     val nextEpisode: StateFlow<Pair<EpisodeUi, HistoryEntity?>?> = combine(_info, history) { info, hist ->
@@ -195,6 +213,54 @@ class DetailViewModel(
     fun toggleFavorite() {
         viewModelScope.launch { content.toggleFavorite(playlistId, kind, streamId) }
     }
+
+    /** Downloads the movie, or [episode] of a series. */
+    fun download(episode: EpisodeUi? = null) {
+        val info = _info.value
+        val stream = info.stream ?: return
+        val request = if (episode == null) {
+            DownloadRequest(
+                playlistId = playlistId,
+                kind = ContentKind.MOVIE,
+                itemKey = ContentRepository.movieKey(streamId),
+                streamId = streamId,
+                title = info.title,
+                subtitle = info.meta.firstOrNull(),
+                artwork = info.poster,
+                url = stream.url,
+                userAgent = stream.userAgent ?: info.playlist?.userAgent,
+                referrer = stream.referrer,
+            )
+        } else {
+            DownloadRequest(
+                playlistId = playlistId,
+                kind = ContentKind.SERIES,
+                itemKey = ContentRepository.episodeKey(episode.id),
+                streamId = streamId,
+                title = info.title,
+                subtitle = episodeLabel(episode),
+                artwork = info.poster,
+                url = episode.url,
+                userAgent = stream.userAgent ?: info.playlist?.userAgent,
+                referrer = stream.referrer,
+            )
+        }
+        viewModelScope.launch {
+            container.downloads.start(request).onFailure { _messages.tryEmit(it.message ?: "Couldn't start the download.") }
+        }
+    }
+
+    fun retryDownload(download: DownloadEntity) {
+        viewModelScope.launch {
+            container.downloads.retry(download).onFailure { _messages.tryEmit(it.message ?: "Couldn't start the download.") }
+        }
+    }
+
+    fun removeDownload(download: DownloadEntity) {
+        viewModelScope.launch { container.downloads.remove(download) }
+    }
+
+    fun isDownloadOk(download: DownloadEntity) = container.downloads.fileOk(download)
 
     fun moviePlayRequest(resumeMs: Long): PlayRequest? {
         val info = _info.value

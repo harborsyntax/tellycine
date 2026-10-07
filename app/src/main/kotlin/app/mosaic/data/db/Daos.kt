@@ -308,3 +308,28 @@ interface ContentDao {
     @Query("DELETE FROM history")
     suspend fun clearAllHistory()
 }
+
+@Dao
+interface DownloadDao {
+    @Query("SELECT * FROM downloads ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<DownloadEntity>>
+
+    @Query("SELECT * FROM downloads WHERE playlistId = :playlistId AND itemKey IN (:keys)")
+    fun observe(playlistId: Long, keys: List<String>): Flow<List<DownloadEntity>>
+
+    @Query("SELECT * FROM downloads WHERE playlistId = :playlistId AND itemKey = :itemKey")
+    suspend fun get(playlistId: Long, itemKey: String): DownloadEntity?
+
+    @Query("SELECT * FROM downloads WHERE status IN ('QUEUED', 'RUNNING', 'PAUSED')")
+    suspend fun active(): List<DownloadEntity>
+
+    @Query("SELECT * FROM downloads")
+    suspend fun all(): List<DownloadEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(download: DownloadEntity)
+
+    @Query("DELETE FROM downloads WHERE playlistId = :playlistId AND itemKey = :itemKey")
+    suspend fun delete(playlistId: Long, itemKey: String)
+}
+

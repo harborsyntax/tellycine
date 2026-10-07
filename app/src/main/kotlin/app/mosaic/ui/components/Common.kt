@@ -81,13 +81,16 @@ fun Artwork(
             Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerHighest),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                monogram(fallbackText),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
+            // A blank fallback (e.g. a backdrop) is just the tinted background, with no placeholder glyph.
+            if (fallbackText.isNotBlank()) {
+                Text(
+                    monogram(fallbackText),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
         }
     }
     var loaded by remember(url) { mutableStateOf(false) }

@@ -59,12 +59,13 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setRefreshOnLaunch(v: Boolean) = viewModelScope.launch { repo.setRefreshOnLaunch(v) }
     fun setPreferHls(v: Boolean) = viewModelScope.launch { repo.setPreferHls(v) }
     fun setExternalPlayer(v: Boolean) = viewModelScope.launch { repo.setExternalPlayer(v) }
+    fun setDownloadWifiOnly(v: Boolean) = viewModelScope.launch { repo.setDownloadWifiOnly(v) }
     fun clearHistory() = viewModelScope.launch { container.content.clearHistory() }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit) {
     val vm = mosaicViewModel { c, _ -> SettingsViewModel(c) }
     val s by vm.settings.collectAsStateWithLifecycle()
     var themeDialog by remember { mutableStateOf(false) }
@@ -103,6 +104,20 @@ fun SettingsScreen(onBack: () -> Unit) {
                     )
                 },
                 modifier = Modifier.clickable { playerDialog = true },
+            )
+            HorizontalDivider()
+
+            Header("Downloads")
+            SwitchItem(
+                "Download over Wi-Fi only",
+                "Wait for Wi-Fi (or another unmetered connection). Applies to new downloads.",
+                s.downloadWifiOnly,
+                vm::setDownloadWifiOnly,
+            )
+            ListItem(
+                headlineContent = { Text("Manage downloads") },
+                supportingContent = { Text("See, play and delete downloaded movies and episodes") },
+                modifier = Modifier.clickable(onClick = onOpenDownloads),
             )
             HorizontalDivider()
 

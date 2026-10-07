@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Downloaded movies and episodes are left out of backups and device transfers. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="external" path="Movies" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="external" path="Movies" />
+    </device-transfer>
+</data-extraction-rules>

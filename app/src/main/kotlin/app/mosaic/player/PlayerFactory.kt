@@ -9,6 +9,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -23,7 +24,10 @@ import okhttp3.OkHttpClient
 @OptIn(UnstableApi::class)
 class PlayerFactory(private val context: Context, httpClient: OkHttpClient) {
 
-    private val dataSourceFactory = OkHttpDataSource.Factory(httpClient).setUserAgent(DEFAULT_USER_AGENT)
+    private val httpDataSourceFactory = OkHttpDataSource.Factory(httpClient).setUserAgent(DEFAULT_USER_AGENT)
+
+    /** Streams over OkHttp; also reads local files, for downloads. */
+    private val dataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
 
     fun create(): ExoPlayer {
         val extractors = DefaultExtractorsFactory()
@@ -62,8 +66,8 @@ class PlayerFactory(private val context: Context, httpClient: OkHttpClient) {
 
     /** Applies request headers; must be called before preparing each new item. */
     fun applyHeaders(request: PlayRequest) {
-        dataSourceFactory.setUserAgent(request.userAgent?.ifBlank { null } ?: DEFAULT_USER_AGENT)
-        dataSourceFactory.setDefaultRequestProperties(
+        httpDataSourceFactory.setUserAgent(request.userAgent?.ifBlank { null } ?: DEFAULT_USER_AGENT)
+        httpDataSourceFactory.setDefaultRequestProperties(
             buildMap {
                 request.referrer?.ifBlank { null }?.let { put("Referer", it) }
                 request.apiKey?.ifBlank { null }?.let { put("X-API-Key", it) }
@@ -74,7 +78,7 @@ class PlayerFactory(private val context: Context, httpClient: OkHttpClient) {
     fun mediaItem(request: PlayRequest): MediaItem {
         val path = Uri.parse(request.url).path?.lowercase().orEmpty()
         val builder = MediaItem.Builder()
-            .setUri(request.url)
+            .setUri(request.localUri ?: request.url)
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(request.title)
