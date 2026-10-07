@@ -8,6 +8,7 @@ Each playlist card shows:
 - when it was last updated
 - how many guide entries are stored
 - the account expiry date, for Xtream accounts
+- the maximum number of connections, when the provider reports it or you've entered it. See [Maximum connections](Adding-Playlists.md#maximum-connections).
 
 ## Switching playlists
 With more than one playlist, tap the playlist name under the Mosaic logo on the Live TV, Movies, Series or Library tab to switch. You can also tap **Use this playlist** on a card. Each tab shows the active playlist.
@@ -31,5 +32,5 @@ Open **⋮ → Categories**, or **Choose categories to show** in the playlist ed
 - **New categories** your provider adds later start ticked.
 
 ## Editing and deleting
-- **⋮ → Edit:** change the address, login, guide URL, user agent or the Movies & series switch. Saving reloads the playlist.
+- **⋮ → Edit:** change the address, login, maximum connections, guide URL, user agent or the Movies & series switch. Saving reloads the playlist.
 - **⋮ → Delete:** removes the playlist with its channels, guide, favourites and watch history from your device.

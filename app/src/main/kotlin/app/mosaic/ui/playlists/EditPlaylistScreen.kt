@@ -75,6 +75,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.runtime.remember
+import androidx.compose.ui.text.style.TextOverflow
+import app.mosaic.data.net.UserAgentPreset
+import app.mosaic.data.net.UserAgents
 import app.mosaic.AppContainer
 import app.mosaic.core.xtream.XtreamUrls
 import app.mosaic.data.db.PlaylistEntity
@@ -104,7 +112,12 @@ data class PlaylistForm(
     val username: String = "",
     val password: String = "",
     val epgUrl: String = "",
+    /** Selected entry in [UserAgents.presets], or null for a custom user agent. */
+    val userAgentPreset: UserAgentPreset? = UserAgents.presets.first(),
+    /** The custom user agent, used when [userAgentPreset] is null. */
     val userAgent: String = "",
+    /** Maximum connections as typed; empty uses what the provider reports. */
+    val connectionLimit: String = "",
     val vodEnabled: Boolean = true,
     val saved: Boolean = false,
     val error: String? = null,
@@ -167,7 +180,9 @@ class EditPlaylistViewModel(private val container: AppContainer, private val edi
                 username = existing.username,
                 password = existing.password,
                 epgUrl = existing.epgUrl,
+                userAgentPreset = UserAgents.presetFor(existing.userAgent),
                 userAgent = existing.userAgent,
+                connectionLimit = existing.connectionLimit?.toString().orEmpty(),
                 vodEnabled = existing.vodEnabled,
             )
         }
@@ -192,8 +207,15 @@ class EditPlaylistViewModel(private val container: AppContainer, private val edi
                 else -> null
             }
         }
-        if (error != null) {
-            _form.update { it.copy(error = error) }
+        val limit = f.connectionLimit.trim()
+        val connectionLimit = limit.toIntOrNull()
+        val limitError = if (limit.isNotEmpty() && (connectionLimit == null || connectionLimit !in 1..99)) {
+            "Enter a number of connections from 1 to 99, or leave it empty"
+        } else {
+            null
+        }
+        if (error != null || limitError != null) {
+            _form.update { it.copy(error = error ?: limitError) }
             return
         }
         val url = when (f.type) {
@@ -218,7 +240,8 @@ class EditPlaylistViewModel(private val container: AppContainer, private val edi
                     username = if (f.type == PlaylistType.XTREAM) f.username.trim() else "",
                     password = if (f.type == PlaylistType.XTREAM) f.password else "",
                     epgUrl = f.epgUrl.trim(),
-                    userAgent = f.userAgent.trim(),
+                    userAgent = f.userAgentPreset?.value ?: f.userAgent.trim(),
+                    connectionLimit = connectionLimit,
                     vodEnabled = f.vodEnabled,
                 )
             )
@@ -392,6 +415,26 @@ fun EditPlaylistScreen(editId: Long?, onDone: () -> Unit, onManageCategories: (L
                     DvrSection(playlist, vm)
                 }
 
+                val reported = saved?.maxConnections
+                OutlinedTextField(
+                    value = form.connectionLimit,
+                    onValueChange = { v -> vm.update { it.copy(connectionLimit = v.filter(Char::isDigit).take(2)) } },
+                    label = { Text("Maximum connections") },
+                    placeholder = { reported?.let { Text("$it") } },
+                    supportingText = {
+                        Text(
+                            when {
+                                reported != null -> "Your provider reports $reported. Leave empty to use that."
+                                form.type == PlaylistType.XTREAM -> "Leave empty to use the number your provider reports."
+                                else -> "How many streams your account can play at once. Shown on the playlist card."
+                            }
+                        )
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
                 TextButton(onClick = { advanced = !advanced }) {
                     Text("Advanced options")
                     Icon(if (advanced) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null)
@@ -410,14 +453,7 @@ fun EditPlaylistScreen(editId: Long?, onDone: () -> Unit, onManageCategories: (L
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    OutlinedTextField(
-                        value = form.userAgent,
-                        onValueChange = { v -> vm.update { it.copy(userAgent = v) } },
-                        label = { Text("User agent") },
-                        supportingText = { Text("Only needed if your provider requires a specific one.") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    UserAgentPicker(form, vm)
                 }
 
                 form.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -534,4 +570,71 @@ private fun DvrLoginDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss, enabled = !state.busy) { Text("Cancel") } },
     )
+}
+
+/** User agent presets in a drop-down, plus a "Custom" entry that reveals a text field. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun UserAgentPicker(form: PlaylistForm, vm: EditPlaylistViewModel) {
+    var expanded by remember { mutableStateOf(false) }
+    val preset = form.userAgentPreset
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = preset?.name ?: "Custom",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("User agent") },
+            supportingText = {
+                Text(
+                    if (preset == null) "Enter the user agent below."
+                    else "Some providers only allow certain apps. Pick the app your provider expects, or Custom."
+                )
+            },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            singleLine = true,
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            UserAgents.presets.forEach { option ->
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(option.name)
+                            if (option.value.isNotEmpty()) {
+                                Text(
+                                    option.value,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    },
+                    onClick = {
+                        expanded = false
+                        vm.update { it.copy(userAgentPreset = option) }
+                    },
+                )
+            }
+            DropdownMenuItem(
+                text = { Text("Custom…") },
+                onClick = {
+                    expanded = false
+                    // Start from the previous preset's value so it can be tweaked.
+                    vm.update { it.copy(userAgentPreset = null, userAgent = it.userAgentPreset?.value ?: it.userAgent) }
+                },
+            )
+        }
+    }
+    if (preset == null) {
+        OutlinedTextField(
+            value = form.userAgent,
+            onValueChange = { v -> vm.update { it.copy(userAgent = v) } },
+            label = { Text("Custom user agent") },
+            supportingText = { Text("Sent with every request for this playlist. Leave empty for the default.") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
 }

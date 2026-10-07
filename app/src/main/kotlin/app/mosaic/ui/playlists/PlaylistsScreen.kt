@@ -41,6 +41,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SuggestionChip
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.SuggestionChipDefaults
+import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -244,6 +247,13 @@ private fun PlaylistCard(
                 if (!playlist.vodEnabled) SuggestionChip(onClick = {}, label = { Text("Movies & series off") })
                 if (playlist.movieCount > 0) SuggestionChip(onClick = {}, label = { Text("${formatCount(playlist.movieCount)} movies") })
                 if (playlist.seriesCount > 0) SuggestionChip(onClick = {}, label = { Text("${formatCount(playlist.seriesCount)} series") })
+                playlist.effectiveMaxConnections?.let { n ->
+                    SuggestionChip(
+                        onClick = {},
+                        icon = { Icon(Icons.Filled.Devices, null, Modifier.size(SuggestionChipDefaults.IconSize)) },
+                        label = { Text("$n connection${if (n == 1) "" else "s"}") },
+                    )
+                }
             }
 
             val details = buildList {

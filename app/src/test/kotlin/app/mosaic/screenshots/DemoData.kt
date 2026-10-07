@@ -97,6 +97,7 @@ object DemoData {
                 movieCount = movies.size,
                 seriesCount = series.size,
                 programmeCount = channels.size * 24,
+                maxConnections = 2,
             )
         )
         container.settings.setRefreshOnLaunch(false)

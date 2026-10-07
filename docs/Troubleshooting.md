@@ -12,7 +12,7 @@ This is normal for apps installed outside the Play Store. Tap **More details →
 For Xtream Codes, check the server address (including `http://` and the port), the username and the password. For Dispatcharr, use the user's *Xtream* password, not the web login.
 
 **HTTP 401 / 403 while loading**
-Your credentials are wrong, or the provider requires a particular user agent. Set one under **Edit → Advanced options → User agent**.
+Your credentials are wrong, or the provider requires a particular user agent. Pick one under **Edit → Advanced options → User agent**. Try the app your provider recommends (TiviMate and IPTV Smarters Pro are common), or enter a custom one.
 
 **No TV guide, or the wrong guide**
 - **Check the guide URL:** make sure the playlist has one. Look under **Edit → Advanced options**, or for `url-tvg` in the M3U file.
