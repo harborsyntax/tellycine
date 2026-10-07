@@ -3,7 +3,6 @@ package app.mosaic.screenshots
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import app.mosaic.data.settings.ThemeMode
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import org.junit.Rule
 import org.junit.Test
@@ -28,7 +27,6 @@ class TabletScreenshots {
         d.openTab("Live TV", "Mosaic News 24")
         d.shot("tablet-live-tv")
 
-        d.applyTheme(ThemeMode.DARK)
         d.openTab("Movies", "Midnight Harbor")
         d.shot("tablet-movies")
     }

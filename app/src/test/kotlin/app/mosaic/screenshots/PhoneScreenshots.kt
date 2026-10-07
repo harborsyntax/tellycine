@@ -11,7 +11,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import app.mosaic.data.settings.ThemeMode
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import org.junit.Rule
 import org.junit.Test
@@ -43,10 +42,6 @@ class PhoneScreenshots {
         d.waitForText("Watch live")
         d.shot("guide-sheet")
         d.back()
-
-        d.applyTheme(ThemeMode.DARK)
-        d.shot("live-tv-dark")
-        d.applyTheme(ThemeMode.LIGHT)
 
         compose.onNodeWithContentDescription("Search").performClick()
         compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput("night")

@@ -20,13 +20,22 @@ import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import java.awt.AlphaComposite
+import java.awt.RenderingHints
+import java.awt.geom.RoundRectangle2D
+import java.awt.image.BufferedImage
+import java.io.File
+import javax.imageio.ImageIO
 
 typealias ComposeRule = AndroidComposeTestRule<ActivityScenarioRule<ComponentActivity>, ComponentActivity>
 
-/** Drives the real app UI through screens and saves PNGs to docs/images/screens/. */
+/**
+ * Drives the real app UI through screens and saves PNGs to docs/images/screens/, in the dark
+ * theme with rounded corners like a device screen.
+ */
 @OptIn(ExperimentalRoborazziApi::class)
 class ScreenshotDriver(private val compose: ComposeRule) {
-    private var theme by mutableStateOf(ThemeMode.LIGHT)
+    private var theme by mutableStateOf(ThemeMode.DARK)
     val app: MosaicApp get() = ApplicationProvider.getApplicationContext()
 
     fun launch() {
@@ -80,6 +89,29 @@ class ScreenshotDriver(private val compose: ComposeRule) {
     fun shot(name: String) {
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
-        captureScreenRoboImage("../docs/images/screens/$name.png")
+        val file = File("../docs/images/screens/$name.png")
+        captureScreenRoboImage(file.path)
+        roundCorners(file)
+    }
+
+    /** Makes the corners transparent, with a radius proportional to the shorter side. */
+    private fun roundCorners(file: File) {
+        val source = ImageIO.read(file)
+        val w = source.width
+        val h = source.height
+        val radius = minOf(w, h) * CORNER_FRACTION
+        val out = BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB)
+        val g = out.createGraphics()
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+        g.fill(RoundRectangle2D.Float(0f, 0f, w.toFloat(), h.toFloat(), radius * 2, radius * 2))
+        // Keep the screenshot only where the rounded shape was drawn (anti-aliased edges included).
+        g.composite = AlphaComposite.SrcIn
+        g.drawImage(source, 0, 0, null)
+        g.dispose()
+        ImageIO.write(out, "png", file)
+    }
+
+    private companion object {
+        const val CORNER_FRACTION = 0.06f
     }
 }
