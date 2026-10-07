@@ -44,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -310,8 +311,10 @@ private fun ProgrammeCell(
         past -> colors.surfaceContainerLow to colors.onSurfaceVariant
         else -> colors.surfaceContainerHigh to colors.onSurface
     }
-    // Keeps the title in view while a programme that started earlier is partly scrolled past.
+    // Keeps the title in view while a programme that started earlier is partly scrolled past,
+    // and hides it once too little is left to read.
     val keepVisiblePx = with(density) { 72.dp.toPx() }
+    val minVisiblePx = with(density) { 48.dp.toPx() }
     Box(
         Modifier
             .offset { IntOffset((xPx - offset()).roundToInt(), 0) }
@@ -324,9 +327,11 @@ private fun ProgrammeCell(
             .padding(horizontal = 8.dp, vertical = 6.dp),
     ) {
         Column(
-            Modifier.offset {
-                IntOffset((offset() - xPx).coerceIn(0f, (widthPx - keepVisiblePx).coerceAtLeast(0f)).roundToInt(), 0)
-            },
+            Modifier
+                .offset {
+                    IntOffset((offset() - xPx).coerceIn(0f, (widthPx - keepVisiblePx).coerceAtLeast(0f)).roundToInt(), 0)
+                }
+                .graphicsLayer { alpha = if (xPx + widthPx - offset() < minVisiblePx) 0f else 1f },
         ) {
             Text(
                 programme.title,
