@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.map
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** Ordering for the Library's favourites and history rows. */
+enum class LibrarySort { RECENT, NAME_ASC, NAME_DESC, PLAYLIST_ORDER }
+
 data class AppSettings(
     val activePlaylistId: Long? = null,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -22,6 +25,9 @@ data class AppSettings(
     val preferHls: Boolean = false,
     /** Hand playback to another app instead of the built-in player. */
     val externalPlayer: Boolean = false,
+    val librarySort: LibrarySort = LibrarySort.RECENT,
+    /** Split Library favourites and history into one row per category. */
+    val libraryGroupByCategory: Boolean = false,
 )
 
 private val Context.dataStore by preferencesDataStore("settings")
@@ -36,6 +42,8 @@ class SettingsRepository(private val context: Context) {
         val refreshOnLaunch = booleanPreferencesKey("refresh_on_launch")
         val preferHls = booleanPreferencesKey("prefer_hls")
         val externalPlayer = booleanPreferencesKey("external_player")
+        val librarySort = stringPreferencesKey("library_sort")
+        val libraryGroup = booleanPreferencesKey("library_group_by_category")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -47,6 +55,8 @@ class SettingsRepository(private val context: Context) {
             refreshOnLaunch = p[Keys.refreshOnLaunch] ?: true,
             preferHls = p[Keys.preferHls] ?: false,
             externalPlayer = p[Keys.externalPlayer] ?: false,
+            librarySort = p[Keys.librarySort]?.let { runCatching { LibrarySort.valueOf(it) }.getOrNull() } ?: LibrarySort.RECENT,
+            libraryGroupByCategory = p[Keys.libraryGroup] ?: false,
         )
     }
 
@@ -62,4 +72,6 @@ class SettingsRepository(private val context: Context) {
     suspend fun setRefreshOnLaunch(enabled: Boolean) = context.dataStore.edit { it[Keys.refreshOnLaunch] = enabled }
     suspend fun setPreferHls(enabled: Boolean) = context.dataStore.edit { it[Keys.preferHls] = enabled }
     suspend fun setExternalPlayer(enabled: Boolean) = context.dataStore.edit { it[Keys.externalPlayer] = enabled }
+    suspend fun setLibrarySort(sort: LibrarySort) = context.dataStore.edit { it[Keys.librarySort] = sort.name }
+    suspend fun setLibraryGroupByCategory(enabled: Boolean) = context.dataStore.edit { it[Keys.libraryGroup] = enabled }
 }

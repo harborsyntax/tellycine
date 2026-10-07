@@ -100,8 +100,8 @@ class ContentRepository(db: MosaicDatabase) {
 
     fun favoriteItems(playlistId: Long, kind: ContentKind, limit: Int = 50) = dao.observeFavoriteItems(playlistId, kind, limit)
 
-    fun continueWatching(playlistId: Long) = dao.observeContinueWatching(playlistId, 30)
-    fun recentChannels(playlistId: Long) = dao.observeRecentChannels(playlistId, 30)
+    fun continueWatching(playlistId: Long) = dao.observeContinueWatching(playlistId, 50)
+    fun recentChannels(playlistId: Long) = dao.observeRecentChannels(playlistId, 60)
     fun history(playlistId: Long, keys: List<String>) = dao.observeHistory(playlistId, keys)
     suspend fun getHistory(playlistId: Long, key: String) = dao.getHistory(playlistId, key)
     suspend fun saveHistory(item: HistoryEntity) = dao.upsertHistory(item)

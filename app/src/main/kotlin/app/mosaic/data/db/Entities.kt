@@ -192,3 +192,11 @@ data class CategoryVisibility(
     @Embedded val category: CategoryEntity,
     val hidden: Boolean,
 )
+
+/** A history entry joined with its stream's category and position in the playlist (null if the stream is gone). */
+data class HistoryRow(
+    @Embedded val history: HistoryEntity,
+    val categoryId: String?,
+    val sortOrder: Int?,
+    val number: Int?,
+)
