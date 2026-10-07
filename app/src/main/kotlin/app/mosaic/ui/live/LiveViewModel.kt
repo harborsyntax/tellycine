@@ -1,5 +1,6 @@
 package app.mosaic.ui.live
 
+import android.util.LruCache
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
@@ -118,6 +119,36 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
                 _schedule.value = ScheduleState(row, programmes, catchup)
             }
         }
+    }
+
+    // ---- Grid guide ----
+
+    /** Whether the user chose the grid guide for landscape. */
+    val guideGrid: StateFlow<Boolean> = container.settings.settings.map { it.liveGuideGrid }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /** Days of upcoming guide kept, which is how far the grid scrolls. */
+    val guideDays: StateFlow<Int> = container.settings.settings.map { it.epgDays }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 3)
+
+    /** Changes whenever the guide is re-imported, so the grid reloads its rows. */
+    val guideVersion: StateFlow<Long?> = playlist.map { it?.epgSyncedAt }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun setGuideGrid(enabled: Boolean) {
+        viewModelScope.launch { container.settings.setLiveGuideGrid(enabled) }
+    }
+
+    /** Recently shown grid rows, so scrolling back up doesn't query the database again. */
+    private val guideCache = LruCache<String, List<ProgrammeEntity>>(300)
+
+    /** A channel's programmes between [fromMs] and [toMs], for one row of the grid. */
+    suspend fun guideProgrammes(row: ChannelRow, fromMs: Long, toMs: Long): List<ProgrammeEntity> {
+        val p = playlist.value ?: return emptyList()
+        val channelId = row.stream.epgChannelId ?: return emptyList()
+        val key = "${p.id}:${p.epgSyncedAt}:$channelId:$fromMs:$toMs"
+        guideCache.get(key)?.let { return it }
+        return content.programmesBetween(p.id, channelId, fromMs, toMs).also { guideCache.put(key, it) }
     }
 
     // ---- Dispatcharr DVR ----

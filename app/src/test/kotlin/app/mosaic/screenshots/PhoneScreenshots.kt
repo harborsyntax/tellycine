@@ -108,4 +108,16 @@ class PhoneScreenshots {
         d.waitForText("Remove from favourites")
         d.shot("library-menu")
     }
+
+    /** The grid TV guide, which Live TV offers in landscape. */
+    @Test
+    @Config(qualifiers = "+land")
+    fun tvGuideGrid() {
+        val d = ScreenshotDriver(compose)
+        d.launch()
+        d.openTab("Live TV", "Mosaic News 24")
+        compose.onNodeWithContentDescription("TV guide view").performClick()
+        d.waitForText("World Tonight")
+        d.shot("tv-guide-grid")
+    }
 }
