@@ -14,6 +14,20 @@
 - **Tap a channel** to watch it. **Tap the heart** to add it to favourites.
 - **The history icon** after a name means the channel has [catch-up](Catch-up.md).
 
+## Grid TV guide (landscape)
+Turn your phone or tablet sideways and tap the **guide** icon in the top bar for a traditional TV guide. Tap the **list** icon to switch back. Mosaic remembers your choice, and uses the list whenever the screen is upright.
+
+<img src="images/screens/tv-guide-grid.png" width="600" alt="Grid TV guide">
+
+- **Layout:** channels run down the left and time runs across the top, with each programme drawn as a block as long as it lasts. A line marks the current time, and what's on now is highlighted.
+- **Scrolling:** swipe up and down through channels, and sideways through time. Every row moves together, and **Now** jumps back to the current time. It goes back two hours and forward as far as your guide goes (**Settings → Guide days**).
+- **Tap a programme:**
+  - **On now:** watches the channel.
+  - **Already shown,** on [catch-up](Catch-up.md) channels (marked with a replay icon): plays it from the start.
+  - **Coming up:** opens the channel's guide sheet, where Dispatcharr playlists can record it. A red dot marks programmes already set to record.
+- **Tap a channel** on the left to watch it. **Long-press** a channel or programme for the channel's guide sheet.
+- **Categories** stay as chips above the guide.
+
 ## The channel guide sheet
 Long-press a channel to open its guide sheet.
 

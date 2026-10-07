@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -107,5 +108,19 @@ class PhoneScreenshots {
         compose.onAllNodesWithText("Channel Bright", useUnmergedTree = true).onFirst().performTouchInput { longClick() }
         d.waitForText("Remove from favourites")
         d.shot("library-menu")
+    }
+
+    /** The grid TV guide, which Live TV offers in landscape. */
+    @Test
+    @Config(qualifiers = "+land")
+    fun tvGuideGrid() {
+        val d = ScreenshotDriver(compose)
+        d.launch()
+        d.openTab("Live TV", "Mosaic News 24")
+        compose.onNodeWithContentDescription("TV guide view").performClick()
+        // The choice is saved first; the toggle flips once the grid is showing.
+        compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("List view").fetchSemanticsNodes().isNotEmpty() }
+        d.waitForText("World Tonight")
+        d.shot("tv-guide-grid")
     }
 }

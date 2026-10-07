@@ -30,6 +30,8 @@ data class AppSettings(
     val libraryGroupByCategory: Boolean = false,
     /** Only download movies and episodes over unmetered networks (usually Wi-Fi). */
     val downloadWifiOnly: Boolean = true,
+    /** Show Live TV as a grid guide (channels by time) when the screen is landscape. */
+    val liveGuideGrid: Boolean = false,
 )
 
 private val Context.dataStore by preferencesDataStore("settings")
@@ -47,6 +49,7 @@ class SettingsRepository(private val context: Context) {
         val librarySort = stringPreferencesKey("library_sort")
         val libraryGroup = booleanPreferencesKey("library_group_by_category")
         val downloadWifiOnly = booleanPreferencesKey("download_wifi_only")
+        val liveGuideGrid = booleanPreferencesKey("live_guide_grid")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -61,6 +64,7 @@ class SettingsRepository(private val context: Context) {
             librarySort = p[Keys.librarySort]?.let { runCatching { LibrarySort.valueOf(it) }.getOrNull() } ?: LibrarySort.RECENT,
             libraryGroupByCategory = p[Keys.libraryGroup] ?: false,
             downloadWifiOnly = p[Keys.downloadWifiOnly] ?: true,
+            liveGuideGrid = p[Keys.liveGuideGrid] ?: false,
         )
     }
 
@@ -79,4 +83,5 @@ class SettingsRepository(private val context: Context) {
     suspend fun setLibrarySort(sort: LibrarySort) = context.dataStore.edit { it[Keys.librarySort] = sort.name }
     suspend fun setLibraryGroupByCategory(enabled: Boolean) = context.dataStore.edit { it[Keys.libraryGroup] = enabled }
     suspend fun setDownloadWifiOnly(enabled: Boolean) = context.dataStore.edit { it[Keys.downloadWifiOnly] = enabled }
+    suspend fun setLiveGuideGrid(enabled: Boolean) = context.dataStore.edit { it[Keys.liveGuideGrid] = enabled }
 }

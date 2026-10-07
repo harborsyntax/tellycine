@@ -68,7 +68,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import android.content.res.Configuration
+import androidx.compose.material.icons.automirrored.filled.ViewList
+import androidx.compose.material.icons.outlined.CalendarViewWeek
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.delay
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -106,9 +112,22 @@ fun LiveScreen(
         categoryOptions(ContentKind.LIVE, categories, if (categories.isEmpty()) session.active?.liveCount else categories.sumOf { it.itemCount })
     }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    // The grid guide is offered in landscape, where there's room for a timeline.
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val gridChosen by vm.guideGrid.collectAsStateWithLifecycle()
+    val grid = landscape && gridChosen
 
     Scaffold(
-        topBar = { PlaylistTopBar(session, onSelectPlaylist, onSearch, scrollBehavior) },
+        topBar = {
+            PlaylistTopBar(session, onSelectPlaylist, onSearch, scrollBehavior) {
+                if (landscape && session.active != null) {
+                    IconButton(onClick = { vm.setGuideGrid(!gridChosen) }) {
+                        if (gridChosen) Icon(Icons.AutoMirrored.Filled.ViewList, "List view")
+                        else Icon(Icons.Outlined.CalendarViewWeek, "TV guide view")
+                    }
+                }
+            }
+        },
         contentWindowInsets = WindowInsets(0),
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { padding ->
@@ -130,6 +149,40 @@ fun LiveScreen(
                         session.activeProgress?.message ?: "This playlist has no live channels in this category.",
                         modifier,
                     )
+                    grid -> {
+                        val days by vm.guideDays.collectAsStateWithLifecycle()
+                        val version by vm.guideVersion.collectAsStateWithLifecycle()
+                        val recordings by vm.recordings.collectAsStateWithLifecycle()
+                        val now by produceState(System.currentTimeMillis()) {
+                            while (true) {
+                                delay(60_000 - System.currentTimeMillis() % 60_000)
+                                value = System.currentTimeMillis()
+                            }
+                        }
+                        // Fixed while the screen is open, so the grid doesn't jump as the clock moves.
+                        val window = remember(days, version) { GuideWindow.around(System.currentTimeMillis(), days) }
+                        GuideGrid(
+                            channels = channels,
+                            window = window,
+                            now = now,
+                            version = version,
+                            loadProgrammes = { row -> vm.guideProgrammes(row, window.startMs, window.endMs) },
+                            canReplay = vm::canReplay,
+                            isRecording = { row, p -> vm.canRecord(row) && vm.recordingFor(row, p, recordings) != null },
+                            onPlay = { row -> context.play(vm.playRequest(row)) },
+                            onProgramme = { row, p ->
+                                val t = System.currentTimeMillis()
+                                when {
+                                    p.startMs <= t && p.stopMs > t -> context.play(vm.playRequest(row))
+                                    p.stopMs <= t && vm.canReplay(row, p) -> vm.replayRequest(row, p)?.let(context::play)
+                                    // Upcoming: the channel's schedule, where it can be recorded.
+                                    else -> vm.showSchedule(row)
+                                }
+                            },
+                            onLongPress = vm::showSchedule,
+                            modifier = modifier,
+                        )
+                    }
                     else -> LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
                         items(channels.itemCount, key = channels.itemKey { "${it.stream.kind}:${it.stream.streamId}" }) { index ->
                             val row = channels[index]
@@ -151,7 +204,7 @@ fun LiveScreen(
 
             if (session.active == null) {
                 EmptyState(Icons.Filled.LiveTv, "No playlist yet", "Add an M3U playlist or Xtream Codes account from the Playlists tab.")
-            } else if (twoPane) {
+            } else if (twoPane && !grid) {
                 Row(Modifier.fillMaxSize()) {
                     CategoryPane(options, selected, vm::selectCategory)
                     VerticalDivider()

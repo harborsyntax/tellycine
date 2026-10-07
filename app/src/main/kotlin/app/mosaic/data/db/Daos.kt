@@ -258,6 +258,13 @@ interface ContentDao {
     )
     suspend fun schedule(playlistId: Long, channelId: String, fromMs: Long, limit: Int): List<ProgrammeEntity>
 
+    /** Programmes overlapping [fromMs]–[toMs], for the grid guide. */
+    @Query(
+        """SELECT * FROM programmes WHERE playlistId = :playlistId AND channelId = :channelId
+           AND stopMs > :fromMs AND startMs < :toMs ORDER BY startMs"""
+    )
+    suspend fun programmesBetween(playlistId: Long, channelId: String, fromMs: Long, toMs: Long): List<ProgrammeEntity>
+
     // ---- Favourites ----
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

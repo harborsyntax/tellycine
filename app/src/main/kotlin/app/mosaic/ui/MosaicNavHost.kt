@@ -16,6 +16,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
+import androidx.compose.ui.platform.LocalConfiguration
+import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -150,7 +153,15 @@ private fun HomeScreen(nav: NavHostController) {
         if (session.loaded && session.playlists.isEmpty()) tab = Tab.PLAYLISTS
     }
 
+    // A side rail on wide screens and in landscape, where a bottom bar would eat scarce height.
+    val configuration = LocalConfiguration.current
+    val navType = if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE || configuration.screenWidthDp >= 600) {
+        NavigationSuiteType.NavigationRail
+    } else {
+        NavigationSuiteType.NavigationBar
+    }
     NavigationSuiteScaffold(
+        layoutType = navType,
         navigationSuiteItems = {
             tabs.forEach { t ->
                 item(

@@ -117,6 +117,9 @@ class ContentRepository(db: MosaicDatabase) {
         // Guides imported before 1.9.1 may hold the same programme more than once.
         dao.schedule(playlistId, channelId, fromMs, limit).distinctBy { it.startMs }
 
+    suspend fun programmesBetween(playlistId: Long, channelId: String, fromMs: Long, toMs: Long): List<ProgrammeEntity> =
+        dao.programmesBetween(playlistId, channelId, fromMs, toMs).distinctBy { it.startMs }
+
     fun isFavorite(playlistId: Long, kind: ContentKind, streamId: String) = dao.observeIsFavorite(playlistId, kind, streamId)
 
     suspend fun toggleFavorite(playlistId: Long, kind: ContentKind, streamId: String) {
