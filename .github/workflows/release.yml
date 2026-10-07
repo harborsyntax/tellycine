@@ -60,9 +60,18 @@ jobs:
           MOSAIC_KEY_PASSWORD: ${{ secrets.MOSAIC_KEY_PASSWORD }}
         run: ./gradlew --no-daemon :core:test :app:assembleRelease
 
-      - name: Show signing certificate
+      # Refuse to publish an APK that isn't signed with the permanent Mosaic key.
+      # (apksigner, not keytool: minSdk 26+ APKs only carry v2/v3 signatures.)
+      - name: Verify signing certificate
         if: steps.version.outputs.skip != 'true'
-        run: keytool -printcert -jarfile app/build/outputs/apk/release/app-release.apk | grep -E "Owner|SHA256"
+        run: |
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner"
+          "$apksigner" verify --print-certs app/build/outputs/apk/release/app-release.apk | tee certs.txt
+          expected="b8c7bcc0a92a603ee9365d7d7a52a203cb29de8f89119fc9740a3412c08ef6b6"
+          if ! grep -qi "certificate SHA-256 digest: $expected" certs.txt; then
+            echo "::error::Release APK is not signed with the Mosaic release key (expected SHA-256 $expected)."
+            exit 1
+          fi
 
       - name: Create GitHub release
         if: steps.version.outputs.skip != 'true'
