@@ -49,7 +49,13 @@ data class DispatcharrSource(
 )
 
 /** JSON helpers for the parts of the Dispatcharr REST API that Mosaic uses. */
+/** A Dispatcharr output profile: an ffmpeg step applied to live streams before delivery. */
+data class OutputProfile(val id: Long, val name: String, val parameters: String, val active: Boolean)
+
 object DispatcharrParser {
+    /** Name of the profile Dispatcharr seeds for browsers (copies video, re-encodes audio to AAC). */
+    const val AAC_PROFILE_NAME = "Web Player (AAC Audio)"
+
 
     /** `POST /api/accounts/token/` → access token. */
     fun parseAccessToken(reader: Reader): String? =
@@ -106,6 +112,35 @@ object DispatcharrParser {
             val url = o.string("url") ?: return@mapNotNull null
             DispatcharrSource(o.long("id") ?: 0, o.string("name") ?: url, url)
         }
+    }
+
+    /** `GET /api/core/outputprofiles/` (Dispatcharr 0.25+), paginated or not. */
+    fun parseOutputProfiles(reader: Reader): List<OutputProfile> {
+        val root = JsonParser.parseReader(reader)
+        val array = when {
+            root.isJsonArray -> root.asJsonArray
+            root.isJsonObject && root.asJsonObject.get("results")?.isJsonArray == true -> root.asJsonObject.getAsJsonArray("results")
+            else -> return emptyList()
+        }
+        return array.mapNotNull { el ->
+            val o = el as? JsonObject ?: return@mapNotNull null
+            val id = o.long("id") ?: return@mapNotNull null
+            val active = o.get("is_active")?.takeIf { it.isJsonPrimitive }?.asBoolean ?: true
+            OutputProfile(id, o.string("name").orEmpty(), o.string("parameters").orEmpty(), active)
+        }
+    }
+
+    /**
+     * The active profile that converts audio to AAC, which Chromecast can always play: the
+     * built-in "Web Player (AAC Audio)", else one named for AAC, else one whose ffmpeg
+     * parameters encode AAC.
+     */
+    fun aacProfile(profiles: List<OutputProfile>): OutputProfile? {
+        val active = profiles.filter { it.active }
+        val encodesAac = Regex("""-(c:a|codec:a|acodec)\s+aac\b""", RegexOption.IGNORE_CASE)
+        return active.firstOrNull { it.name.equals(AAC_PROFILE_NAME, ignoreCase = true) }
+            ?: active.firstOrNull { it.name.contains("aac", ignoreCase = true) && encodesAac.containsMatchIn(it.parameters) }
+            ?: active.firstOrNull { encodesAac.containsMatchIn(it.parameters) }
     }
 
     /** Body for `POST /api/channels/recordings/`, mirroring Dispatcharr's own guide. */

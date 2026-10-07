@@ -1,5 +1,7 @@
 package app.mosaic.data.repo
 
+import android.util.Log
+import java.util.concurrent.ConcurrentHashMap
 import app.mosaic.core.dispatcharr.DispatcharrParser
 import app.mosaic.core.dispatcharr.DispatcharrSource
 import app.mosaic.core.dispatcharr.DvrRecording
@@ -128,6 +130,31 @@ class DvrRepository(private val db: MosaicDatabase, httpClient: OkHttpClient) {
                 execute(authed(Request.Builder().url("${baseUrl(playlist)}/api/channels/channels/$channelId/streams/"), key).build()).reader()
             )
         }
+    }
+
+    /** Output profile id found per playlist (null when there isn't one), with when it was looked up. */
+    private val aacProfiles = ConcurrentHashMap<Long, Pair<Long?, Long>>()
+
+    /**
+     * Id of the Dispatcharr output profile that re-encodes audio to AAC (normally the built-in
+     * "Web Player (AAC Audio)"), so Chromecast gets sound it can play. Needs the connected
+     * login (a Standard user or above); null when it isn't connected, allowed or available.
+     */
+    suspend fun aacOutputProfile(playlist: PlaylistEntity): Long? {
+        val key = playlist.dvrApiKey?.takeIf { playlist.isDispatcharr } ?: return null
+        val now = System.currentTimeMillis()
+        aacProfiles[playlist.id]?.let { (id, at) -> if (now - at < (if (id != null) 30 else 2) * 60_000L) return id }
+        val id = try {
+            withContext(Dispatchers.IO) {
+                val body = execute(authed(Request.Builder().url("${baseUrl(playlist)}/api/core/outputprofiles/"), key).build())
+                DispatcharrParser.aacProfile(DispatcharrParser.parseOutputProfiles(body.reader()))?.id
+            }
+        } catch (e: DvrException) {
+            Log.w("DvrRepository", "No AAC output profile: ${e.message}")
+            null
+        }
+        aacProfiles[playlist.id] = id to now
+        return id
     }
 
     /** Range-seekable file, or Dispatcharr redirects to live HLS while still recording. Needs the X-API-Key header. */

@@ -156,12 +156,19 @@ class PlayerActivity : FragmentActivity() {
             activePlayer = cast
             castingTo = container.cast.deviceName() ?: "TV"
             castJob = lifecycleScope.launch {
+                val p = playlist
                 if (req.kind != ContentKind.LIVE) {
                     // Checked before the TV starts, so a provider allowing one connection isn't asked for two.
                     val audio = knownAudio ?: withTimeoutOrNull(8_000) { probeAudioTracks(req) }
                     castAudioNotice = audio?.let(CastAudio::notice)
                 }
-                cast.setMediaItem(CastMedia.mediaItem(req, playlist), position)
+                // Dispatcharr can convert a channel's audio to AAC, which Chromecast always plays.
+                val outputProfile = if (req.isLive && p?.isDispatcharr == true) {
+                    withTimeoutOrNull(5_000) { container.dvr.aacOutputProfile(p) }
+                } else {
+                    null
+                }
+                cast.setMediaItem(CastMedia.mediaItem(req, p, outputProfile), position)
                 cast.prepare()
                 cast.playWhenReady = true
             }

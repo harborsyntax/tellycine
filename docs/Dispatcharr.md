@@ -32,5 +32,14 @@ From a channel's guide sheet, **Share stream URL** offers:
 Sharing the source URL needs the Dispatcharr login connected, and a *Standard* user or above.
 
 ## Limitations
-- Dispatcharr only serves live channels as raw MPEG-TS, so they usually can't be [cast to a Chromecast](Chromecast.md).
+- Casting live channels needs Dispatcharr 0.25 or newer. Older versions only serve raw MPEG-TS, which Chromecast can't play. See [Casting live channels](#casting-live-channels).
 - Recordings play only in Mosaic's built-in player.
+
+## Casting live channels
+Chromecast can't play the MPEG-TS streams Dispatcharr normally serves. On Dispatcharr 0.25 or newer, Mosaic asks for the channel as fragmented MP4 when casting. Your phone still plays the usual stream.
+
+Many channels carry Dolby (AC3) or MP2 audio, which a Chromecast may play as silence. If you've connected your Dispatcharr login for [recordings](#recordings), Mosaic also asks Dispatcharr to convert the audio to AAC while casting. It uses Dispatcharr's built-in **Web Player (AAC Audio)** output profile, or another active profile that encodes AAC.
+- **Who can use it:** looking up output profiles needs a Dispatcharr user at the *Standard* level or above.
+- **Without the login,** or if the profile can't be found, channels still cast, but some may have no sound. Alternatively, an admin can set **Web Player (AAC Audio)** as your Dispatcharr user's default output profile.
+- **Server load:** each converted channel runs an ffmpeg process on your Dispatcharr server while it's being watched.
+
