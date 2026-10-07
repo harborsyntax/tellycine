@@ -1,5 +1,11 @@
 package app.mosaic.player
 
+import app.mosaic.data.db.PlaylistEntity
+import app.mosaic.cast.CastMedia
+import android.widget.Toast
+import androidx.media3.cast.SessionAvailabilityListener
+import androidx.media3.cast.CastPlayer
+import androidx.fragment.app.FragmentActivity
 import android.app.PictureInPictureParams
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -8,7 +14,6 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Rational
 import android.view.WindowManager
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
@@ -41,10 +46,17 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 @OptIn(UnstableApi::class)
-class PlayerActivity : ComponentActivity() {
+class PlayerActivity : FragmentActivity() {
 
     private lateinit var factory: PlayerFactory
-    private lateinit var player: ExoPlayer
+    private lateinit var exoPlayer: ExoPlayer
+    /** Media3 player that drives a Chromecast while a Cast session is connected. */
+    private var castPlayer: CastPlayer? = null
+    private var activePlayer by mutableStateOf<Player?>(null)
+    /** Whichever player currently has the stream: local ExoPlayer or the Cast device. */
+    private val player: Player get() = activePlayer ?: exoPlayer
+    private var castingTo by mutableStateOf<String?>(null)
+    private var playlist: PlaylistEntity? = null
 
     // State observed by the Compose UI.
     private var request by mutableStateOf<PlayRequest?>(null)
@@ -66,13 +78,16 @@ class PlayerActivity : ComponentActivity() {
         hideSystemBars()
 
         factory = PlayerFactory(this, container.httpClient)
-        player = factory.create()
-        player.addListener(listener)
+        exoPlayer = factory.create()
+        exoPlayer.addListener(listener)
+        activePlayer = exoPlayer
+        setUpCast()
 
         setContent {
             MosaicTheme(themeMode = ThemeMode.DARK, dynamicColor = true) {
                 PlayerScreen(
-                    player = player,
+                    player = activePlayer ?: exoPlayer,
+                    castingTo = castingTo,
                     request = request,
                     channels = channels,
                     error = error,
@@ -100,22 +115,75 @@ class PlayerActivity : ComponentActivity() {
     private fun handleIntent(intent: Intent) {
         val req = PlayRequest.fromIntent(intent) ?: return finish()
         saveProgress()
-        start(req)
         channels = emptyList()
-        if (req.isLive) loadChannels(req)
+        lifecycleScope.launch {
+            // The playlist decides how a stream is adapted for Chromecast.
+            if (playlist?.id != req.playlistId) playlist = container.playlists.get(req.playlistId)
+            start(req)
+            if (req.isLive) loadChannels(req)
+        }
     }
 
     private fun start(req: PlayRequest) {
         request = req
         error = null
         liveRetries = 0
-        factory.applyHeaders(req)
-        player.setMediaItem(factory.mediaItem(req), if (req.isLive) C.TIME_UNSET else req.startPositionMs)
-        player.prepare()
-        player.playWhenReady = true
+        val position = if (req.isLive) C.TIME_UNSET else req.startPositionMs
+        val cast = castPlayer?.takeIf { it.isCastSessionAvailable && req.apiKey == null }
+        if (cast != null) {
+            if (activePlayer !== cast) exoPlayer.stop()
+            activePlayer = cast
+            castingTo = container.cast.deviceName() ?: "TV"
+            cast.setMediaItem(CastMedia.mediaItem(req, playlist), position)
+            cast.prepare()
+            cast.playWhenReady = true
+        } else {
+            activePlayer = exoPlayer
+            castingTo = null
+            factory.applyHeaders(req)
+            exoPlayer.setMediaItem(factory.mediaItem(req), position)
+            exoPlayer.prepare()
+            exoPlayer.playWhenReady = true
+        }
         recordHistory(req, 0, 0)
         startProgressUpdates()
     }
+
+    // ---- Chromecast ----
+
+    private fun setUpCast() {
+        val castContext = container.cast.castContext ?: return
+        castPlayer = CastPlayer(castContext).also { cast ->
+            cast.addListener(listener)
+            cast.setSessionAvailabilityListener(object : SessionAvailabilityListener {
+                override fun onCastSessionAvailable() = moveToCast()
+                override fun onCastSessionUnavailable() = moveToLocal()
+            })
+        }
+    }
+
+    /** A Cast session started: continue the current stream on the TV from the same point. */
+    private fun moveToCast() {
+        val req = request ?: return
+        if (req.apiKey != null) {
+            Toast.makeText(this, "Recordings can only play on this device", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val position = exoPlayer.currentPosition
+        start(req.copy(startPositionMs = position))
+    }
+
+    /** The Cast session ended: bring playback back to the phone. */
+    private fun moveToLocal() {
+        val cast = castPlayer ?: return
+        if (activePlayer !== cast) return
+        val req = request ?: return
+        val position = cast.currentPosition
+        cast.stop()
+        start(req.copy(startPositionMs = position))
+    }
+
+    private fun isCasting() = castPlayer != null && activePlayer === castPlayer
 
     private fun loadChannels(req: PlayRequest) {
         lifecycleScope.launch {
@@ -177,6 +245,11 @@ class PlayerActivity : ComponentActivity() {
     private val listener = object : Player.Listener {
         override fun onPlayerError(e: PlaybackException) {
             val req = request ?: return
+            if (isCasting()) {
+                error = "Chromecast couldn't play this stream. The TV may not support its format, " +
+                    "or the provider may need headers the TV can't send. Disconnect to watch on this device."
+                return
+            }
             if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
                 player.seekToDefaultPosition()
                 player.prepare()
@@ -273,7 +346,7 @@ class PlayerActivity : ComponentActivity() {
 
     // ---- Picture in picture & lifecycle ----
 
-    private fun pipSupported() = packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+    private fun pipSupported() = packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE) && !isCasting()
 
     private fun pipParams(): PictureInPictureParams {
         val size = player.videoSize
@@ -322,14 +395,20 @@ class PlayerActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         saveProgress()
-        if (!isInPictureInPictureMode) player.pause()
+        // Keep the TV playing when the app goes to the background while casting.
+        if (!isInPictureInPictureMode && !isCasting()) player.pause()
     }
 
     override fun onDestroy() {
         saveProgress()
         progressJob?.cancel()
-        player.removeListener(listener)
-        player.release()
+        exoPlayer.removeListener(listener)
+        exoPlayer.release()
+        castPlayer?.let {
+            it.setSessionAvailabilityListener(null)
+            it.removeListener(listener)
+            it.release()
+        }
         super.onDestroy()
     }
 
