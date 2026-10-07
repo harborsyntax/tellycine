@@ -1,6 +1,7 @@
 package app.mosaic.cast
 
 import android.net.Uri
+import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
@@ -10,6 +11,9 @@ import app.mosaic.player.PlayRequest
 
 /** Builds media items the Cast Default Media Receiver can play. */
 object CastMedia {
+    /** Media metadata extras read by [CastMediaItemConverter]. */
+    const val EXTRA_LIVE = "app.mosaic.cast.LIVE"
+    const val EXTRA_TS_SEGMENTS = "app.mosaic.cast.TS_SEGMENTS"
 
     /**
      * Chromecast cannot play raw MPEG-TS, so standard Xtream live channels are switched to
@@ -28,6 +32,11 @@ object CastMedia {
 
     fun mediaItem(request: PlayRequest, playlist: PlaylistEntity?): MediaItem {
         val url = castUrl(request, playlist)
+        val extras = Bundle().apply {
+            putBoolean(EXTRA_LIVE, request.isLive)
+            // Xtream's HLS output (switched to above) is a playlist of MPEG-TS segments.
+            putBoolean(EXTRA_TS_SEGMENTS, url != request.url)
+        }
         return MediaItem.Builder()
             .setUri(url)
             // CastPlayer needs an explicit MIME type for the receiver.
@@ -37,6 +46,7 @@ object CastMedia {
                     .setTitle(request.title)
                     .setArtist(request.subtitle)
                     .setArtworkUri(request.artwork?.let(Uri::parse))
+                    .setExtras(extras)
                     .build()
             )
             .build()

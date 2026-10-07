@@ -1,5 +1,6 @@
 package app.mosaic.player
 
+import androidx.media3.exoplayer.source.MediaSource
 import android.content.Context
 import android.net.Uri
 import androidx.annotation.OptIn
@@ -29,13 +30,21 @@ class PlayerFactory(private val context: Context, httpClient: OkHttpClient) {
     /** Streams over OkHttp; also reads local files, for downloads. */
     private val dataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
 
+    private fun extractors() = DefaultExtractorsFactory()
+        .setTsExtractorFlags(
+            DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
+                DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
+        )
+        .setConstantBitrateSeekingEnabled(true)
+
+    /** Reads a stream's tracks without playing it, e.g. to check soundtracks before casting. */
+    fun probeSourceFactory(request: PlayRequest): MediaSource.Factory {
+        applyHeaders(request)
+        return DefaultMediaSourceFactory(dataSourceFactory, extractors())
+    }
+
     fun create(): ExoPlayer {
-        val extractors = DefaultExtractorsFactory()
-            .setTsExtractorFlags(
-                DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
-                    DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
-            )
-            .setConstantBitrateSeekingEnabled(true)
+        val extractors = extractors()
 
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(

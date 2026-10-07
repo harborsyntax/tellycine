@@ -16,4 +16,11 @@
 | Streams that need a specific user agent or referrer | ⚠️ Often fail, because the TV fetches the stream itself |
 | Dispatcharr recordings | ❌ They play on your phone only |
 
+## Movies with no sound
+Many movies, especially MKV files, have Dolby Digital, Dolby Digital Plus, DTS or TrueHD soundtracks. Chromecast plays a file's first soundtrack and can't be told to use another one.
+- **Dolby:** Chromecast sends it straight to your TV or soundbar. If they don't support Dolby, you get the picture with no sound. On Google TV models, check the Chromecast's surround sound setting.
+- **DTS and TrueHD:** Chromecast can't play them at all.
+
+Before casting a movie or episode, Mosaic checks its soundtracks. If the sound probably won't play, it says so on the player screen while casting, and mentions any other soundtrack in the file, such as AAC. To hear these titles, watch them on your phone or tablet instead, or pick a version with AAC sound if your provider has one.
+
 Casting needs Google Play services on your phone. Without them, the Cast button doesn't appear.

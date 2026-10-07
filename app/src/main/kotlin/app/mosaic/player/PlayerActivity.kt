@@ -1,7 +1,20 @@
 package app.mosaic.player
 
+import android.util.Log
+import java.util.concurrent.Executor
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.resume
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.suspendCancellableCoroutine
+import androidx.media3.exoplayer.source.TrackGroupArray
+import androidx.media3.exoplayer.MetadataRetriever
+import androidx.media3.common.MimeTypes
+import app.mosaic.core.CastAudio
+import app.mosaic.core.AudioTrackInfo
 import app.mosaic.data.db.PlaylistEntity
 import app.mosaic.cast.CastMedia
+import app.mosaic.cast.CastMediaItemConverter
 import android.widget.Toast
 import androidx.media3.cast.SessionAvailabilityListener
 import androidx.media3.cast.CastPlayer
@@ -64,6 +77,9 @@ class PlayerActivity : FragmentActivity() {
     private var error by mutableStateOf<String?>(null)
     private var inPip by mutableStateOf(false)
     private var resizeMode by mutableIntStateOf(0)
+    /** Why a movie's sound may not play on the Chromecast, shown while casting. */
+    private var castAudioNotice by mutableStateOf<String?>(null)
+    private var castJob: Job? = null
 
     private var progressJob: Job? = null
     private var liveRetries = 0
@@ -88,6 +104,7 @@ class PlayerActivity : FragmentActivity() {
                 PlayerScreen(
                     player = activePlayer ?: exoPlayer,
                     castingTo = castingTo,
+                    castNotice = castAudioNotice,
                     request = request,
                     channels = channels,
                     error = error,
@@ -130,13 +147,24 @@ class PlayerActivity : FragmentActivity() {
         liveRetries = 0
         val position = if (req.isLive) C.TIME_UNSET else req.startPositionMs
         val cast = castPlayer?.takeIf { it.isCastSessionAvailable && req.apiKey == null }
+        castJob?.cancel()
+        castAudioNotice = null
         if (cast != null) {
+            // What the phone already knows about this file's soundtracks, read before it stops.
+            val knownAudio = if (req.kind != ContentKind.LIVE && activePlayer === exoPlayer) localAudioTracks(req) else null
             if (activePlayer !== cast) exoPlayer.stop()
             activePlayer = cast
             castingTo = container.cast.deviceName() ?: "TV"
-            cast.setMediaItem(CastMedia.mediaItem(req, playlist), position)
-            cast.prepare()
-            cast.playWhenReady = true
+            castJob = lifecycleScope.launch {
+                if (req.kind != ContentKind.LIVE) {
+                    // Checked before the TV starts, so a provider allowing one connection isn't asked for two.
+                    val audio = knownAudio ?: withTimeoutOrNull(8_000) { probeAudioTracks(req) }
+                    castAudioNotice = audio?.let(CastAudio::notice)
+                }
+                cast.setMediaItem(CastMedia.mediaItem(req, playlist), position)
+                cast.prepare()
+                cast.playWhenReady = true
+            }
         } else {
             activePlayer = exoPlayer
             castingTo = null
@@ -153,7 +181,7 @@ class PlayerActivity : FragmentActivity() {
 
     private fun setUpCast() {
         val castContext = container.cast.castContext ?: return
-        castPlayer = CastPlayer(castContext).also { cast ->
+        castPlayer = CastPlayer(castContext, CastMediaItemConverter()).also { cast ->
             cast.addListener(listener)
             cast.setSessionAvailabilityListener(object : SessionAvailabilityListener {
                 override fun onCastSessionAvailable() = moveToCast()
@@ -184,6 +212,42 @@ class PlayerActivity : FragmentActivity() {
     }
 
     private fun isCasting() = castPlayer != null && activePlayer === castPlayer
+
+    /** Soundtracks of [req] from the phone's player, if that's what it has loaded. */
+    private fun localAudioTracks(req: PlayRequest): List<AudioTrackInfo>? {
+        val loaded = exoPlayer.currentMediaItem?.localConfiguration?.uri?.toString() ?: return null
+        if (loaded != (req.localUri ?: req.url)) return null
+        return exoPlayer.currentTracks.groups
+            .filter { it.type == C.TRACK_TYPE_AUDIO }
+            .map { group -> group.getTrackFormat(0).let { AudioTrackInfo(it.sampleMimeType, it.language) } }
+            .ifEmpty { null }
+    }
+
+    /** Reads the file's soundtracks, in file order, without playing it. */
+    private suspend fun probeAudioTracks(req: PlayRequest): List<AudioTrackInfo>? {
+        val future = MetadataRetriever.retrieveMetadata(factory.probeSourceFactory(req), factory.mediaItem(req))
+        return try {
+            val groups = suspendCancellableCoroutine<TrackGroupArray> { cont ->
+                future.addListener({
+                    try {
+                        cont.resume(future.get())
+                    } catch (e: Exception) {
+                        cont.resumeWithException(e)
+                    }
+                }, Executor(Runnable::run))
+                cont.invokeOnCancellation { future.cancel(true) }
+            }
+            (0 until groups.length)
+                .map { groups[it].getFormat(0) }
+                .filter { MimeTypes.isAudio(it.sampleMimeType) }
+                .map { AudioTrackInfo(it.sampleMimeType, it.language) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w("PlayerActivity", "Couldn't read soundtracks before casting", e)
+            null
+        }
+    }
 
     private fun loadChannels(req: PlayRequest) {
         lifecycleScope.launch {
