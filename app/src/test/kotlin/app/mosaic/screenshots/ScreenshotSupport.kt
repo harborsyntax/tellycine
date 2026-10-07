@@ -7,7 +7,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.printToString
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import app.mosaic.MosaicApp
@@ -46,8 +48,14 @@ class ScreenshotDriver(private val compose: ComposeRule) {
     }
 
     fun waitForText(text: String, timeoutMs: Long = 15_000) {
-        compose.waitUntil(timeoutMs) {
-            compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+        try {
+            compose.waitUntil(timeoutMs) {
+                compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (e: Throwable) {
+            // Include what is on screen, so CI logs show why the text never appeared.
+            val tree = runCatching { compose.onRoot().printToString(maxDepth = 30) }.getOrElse { "<no tree: $it>" }
+            throw AssertionError("Timed out waiting for \"$text\". Screen:\n$tree", e)
         }
         compose.waitForIdle()
     }

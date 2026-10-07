@@ -78,21 +78,21 @@ class PhoneScreenshots {
         d.openTab("Playlists", "Demo IPTV")
         d.shot("playlists")
 
-        compose.onNodeWithContentDescription("More").performClick()
-        d.click("Categories")
-        d.waitForText("Documentaries")
-        d.shot("category-filter")
-        d.back()
-
-        d.openTab("Playlists", "Demo IPTV")
         d.click("Add playlist")
         d.waitForText("Playlist URL")
         d.shot("add-playlist")
         d.back()
 
-        d.openTab("Playlists", "Demo IPTV")
+        d.openTab("Playlists", "Add playlist")
         compose.onNodeWithContentDescription("Settings").performClick()
         d.waitForText("Default player")
         d.shot("settings")
+        d.back()
+
+        d.openTab("Playlists", "Add playlist")
+        compose.onNodeWithContentDescription("More").performClick()
+        d.click("Categories")
+        d.waitForText("Documentaries")
+        d.shot("category-filter")
     }
 }
