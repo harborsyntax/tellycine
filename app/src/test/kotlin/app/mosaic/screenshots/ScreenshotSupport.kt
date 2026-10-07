@@ -34,7 +34,7 @@ class ScreenshotDriver(private val compose: ComposeRule) {
         waitForText("Live TV")
     }
 
-    fun setTheme(mode: ThemeMode) {
+    fun applyTheme(mode: ThemeMode) {
         theme = mode
         compose.waitForIdle()
     }

@@ -28,7 +28,7 @@ class TabletScreenshots {
         d.openTab("Live TV", "Mosaic News 24")
         d.shot("tablet-live-tv")
 
-        d.setTheme(ThemeMode.DARK)
+        d.applyTheme(ThemeMode.DARK)
         d.openTab("Movies", "Midnight Harbor")
         d.shot("tablet-movies")
     }

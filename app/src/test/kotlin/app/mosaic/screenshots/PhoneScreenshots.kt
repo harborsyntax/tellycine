@@ -44,9 +44,9 @@ class PhoneScreenshots {
         d.shot("guide-sheet")
         d.back()
 
-        d.setTheme(ThemeMode.DARK)
+        d.applyTheme(ThemeMode.DARK)
         d.shot("live-tv-dark")
-        d.setTheme(ThemeMode.LIGHT)
+        d.applyTheme(ThemeMode.LIGHT)
 
         compose.onNodeWithContentDescription("Search").performClick()
         compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput("night")

@@ -1,0 +1,26 @@
+# Movies & series
+
+<p>
+  <img src="images/screens/movies.png" width="260" alt="Movies">
+  <img src="images/screens/movie-detail.png" width="260" alt="Movie details">
+  <img src="images/screens/series-detail.png" width="260" alt="Series details">
+</p>
+
+## Browsing
+- **Layout:** the **Movies** and **Series** tabs show poster grids by category, the same way as [Live TV](Live-TV.md). On tablets, categories are in a side pane.
+- **Posters** show the title, year, genre and rating.
+- **Hidden tabs:** if a playlist has [movies & series turned off](Managing-Playlists.md), these tabs are hidden.
+
+<img src="images/screens/tablet-movies.png" width="600" alt="Tablet movies">
+
+## Details
+Tap a poster to open its details: artwork, rating, year, length, genre, plot, director and cast. Xtream accounts load the extra details from the provider.
+- **Play / Resume:** carries on where you stopped. A progress bar shows how far you got.
+- **Heart:** adds the title to favourites.
+
+## Series
+- **Seasons and episodes:** choose a season from the tabs, then tap an episode.
+- **Main button:** offers the next episode to watch, or resumes the one you're part-way through.
+- **Progress:** partly watched episodes show a progress bar.
+
+Xtream accounts load seasons and episodes from the provider. For M3U playlists, Mosaic groups episodes into shows using the `S01E02` pattern in their names.
