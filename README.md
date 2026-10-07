@@ -33,6 +33,7 @@ Mosaic is a player only. It doesn't provide any channels or content; you add pla
 - **Catch-up TV:** replay past programmes, or restart the current one. Works with Xtream timeshift and M3U `catchup` attributes.
 - **Movies & series:** poster grids, details, seasons and episodes, and resume where you left off.
 - **Search:** find channels, programmes in the TV guide, movies and series in one place.
+- **Downloads:** save movies and episodes to watch offline, with a screen to manage them and a Wi-Fi only option.
 - **Library:** favourites, continue watching and recently watched, with sorting and grouping by category.
 - **Your choice of content:** hide categories per playlist, or turn off movies & series entirely.
 - **A capable player:** HLS, MPEG-TS, DASH and MP4, audio and subtitle tracks, channel switching, and picture-in-picture.

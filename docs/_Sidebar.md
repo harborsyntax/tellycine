@@ -10,6 +10,7 @@
 - [Catch-up TV](Catch-up.md)
 - [Movies & series](Movies-and-Series.md)
 - [Library](Library.md)
+- [Downloads](Downloads.md)
 - [Search](Search.md)
 - [Player](Player.md)
 - [Chromecast](Chromecast.md)

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Downloaded movies and episodes are far too big for Auto Backup's 25 MB limit. -->
+<full-backup-content>
+    <exclude domain="external" path="Movies" />
+</full-backup-content>

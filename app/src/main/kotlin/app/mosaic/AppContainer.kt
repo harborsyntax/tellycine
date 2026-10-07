@@ -7,6 +7,7 @@ import app.mosaic.data.net.Downloader
 import app.mosaic.data.net.createHttpClient
 import app.mosaic.data.repo.ContentRepository
 import app.mosaic.data.repo.DetailsRepository
+import app.mosaic.data.repo.DownloadRepository
 import app.mosaic.data.repo.DvrRepository
 import app.mosaic.data.repo.PlaylistRepository
 import app.mosaic.data.settings.SettingsRepository
@@ -32,6 +33,7 @@ class AppContainer(context: Context) {
     val content = ContentRepository(database)
     val details = DetailsRepository(downloader)
     val dvr = DvrRepository(database, httpClient)
+    val downloads = DownloadRepository(context, database, settings, appScope)
     val cast = CastManager(context)
 
     /** Cached so playback can be launched synchronously from click handlers. */

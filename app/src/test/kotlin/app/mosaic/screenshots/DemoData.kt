@@ -1,6 +1,13 @@
 package app.mosaic.screenshots
 
+import android.content.Context
+import android.os.Environment
+import androidx.test.core.app.ApplicationProvider
 import app.mosaic.AppContainer
+import app.mosaic.data.db.DownloadEntity
+import app.mosaic.data.db.DownloadStatus
+import org.robolectric.shadows.ShadowStatFs
+import java.io.File
 import app.mosaic.core.ContentKind
 import app.mosaic.data.db.CategoryEntity
 import app.mosaic.data.db.EpisodeEntity
@@ -16,6 +23,34 @@ import kotlinx.coroutines.runBlocking
 
 /** A fictional demo playlist so documentation screenshots show a realistic, populated app. */
 object DemoData {
+    /** Finished downloads with small placeholder files; the recorded sizes are what the UI shows. */
+    private suspend fun seedDownloads(container: AppContainer, pid: Long, now: Long) {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_MOVIES), "downloads").apply { mkdirs() }
+        // Report plenty of free space (Robolectric's default is none).
+        ShadowStatFs.registerStats(dir.parentFile!!, 32_000_000, 12_000_000, 12_000_000)
+        val items = listOf(
+            Triple(ContentRepository.movieKey("mv1"), "mv1", Triple(ContentKind.MOVIE, "The Last Signal", "2024")),
+            Triple(ContentRepository.movieKey("mv4"), "mv4", Triple(ContentKind.MOVIE, "Northern Lights", "2020")),
+            Triple(ContentRepository.episodeKey("ep-1-1"), "sr0", Triple(ContentKind.SERIES, "The Long Night", "S1 · E1 · The Long Night S1E1")),
+            Triple(ContentRepository.episodeKey("ep-1-2"), "sr0", Triple(ContentKind.SERIES, "The Long Night", "S1 · E2 · The Long Night S1E2")),
+        )
+        val dao = container.database.downloads()
+        items.forEachIndexed { i, (key, streamId, info) ->
+            val (kind, title, subtitle) = info
+            val file = File(dir, "demo-$i.mp4").apply { writeBytes(ByteArray(1024)) }
+            dao.upsert(
+                DownloadEntity(
+                    playlistId = pid, itemKey = key, kind = kind, streamId = streamId, title = title, subtitle = subtitle,
+                    artwork = null, sourceUrl = "https://example.com/vod/$i.mp4", userAgent = null, referrer = null,
+                    filePath = file.absolutePath, systemId = 1000L + i, status = DownloadStatus.COMPLETED,
+                    bytesDownloaded = 0, bytesTotal = if (kind == ContentKind.MOVIE) 1_480_000_000L + i * 210_000_000L else 612_000_000L + i * 9_000_000L,
+                    error = null, createdAt = now - i * HOUR, completedAt = now - i * HOUR,
+                )
+            )
+        }
+    }
+
     private const val HOUR = 60 * 60 * 1000L
 
     private val liveCategories = listOf("news" to "News", "sport" to "Sport", "ent" to "Entertainment", "kids" to "Kids", "docs" to "Documentaries", "music" to "Music")
@@ -126,6 +161,8 @@ object DemoData {
         }
         dao.upsertHistory(HistoryEntity(pid, ContentRepository.movieKey("mv1"), ContentKind.MOVIE, "mv1", "The Last Signal", "2024", null, "", 52 * 60_000L, 118 * 60_000L, now - HOUR))
         dao.upsertHistory(HistoryEntity(pid, ContentRepository.episodeKey("ep-1-3"), ContentKind.SERIES, "sr0", "The Long Night", "S1 · E3 · The Long Night S1E3", null, "", 21 * 60_000L, 48 * 60_000L, now - 2 * HOUR))
+
+        seedDownloads(container, pid, now)
         pid
     }
 }

@@ -28,6 +28,8 @@ data class AppSettings(
     val librarySort: LibrarySort = LibrarySort.RECENT,
     /** Split Library favourites and history into one row per category. */
     val libraryGroupByCategory: Boolean = false,
+    /** Only download movies and episodes over unmetered networks (usually Wi-Fi). */
+    val downloadWifiOnly: Boolean = true,
 )
 
 private val Context.dataStore by preferencesDataStore("settings")
@@ -44,6 +46,7 @@ class SettingsRepository(private val context: Context) {
         val externalPlayer = booleanPreferencesKey("external_player")
         val librarySort = stringPreferencesKey("library_sort")
         val libraryGroup = booleanPreferencesKey("library_group_by_category")
+        val downloadWifiOnly = booleanPreferencesKey("download_wifi_only")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -57,6 +60,7 @@ class SettingsRepository(private val context: Context) {
             externalPlayer = p[Keys.externalPlayer] ?: false,
             librarySort = p[Keys.librarySort]?.let { runCatching { LibrarySort.valueOf(it) }.getOrNull() } ?: LibrarySort.RECENT,
             libraryGroupByCategory = p[Keys.libraryGroup] ?: false,
+            downloadWifiOnly = p[Keys.downloadWifiOnly] ?: true,
         )
     }
 
@@ -74,4 +78,5 @@ class SettingsRepository(private val context: Context) {
     suspend fun setExternalPlayer(enabled: Boolean) = context.dataStore.edit { it[Keys.externalPlayer] = enabled }
     suspend fun setLibrarySort(sort: LibrarySort) = context.dataStore.edit { it[Keys.librarySort] = sort.name }
     suspend fun setLibraryGroupByCategory(enabled: Boolean) = context.dataStore.edit { it[Keys.libraryGroup] = enabled }
+    suspend fun setDownloadWifiOnly(enabled: Boolean) = context.dataStore.edit { it[Keys.downloadWifiOnly] = enabled }
 }

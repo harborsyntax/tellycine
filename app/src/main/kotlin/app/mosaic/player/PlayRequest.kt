@@ -23,6 +23,11 @@ data class PlayRequest(
     val catchup: Boolean = false,
     /** Sent as `X-API-Key` (Dispatcharr recordings). */
     val apiKey: String? = null,
+    /**
+     * A downloaded copy on the device, played instead of [url]. History and Chromecast keep using
+     * [url], so resume points stay with the title and the TV can still fetch the stream.
+     */
+    val localUri: String? = null,
 ) {
     val isLive get() = kind == ContentKind.LIVE && !catchup
 
@@ -42,6 +47,7 @@ data class PlayRequest(
         .putExtra(EXTRA_CATEGORY, categoryId)
         .putExtra(EXTRA_CATCHUP, catchup)
         .putExtra(EXTRA_API_KEY, apiKey)
+        .putExtra(EXTRA_LOCAL_URI, localUri)
 
     companion object {
         private const val EXTRA_PLAYLIST = "playlist"
@@ -58,6 +64,7 @@ data class PlayRequest(
         private const val EXTRA_CATEGORY = "category"
         private const val EXTRA_CATCHUP = "catchup"
         private const val EXTRA_API_KEY = "api_key"
+        private const val EXTRA_LOCAL_URI = "local_uri"
 
         fun fromIntent(intent: Intent): PlayRequest? {
             val url = intent.getStringExtra(EXTRA_URL) ?: return null
@@ -76,6 +83,7 @@ data class PlayRequest(
                 categoryId = intent.getStringExtra(EXTRA_CATEGORY),
                 catchup = intent.getBooleanExtra(EXTRA_CATCHUP, false),
                 apiKey = intent.getStringExtra(EXTRA_API_KEY),
+                localUri = intent.getStringExtra(EXTRA_LOCAL_URI),
             )
         }
     }
