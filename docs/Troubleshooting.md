@@ -1,0 +1,43 @@
+# Troubleshooting
+
+## Installing
+**"App not installed" when updating**
+Versions before 1.4.2 were signed with a temporary key. Uninstall once, then install the latest version. Later updates install over the top.
+
+**Play Protect warns about an unknown developer**
+This is normal for apps installed outside the Play Store. Tap **More details → Install anyway**.
+
+## Playlists
+**Login failed**
+For Xtream Codes, check the server address (including `http://` and the port), the username and the password. For Dispatcharr, use the user's *Xtream* password, not the web login.
+
+**HTTP 401 / 403 while loading**
+Your credentials are wrong, or the provider requires a particular user agent. Set one under **Edit → Advanced options → User agent**.
+
+**No TV guide, or the wrong guide**
+- **Check the guide URL:** make sure the playlist has one. Look under **Edit → Advanced options**, or for `url-tvg` in the M3U file.
+- **Check the channel IDs:** channels match the guide by `tvg-id`, then by name. If your playlist's IDs don't match the guide's channel IDs, add the matching guide URL.
+- **Try a manual refresh:** use **⋮ → Update TV guide only**.
+
+## Playback
+**A channel won't play**
+- **Try again:** many IPTV streams drop now and then. Tap **Try again**.
+- **Try HLS:** turn on **Settings → Prefer HLS for Xtream live TV**, then refresh the playlist.
+- **Try another app:** **Open with…** an external player to see whether the stream works there.
+
+**"This device can't decode the stream"**
+The stream uses a codec your phone doesn't support. Try an external player such as VLC.
+
+## Casting
+**Cast button missing**
+Your phone needs Google Play services, and a Cast device must be on the same Wi-Fi.
+
+**Casting fails**
+See [what can't be cast](Chromecast.md#what-cant-be-cast). Raw MPEG-TS streams, including Dispatcharr live channels, and streams that need special headers usually won't play on a Chromecast.
+
+## Dispatcharr
+**"Your Dispatcharr user doesn't have permission"**
+Ask your Dispatcharr admin to give your user DVR access: *view* or *manage*. Sharing source URLs also needs a *Standard* user or above.
+
+## Reporting a problem
+Open an issue on GitHub, or include the output of `adb logcat` captured while the problem happens.

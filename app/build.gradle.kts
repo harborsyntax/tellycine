@@ -61,6 +61,25 @@ android {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
 
+    testOptions {
+        unitTests {
+            // Robolectric renders the real Compose UI for the documentation screenshots.
+            isIncludeAndroidResources = true
+            all {
+                it.systemProperty("robolectric.graphicsMode", "NATIVE")
+                it.systemProperty("roborazzi.test.record", "true")
+                it.maxHeapSize = "4g"
+                // Fresh process per test class: app singletons (DataStore) must not leak between them.
+                it.forkEvery = 1
+                it.testLogging {
+                    events("failed")
+                    exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+                    showStackTraces = true
+                }
+            }
+        }
+    }
+
     lint {
         abortOnError = false
         checkReleaseBuilds = false
@@ -118,4 +137,15 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.gson)
     implementation(libs.kotlinx.coroutines.core)
+
+    // Documentation screenshots (./gradlew :app:testDebugUnitTest --tests '*Screenshots*')
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.test.junit)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
