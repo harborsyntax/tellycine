@@ -227,6 +227,26 @@ interface ContentDao {
     )
     suspend fun search(playlistId: Long, kind: ContentKind, query: String, limit: Int): List<StreamEntity>
 
+    /**
+     * Guide programmes whose title matches [query] on visible channels: on now and upcoming first
+     * (soonest first), then past ones from [fromMs] (most recent first) for catch-up.
+     */
+    @Query(
+        """SELECT * FROM programmes p WHERE p.playlistId = :playlistId AND p.stopMs > :fromMs
+           AND p.title LIKE '%' || :query || '%'
+           AND EXISTS (SELECT 1 FROM streams s WHERE s.playlistId = p.playlistId AND s.kind = 'LIVE'
+                       AND s.epgChannelId = p.channelId AND """ + VISIBLE + """)
+           ORDER BY p.stopMs <= :now, CASE WHEN p.stopMs > :now THEN p.startMs ELSE -p.startMs END
+           LIMIT :limit"""
+    )
+    suspend fun searchProgrammes(playlistId: Long, query: String, now: Long, fromMs: Long, limit: Int): List<ProgrammeEntity>
+
+    @Query(
+        """SELECT * FROM streams s WHERE s.playlistId = :playlistId AND s.kind = 'LIVE'
+           AND s.epgChannelId IN (:epgChannelIds) AND """ + VISIBLE + """ ORDER BY s.sortOrder"""
+    )
+    suspend fun channelsForGuideIds(playlistId: Long, epgChannelIds: List<String>): List<StreamEntity>
+
     @Query("SELECT * FROM episodes WHERE playlistId = :playlistId AND seriesId = :seriesId ORDER BY season, episode")
     suspend fun episodes(playlistId: Long, seriesId: String): List<EpisodeEntity>
 

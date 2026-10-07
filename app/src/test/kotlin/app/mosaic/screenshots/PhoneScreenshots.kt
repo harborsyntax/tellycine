@@ -50,7 +50,8 @@ class PhoneScreenshots {
 
         compose.onNodeWithContentDescription("Search").performClick()
         compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput("night")
-        d.waitForText("Midnight Harbor")
+        // Guide programmes come before movies, so they fill the first screen of results.
+        d.waitForText("Tonight")
         d.shot("search")
         d.back()
 

@@ -69,7 +69,7 @@ fun VodScreen(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
-        topBar = { PlaylistTopBar(title, session, onSelectPlaylist, onSearch, scrollBehavior) },
+        topBar = { PlaylistTopBar(session, onSelectPlaylist, onSearch, scrollBehavior) },
         contentWindowInsets = WindowInsets(0),
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { padding ->

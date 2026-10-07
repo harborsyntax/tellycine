@@ -22,6 +22,12 @@ object Categories {
     const val FAVORITES = "__favorites__"
 }
 
+/** A guide programme found by search, with the channel it airs on. */
+data class ProgrammeHit(val programme: ProgrammeEntity, val channel: StreamEntity)
+
+/** How far back programme search looks; older entries are outside any catch-up archive the app keeps. */
+private const val PAST_SEARCH_WINDOW = 14 * 24 * 60 * 60 * 1000L
+
 class ContentRepository(db: MosaicDatabase) {
     private val dao = db.content()
 
@@ -81,6 +87,22 @@ class ContentRepository(db: MosaicDatabase) {
 
     suspend fun search(playlistId: Long, kind: ContentKind, query: String, limit: Int) =
         dao.search(playlistId, kind, query, limit)
+
+    /** Guide programmes matching [query], each with the first visible channel that carries it. */
+    suspend fun searchProgrammes(
+        playlistId: Long,
+        query: String,
+        limit: Int,
+        now: Long = System.currentTimeMillis(),
+    ): List<ProgrammeHit> {
+        val programmes = dao.searchProgrammes(playlistId, query, now, now - PAST_SEARCH_WINDOW, limit)
+        if (programmes.isEmpty()) return emptyList()
+        val channels = programmes.map { it.channelId }.distinct().chunked(500)
+            .flatMap { dao.channelsForGuideIds(playlistId, it) }
+            .groupBy { it.epgChannelId }
+            .mapValues { (_, list) -> list.minBy { it.sortOrder } }
+        return programmes.mapNotNull { p -> channels[p.channelId]?.let { ProgrammeHit(p, it) } }
+    }
 
     suspend fun episodes(playlistId: Long, seriesId: String) = dao.episodes(playlistId, seriesId)
 
