@@ -264,14 +264,23 @@ interface ContentDao {
     fun observeHistory(playlistId: Long, itemKeys: List<String>): Flow<List<HistoryEntity>>
 
     @Query(
-        """SELECT * FROM history WHERE playlistId = :playlistId AND kind != 'LIVE'
-           AND positionMs > 30000 AND (durationMs <= 0 OR positionMs < durationMs * 0.95)
-           ORDER BY lastWatchedAt DESC LIMIT :limit"""
+        """SELECT h.*, s.categoryId AS categoryId, s.sortOrder AS sortOrder, s.number AS number
+           FROM history h LEFT JOIN streams s
+             ON s.playlistId = h.playlistId AND s.kind = h.kind AND s.streamId = h.streamId
+           WHERE h.playlistId = :playlistId AND h.kind != 'LIVE'
+             AND h.positionMs > 30000 AND (h.durationMs <= 0 OR h.positionMs < h.durationMs * 0.95)
+           ORDER BY h.lastWatchedAt DESC LIMIT :limit"""
     )
-    fun observeContinueWatching(playlistId: Long, limit: Int): Flow<List<HistoryEntity>>
+    fun observeContinueWatching(playlistId: Long, limit: Int): Flow<List<HistoryRow>>
 
-    @Query("SELECT * FROM history WHERE playlistId = :playlistId AND kind = 'LIVE' ORDER BY lastWatchedAt DESC LIMIT :limit")
-    fun observeRecentChannels(playlistId: Long, limit: Int): Flow<List<HistoryEntity>>
+    @Query(
+        """SELECT h.*, s.categoryId AS categoryId, s.sortOrder AS sortOrder, s.number AS number
+           FROM history h LEFT JOIN streams s
+             ON s.playlistId = h.playlistId AND s.kind = h.kind AND s.streamId = h.streamId
+           WHERE h.playlistId = :playlistId AND h.kind = 'LIVE'
+           ORDER BY h.lastWatchedAt DESC LIMIT :limit"""
+    )
+    fun observeRecentChannels(playlistId: Long, limit: Int): Flow<List<HistoryRow>>
 
     @Query("DELETE FROM history WHERE playlistId = :playlistId AND itemKey = :itemKey")
     suspend fun removeHistory(playlistId: Long, itemKey: String)

@@ -42,7 +42,8 @@ playlists from your provider.
   URL or the upstream source URL. A *Default player* setting makes an external app the
   default for everything.
 - **Live TV, movies and series** in separate tabs, browsed by category, plus favourites,
-  "continue watching" and recently watched channels.
+  "continue watching" and recently watched channels. The Library can be sorted (most recent,
+  name, playlist order) and grouped by category.
 - **Multiple playlists**: add as many as you like and switch between them from the title bar.
 - **Per-playlist filtering**: tick or untick each playlist's categories (Live TV, Movies and
   Series separately) to hide them everywhere. You can also turn movies & series off for a

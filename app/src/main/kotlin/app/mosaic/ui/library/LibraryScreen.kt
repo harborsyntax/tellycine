@@ -1,5 +1,17 @@
 package app.mosaic.ui.library
 
+import app.mosaic.data.settings.LibrarySort
+import app.mosaic.data.db.HistoryRow
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.Checkbox
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -68,15 +80,25 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class LibraryState(
-    val continueWatching: List<HistoryEntity> = emptyList(),
-    val recentChannels: List<HistoryEntity> = emptyList(),
-    val channels: List<StreamEntity> = emptyList(),
-    val movies: List<StreamEntity> = emptyList(),
-    val series: List<StreamEntity> = emptyList(),
+    val continueWatching: List<LibraryGroup<HistoryRow>> = emptyList(),
+    val recentChannels: List<LibraryGroup<HistoryRow>> = emptyList(),
+    val channels: List<LibraryGroup<StreamEntity>> = emptyList(),
+    val movies: List<LibraryGroup<StreamEntity>> = emptyList(),
+    val series: List<LibraryGroup<StreamEntity>> = emptyList(),
     val playlist: PlaylistEntity? = null,
+    val sort: LibrarySort = LibrarySort.RECENT,
+    val groupByCategory: Boolean = false,
 ) {
     val isEmpty get() = continueWatching.isEmpty() && recentChannels.isEmpty() && channels.isEmpty() && movies.isEmpty() && series.isEmpty()
 }
+
+private data class LibraryData(
+    val continueWatching: List<HistoryRow>,
+    val recentChannels: List<HistoryRow>,
+    val channels: List<StreamEntity>,
+    val movies: List<StreamEntity>,
+    val series: List<StreamEntity>,
+)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LibraryViewModel(private val container: AppContainer) : ViewModel() {
@@ -84,18 +106,67 @@ class LibraryViewModel(private val container: AppContainer) : ViewModel() {
 
     val state: StateFlow<LibraryState> = container.playlists.activePlaylist
         .flatMapLatest { p ->
-            if (p == null) flowOf(LibraryState())
-            else combine(
+            if (p == null) return@flatMapLatest flowOf(LibraryState())
+            val data = combine(
                 content.continueWatching(p.id),
                 content.recentChannels(p.id),
-                content.favoriteItems(p.id, ContentKind.LIVE, 100),
-                content.favoriteItems(p.id, ContentKind.MOVIE),
-                content.favoriteItems(p.id, ContentKind.SERIES),
+                content.favoriteItems(p.id, ContentKind.LIVE, 200),
+                content.favoriteItems(p.id, ContentKind.MOVIE, 200),
+                content.favoriteItems(p.id, ContentKind.SERIES, 200),
             ) { cw, recent, ch, mv, sr ->
-                if (p.vodEnabled) LibraryState(cw, recent, ch, mv, sr, p) else LibraryState(recentChannels = recent, channels = ch, playlist = p)
+                if (p.vodEnabled) LibraryData(cw, recent, ch, mv, sr)
+                else LibraryData(emptyList(), recent, ch, emptyList(), emptyList())
+            }
+            // Category names and order per kind, for group headers.
+            val categories = combine(
+                content.categoryVisibility(p.id, ContentKind.LIVE),
+                content.categoryVisibility(p.id, ContentKind.MOVIE),
+                content.categoryVisibility(p.id, ContentKind.SERIES),
+            ) { live, movies, series ->
+                mapOf(
+                    ContentKind.LIVE to live.associate { it.category.categoryId to CategoryInfo(it.category.name, it.category.sortOrder) },
+                    ContentKind.MOVIE to movies.associate { it.category.categoryId to CategoryInfo(it.category.name, it.category.sortOrder) },
+                    ContentKind.SERIES to series.associate { it.category.categoryId to CategoryInfo(it.category.name, it.category.sortOrder) },
+                )
+            }
+            combine(data, categories, container.settings.settings) { d, cats, prefs ->
+                val sort = prefs.librarySort
+                val group = prefs.libraryGroupByCategory
+                fun streams(list: List<StreamEntity>, kind: ContentKind) = arrange(
+                    list, sort, group, cats[kind].orEmpty(),
+                    name = { it.name }, categoryId = { it.categoryId }, number = { it.number }, sortOrder = { it.sortOrder },
+                )
+                fun history(list: List<HistoryRow>) = arrange(
+                    list, sort, group,
+                    // Continue watching mixes movies and series, whose category ids live in separate namespaces.
+                    categories = list.map { it.history.kind }.distinct()
+                        .flatMap { k -> cats[k].orEmpty().map { (id, info) -> "${k.name}:$id" to info } }.toMap(),
+                    name = { it.history.title },
+                    categoryId = { r -> r.categoryId?.let { "${r.history.kind.name}:$it" } },
+                    number = { it.number },
+                    sortOrder = { it.sortOrder },
+                )
+                LibraryState(
+                    continueWatching = history(d.continueWatching),
+                    recentChannels = history(d.recentChannels),
+                    channels = streams(d.channels, ContentKind.LIVE),
+                    movies = streams(d.movies, ContentKind.MOVIE),
+                    series = streams(d.series, ContentKind.SERIES),
+                    playlist = p,
+                    sort = sort,
+                    groupByCategory = group,
+                )
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryState())
+
+    fun setSort(sort: LibrarySort) {
+        viewModelScope.launch { container.settings.setLibrarySort(sort) }
+    }
+
+    fun setGroupByCategory(enabled: Boolean) {
+        viewModelScope.launch { container.settings.setLibraryGroupByCategory(enabled) }
+    }
 
     fun remove(item: HistoryEntity) {
         viewModelScope.launch { content.removeHistory(item.playlistId, item.itemKey) }
@@ -153,7 +224,11 @@ fun LibraryScreen(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
-        topBar = { PlaylistTopBar("Library", session, onSelectPlaylist, onSearch, scrollBehavior) },
+        topBar = {
+            PlaylistTopBar("Library", session, onSelectPlaylist, onSearch, scrollBehavior) {
+                LibrarySortMenu(state.sort, state.groupByCategory, vm::setSort, vm::setGroupByCategory)
+            }
+        },
         contentWindowInsets = WindowInsets(0),
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { padding ->
@@ -186,58 +261,111 @@ fun LibraryScreen(
                     )
                 }
             }
-            if (state.continueWatching.isNotEmpty()) {
-                item(key = "cw-h") { SectionHeader("Continue watching") }
-                item(key = "cw") {
-                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(state.continueWatching, key = { it.itemKey }) { h ->
-                            ContinueCard(
-                                item = h,
-                                onClick = { scope.launch { context.play(vm.historyRequest(h)) } },
-                                onRemove = { vm.remove(h) },
-                            )
-                        }
-                    }
+            section("cw", "Continue watching", state.continueWatching) { h ->
+                ContinueCard(
+                    item = h.history,
+                    onClick = { scope.launch { context.play(vm.historyRequest(h.history)) } },
+                    onRemove = { vm.remove(h.history) },
+                )
+            }
+            section("rc", "Recently watched channels", state.recentChannels) { h ->
+                ChannelTile(h.history.title, h.history.artwork) { scope.launch { context.play(vm.historyRequest(h.history)) } }
+            }
+            section("fc", "Favourite channels", state.channels) { s ->
+                ChannelTile(s.name, s.logo) { scope.launch { context.play(vm.channelRequest(s)) } }
+            }
+            for ((key, label, groups) in listOf(
+                Triple("fm", "Favourite movies", state.movies),
+                Triple("fs", "Favourite series", state.series),
+            )) {
+                section(key, label, groups) { s ->
+                    PosterCard(
+                        title = s.name,
+                        poster = s.logo,
+                        meta = s.year,
+                        rating = s.rating,
+                        onClick = { onOpen(s) },
+                        modifier = Modifier.width(120.dp),
+                    )
                 }
             }
-            if (state.recentChannels.isNotEmpty()) {
-                item(key = "rc-h") { SectionHeader("Recently watched channels") }
-                item(key = "rc") {
-                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(state.recentChannels, key = { it.itemKey }) { h ->
-                            ChannelTile(h.title, h.artwork) { scope.launch { context.play(vm.historyRequest(h)) } }
-                        }
-                    }
-                }
+        }
+    }
+}
+
+/** A Library section: a header, then one horizontal row per group (a single row when not grouping). */
+private fun <T> LazyListScope.section(
+    key: String,
+    title: String,
+    groups: List<LibraryGroup<T>>,
+    itemContent: @Composable (T) -> Unit,
+) {
+    if (groups.isEmpty()) return
+    item(key = "$key-h") { SectionHeader(title) }
+    for (group in groups) {
+        if (group.label != null) {
+            item(key = "$key-g-${group.key}") {
+                Text(
+                    group.label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp),
+                )
             }
-            if (state.channels.isNotEmpty()) {
-                item(key = "fc-h") { SectionHeader("Favourite channels") }
-                item(key = "fc") {
-                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(state.channels, key = { it.streamId }) { s ->
-                            ChannelTile(s.name, s.logo) { scope.launch { context.play(vm.channelRequest(s)) } }
-                        }
-                    }
-                }
+        }
+        item(key = "$key-r-${group.key}") {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(bottom = if (group.label != null) 12.dp else 0.dp),
+            ) {
+                items(group.items) { itemContent(it) }
             }
-            for ((label, list) in listOf("Favourite movies" to state.movies, "Favourite series" to state.series)) {
-                if (list.isEmpty()) continue
-                item(key = "$label-h") { SectionHeader(label) }
-                item(key = label) {
-                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(list, key = { it.streamId }) { s ->
-                            PosterCard(
-                                title = s.name,
-                                poster = s.logo,
-                                meta = s.year,
-                                rating = s.rating,
-                                onClick = { onOpen(s) },
-                                modifier = Modifier.width(120.dp),
-                            )
-                        }
-                    }
-                }
+        }
+    }
+}
+
+@Composable
+private fun LibrarySortMenu(
+    sort: LibrarySort,
+    groupByCategory: Boolean,
+    onSort: (LibrarySort) -> Unit,
+    onGroup: (Boolean) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) { Icon(Icons.AutoMirrored.Filled.Sort, "Sort and group") }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            Text(
+                "Sort by",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+            listOf(
+                LibrarySort.RECENT to "Most recent",
+                LibrarySort.NAME_ASC to "Name (A–Z)",
+                LibrarySort.NAME_DESC to "Name (Z–A)",
+                LibrarySort.PLAYLIST_ORDER to "Playlist order",
+            ).forEach { (option, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    leadingIcon = { RadioButton(selected = option == sort, onClick = null) },
+                    onClick = {
+                        onSort(option)
+                        open = false
+                    },
+                )
             }
+            HorizontalDivider()
+            DropdownMenuItem(
+                text = { Text("Group by category") },
+                leadingIcon = { Checkbox(checked = groupByCategory, onCheckedChange = null) },
+                onClick = {
+                    onGroup(!groupByCategory)
+                    open = false
+                },
+            )
         }
     }
 }
