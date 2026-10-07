@@ -71,6 +71,11 @@ android {
                 it.maxHeapSize = "4g"
                 // Fresh process per test class: app singletons (DataStore) must not leak between them.
                 it.forkEvery = 1
+                it.testLogging {
+                    events("failed")
+                    exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+                    showStackTraces = true
+                }
             }
         }
     }

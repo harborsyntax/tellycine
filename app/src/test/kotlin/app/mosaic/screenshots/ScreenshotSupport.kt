@@ -16,6 +16,7 @@ import app.mosaic.ui.MosaicNavHost
 import app.mosaic.ui.theme.MosaicTheme
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.captureScreenRoboImage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 
 typealias ComposeRule = AndroidComposeTestRule<ActivityScenarioRule<ComponentActivity>, ComponentActivity>
@@ -40,7 +41,7 @@ class ScreenshotDriver(private val compose: ComposeRule) {
     }
 
     fun setLibraryGrouping(enabled: Boolean) {
-        runBlocking { app.container.settings.setLibraryGroupByCategory(enabled) }
+        runBlocking(Dispatchers.IO) { app.container.settings.setLibraryGroupByCategory(enabled) }
         compose.waitForIdle()
     }
 

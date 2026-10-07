@@ -11,6 +11,7 @@ import app.mosaic.data.db.PlaylistType
 import app.mosaic.data.db.ProgrammeEntity
 import app.mosaic.data.db.StreamEntity
 import app.mosaic.data.repo.ContentRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 
 /** A fictional demo playlist so documentation screenshots show a realistic, populated app. */
@@ -46,7 +47,8 @@ object DemoData {
         listOf("Kingdom of Glass", "Drama", "2024"), listOf("Flatmates", "Comedy", "2022"),
     )
 
-    fun seed(container: AppContainer, groupLibrary: Boolean = false): Long = runBlocking {
+    // Room forbids blocking database calls on the main thread, which Robolectric tests run on.
+    fun seed(container: AppContainer, groupLibrary: Boolean = false): Long = runBlocking(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         val db = container.database
         val pid = db.playlists().insert(
