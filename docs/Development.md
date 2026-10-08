@@ -41,7 +41,7 @@ The **Screenshots** workflow does the same on GitHub Actions (run it from the Ac
   - **To release:** bump `versionName` and `versionCode` in a PR, add the release notes, and merge.
 
 ## Signing
-- **Secrets:** releases are signed with the permanent Tellycine key from the repository secrets `TELLYCINE_KEYSTORE_BASE64`, `TELLYCINE_KEYSTORE_PASSWORD`, `TELLYCINE_KEY_ALIAS` and `TELLYCINE_KEY_PASSWORD`. The older `MOSAIC_*` names, from before the app was renamed, still work as a fallback.
+- **Secrets:** releases are signed with the permanent Tellycine key from the repository secrets `TELLYCINE_KEYSTORE_BASE64`, `TELLYCINE_KEYSTORE_PASSWORD`, `TELLYCINE_KEY_ALIAS` and `TELLYCINE_KEY_PASSWORD`.
 - **Safety check:** the Release workflow refuses to publish if the secrets are missing or the APK's certificate isn't the expected one.
 - **Keep the keystore backed up.** Losing it means future versions can't update existing installs.
 

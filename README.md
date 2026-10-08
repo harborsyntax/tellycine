@@ -12,7 +12,7 @@
 <p align="center">
   An IPTV player for Android phones and tablets, built with Jetpack Compose and Material 3.
   <br><br>
-  <a href="https://github.com/mrjack711/mosaic/releases/latest"><b>Download the latest APK</b></a>
+  <a href="https://github.com/mrjack711/tellycine/releases/latest"><b>Download the latest APK</b></a>
   &nbsp;·&nbsp;
   <a href="docs/Home.md"><b>Documentation</b></a>
 </p>

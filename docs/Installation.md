@@ -7,7 +7,7 @@ Tellycine isn't on the Play Store yet. It's distributed as an APK on GitHub.
 - Chromecast support needs Google Play services. Everything else works without it.
 
 ## Install
-1. Open the [latest release](https://github.com/mrjack711/mosaic/releases/latest) on your device.
+1. Open the [latest release](https://github.com/mrjack711/tellycine/releases/latest) on your device.
 2. Download `tellycine-vX.Y.Z.apk`.
 3. Open the downloaded file. If asked, allow your browser or file manager to **install unknown apps**.
 4. Play Protect may warn that the app is from an **unknown developer**. This is normal for apps installed outside the Play Store. Tap **More details → Install anyway**.
