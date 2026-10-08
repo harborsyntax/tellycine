@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import app.tellycine.R
 
 /**
- * The Tellycine logo: the tile-grid mark followed by the wordmark.
+ * The Tellycine logo: the "reel telly" mark (an old TV showing a film reel) followed by the wordmark.
  * The wordmark follows the theme's on-surface colour; the mark keeps its brand colours.
  */
 @Composable

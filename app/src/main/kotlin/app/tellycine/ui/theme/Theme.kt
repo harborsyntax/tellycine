@@ -13,7 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import app.tellycine.data.settings.ThemeMode
 
-// Fallback palette (Material 3 scheme from the icon's amber tile, seed #EF9F27) for devices without Material You.
+// Fallback palette (Material 3 scheme from the icon's amber reel, seed #EF9F27) for devices without Material You.
 private val LightColors = lightColorScheme(
     primary = Color(0xFF845400),
     onPrimary = Color(0xFFFFFFFF),
