@@ -1,6 +1,6 @@
 # Player
 
-Mosaic's built-in player uses Android's Media3 (ExoPlayer). It plays HLS, MPEG-TS, DASH and ordinary video files.
+Tellycine's built-in player uses Android's Media3 (ExoPlayer). It plays HLS, MPEG-TS, DASH and ordinary video files.
 
 ## Controls
 Tap the video to show the controls.
@@ -22,4 +22,4 @@ Movies and episodes save your position as you watch, so you can resume later. Li
 - **One stream:** long-press a channel and choose **Open with…**, then pick any installed video app.
 - **Everything:** set **Settings → Default player → External app**. Android then asks which app to use, and you can choose one to always use.
 
-Mosaic passes the title, user agent and referrer to apps that support them, such as VLC and MX Player. Dispatcharr recordings always play in the built-in player, because they need a login header other apps can't send.
+Tellycine passes the title, user agent and referrer to apps that support them, such as VLC and MX Player. Dispatcharr recordings always play in the built-in player, because they need a login header other apps can't send.

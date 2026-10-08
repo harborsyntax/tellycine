@@ -21,7 +21,7 @@ Requirements: JDK 17 and the Android SDK (compileSdk 35).
 ```bash
 ./gradlew :core:test            # parser and helper unit tests
 ./gradlew :app:assembleDebug    # app/build/outputs/apk/debug/
-./gradlew :app:assembleRelease  # minified; debug-signed unless MOSAIC_KEYSTORE is set
+./gradlew :app:assembleRelease  # minified; debug-signed unless TELLYCINE_KEYSTORE is set
 ```
 
 ## Screenshots
@@ -41,9 +41,9 @@ The **Screenshots** workflow does the same on GitHub Actions (run it from the Ac
   - **To release:** bump `versionName` and `versionCode` in a PR, add the release notes, and merge.
 
 ## Signing
-- **Secrets:** releases are signed with the permanent Mosaic key from the repository secrets `MOSAIC_KEYSTORE_BASE64`, `MOSAIC_KEYSTORE_PASSWORD`, `MOSAIC_KEY_ALIAS` and `MOSAIC_KEY_PASSWORD`.
+- **Secrets:** releases are signed with the permanent Tellycine key from the repository secrets `TELLYCINE_KEYSTORE_BASE64`, `TELLYCINE_KEYSTORE_PASSWORD`, `TELLYCINE_KEY_ALIAS` and `TELLYCINE_KEY_PASSWORD`. The older `MOSAIC_*` names, from before the app was renamed, still work as a fallback.
 - **Safety check:** the Release workflow refuses to publish if the secrets are missing or the APK's certificate isn't the expected one.
 - **Keep the keystore backed up.** Losing it means future versions can't update existing installs.
 
 ## Database migrations
-Room migrations live in `MosaicDatabase`. Add a `Migration` for every schema change, so updates keep users' playlists and history.
+Room migrations live in `TellycineDatabase`. Add a `Migration` for every schema change, so updates keep users' playlists and history.

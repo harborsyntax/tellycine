@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="branding/mosaic-icon-rounded.svg" width="112" alt="Mosaic app icon">
+  <img src="branding/tellycine-icon-rounded.svg" width="112" alt="Tellycine app icon">
 </p>
 
 <h1 align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="branding/mosaic-logo-dark.svg">
-    <img src="branding/mosaic-logo-light.svg" width="300" alt="Mosaic">
+    <source media="(prefers-color-scheme: dark)" srcset="branding/tellycine-logo-dark.svg">
+    <img src="branding/tellycine-logo-light.svg" width="300" alt="Tellycine">
   </picture>
 </h1>
 
@@ -24,7 +24,7 @@
   <img src="docs/images/screens/library.png" width="200" alt="Library">
 </p>
 
-Mosaic is a player only. It doesn't provide any channels or content; you add playlists from your own provider.
+Tellycine is a player only. It doesn't provide any channels or content; you add playlists from your own provider.
 
 ## Features
 

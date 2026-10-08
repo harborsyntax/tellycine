@@ -8,29 +8,29 @@ plugins {
 }
 
 android {
-    namespace = "app.mosaic"
+    namespace = "app.tellycine"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "app.mosaic"
+        applicationId = "app.tellycine"
         minSdk = 26
         targetSdk = 35
-        versionCode = 17
-        versionName = "1.11.0"
+        versionCode = 18
+        versionName = "2.0.0"
         vectorDrawables.useSupportLibrary = true
     }
 
     // Releases must always be signed with the same key, or Android refuses to update the app.
-    // CI provides it through the MOSAIC_* environment variables (from repository secrets);
+    // CI provides it through the TELLYCINE_* environment variables (from repository secrets);
     // local and PR builds without them fall back to the debug key.
-    val releaseKeystore = System.getenv("MOSAIC_KEYSTORE")?.takeIf { it.isNotBlank() }
+    val releaseKeystore = System.getenv("TELLYCINE_KEYSTORE")?.takeIf { it.isNotBlank() }
     signingConfigs {
         if (releaseKeystore != null) {
             create("release") {
                 storeFile = file(releaseKeystore)
-                storePassword = System.getenv("MOSAIC_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("MOSAIC_KEY_ALIAS")
-                keyPassword = System.getenv("MOSAIC_KEY_PASSWORD")
+                storePassword = System.getenv("TELLYCINE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("TELLYCINE_KEY_ALIAS")
+                keyPassword = System.getenv("TELLYCINE_KEY_PASSWORD")
             }
         }
     }
