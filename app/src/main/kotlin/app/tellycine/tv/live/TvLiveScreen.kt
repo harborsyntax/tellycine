@@ -25,6 +25,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -42,6 +43,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
@@ -103,9 +106,23 @@ fun TvLiveScreen(session: SessionState, onAddPlaylist: () -> Unit) {
             value = System.currentTimeMillis()
         }
     }
-    // Fixed while the screen is open, so the grid doesn't jump as the clock moves.
-    val window = remember(days, version) { GuideWindow.around(System.currentTimeMillis(), days) }
+    // Fixed while the screen is open, so the grid doesn't jump as the clock moves; re-anchored
+    // on the current time when the screen comes back after a while.
+    var anchor by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var backToNow by remember { mutableStateOf(false) }
+    LifecycleEventEffect(Lifecycle.Event.ON_START) {
+        val t = System.currentTimeMillis()
+        if (t - anchor > 30 * 60_000L) {
+            backToNow = true
+            anchor = t
+        }
+    }
+    val window = remember(days, version, anchor) { GuideWindow.around(anchor, days) }
     val guide = rememberTvGuideState(window)
+    LaunchedEffect(window) {
+        if (guide.window != window) guide.moveTo(window, System.currentTimeMillis(), backToNow)
+        backToNow = false
+    }
     LaunchedEffect(selected) {
         if (guide.row != 0) guide.reset(System.currentTimeMillis())
         guide.listState.scrollToItem(0)

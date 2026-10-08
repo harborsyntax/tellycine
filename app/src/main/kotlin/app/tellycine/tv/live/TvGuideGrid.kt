@@ -101,7 +101,10 @@ private fun rowKey(row: ChannelRow) = "${row.stream.kind}:${row.stream.streamId}
  * focused programme above the grid.
  */
 @Stable
-class TvGuideState(val window: GuideWindow, now: Long) {
+class TvGuideState(window: GuideWindow, now: Long) {
+    /** The span of time the grid covers; changes when the guide is reloaded or the screen comes back much later. */
+    var window by mutableStateOf(window)
+        private set
     var row by mutableIntStateOf(0)
     var timeMs by mutableLongStateOf(now.coerceIn(window.startMs, window.endMs - 1))
     var onChannel by mutableStateOf(false)
@@ -123,10 +126,25 @@ class TvGuideState(val window: GuideWindow, now: Long) {
         timeMs = now.coerceIn(window.startMs, window.endMs - 1)
         viewStart = floorToSlot(now).coerceIn(window.startMs, window.endMs)
     }
+
+    /**
+     * Moves to a new [window], keeping the highlighted channel. The highlighted time is kept if
+     * the new window still covers it, unless [backToNow] (returning to the screen much later).
+     */
+    fun moveTo(window: GuideWindow, now: Long, backToNow: Boolean) {
+        this.window = window
+        if (backToNow || timeMs !in window.startMs until window.endMs) {
+            timeMs = now.coerceIn(window.startMs, window.endMs - 1)
+            viewStart = floorToSlot(now).coerceIn(window.startMs, window.endMs)
+        } else {
+            viewStart = viewStart.coerceIn(window.startMs, window.endMs)
+        }
+    }
 }
 
+/** Guide state that survives the guide being reloaded (see [TvGuideState.moveTo]). */
 @Composable
-fun rememberTvGuideState(window: GuideWindow): TvGuideState = remember(window) { TvGuideState(window, System.currentTimeMillis()) }
+fun rememberTvGuideState(window: GuideWindow): TvGuideState = remember { TvGuideState(window, System.currentTimeMillis()) }
 
 /**
  * A traditional TV guide driven by the remote. The grid takes focus as a whole and moves a
@@ -310,6 +328,12 @@ fun TvGuideGrid(
             }
         }
 
+        // A shorter list (a favourite removed, a refresh) keeps the highlight on a real row.
+        LaunchedEffect(channels.itemCount) {
+            val count = channels.itemCount
+            if (count > 0 && state.row >= count) state.row = count - 1
+        }
+
         // Keep the focused row on screen, with a row of context above and below.
         LaunchedEffect(state) {
             snapshotFlow { state.row }.collect { row ->
@@ -368,7 +392,7 @@ private fun GuideRow(
 ) {
     val window = state.window
     val key = rowKey(row)
-    LaunchedEffect(key, version) {
+    LaunchedEffect(key, version, window) {
         state.programmes[key] = loadProgrammes(row)
     }
     // Rows that scroll away let go of their programmes.

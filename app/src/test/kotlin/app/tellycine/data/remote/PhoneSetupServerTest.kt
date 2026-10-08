@@ -91,8 +91,9 @@ class PhoneSetupServerTest {
         val parsed = PhoneSetupServer.parseMultipart(body, "multipart/form-data; boundary=$boundary")
         assertEquals("file", parsed.fields["type"])
         assertEquals("Kitchen TV", parsed.fields["name"])
-        assertEquals("list.m3u", parsed.fileName)
-        assertEquals("#EXTM3U\r\n#EXTINF:-1,One\r\nhttp://example.com/1.ts\r\n", String(parsed.fileBytes!!))
+        assertEquals("list.m3u", parsed.file?.name)
+        assertEquals("#EXTM3U\r\n#EXTINF:-1,One\r\nhttp://example.com/1.ts\r\n", String(parsed.file!!.bytes()))
+        assertEquals(String(parsed.file!!.bytes()), parsed.file!!.open().bufferedReader().readText())
     }
 
     @Test
@@ -101,8 +102,13 @@ class PhoneSetupServerTest {
         val body = "--b\r\nContent-Disposition: form-data; name=\"type\"\r\n\r\nm3u\r\n--b\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\"\r\n\r\n\r\n--b--\r\n".toByteArray()
         val parsed = PhoneSetupServer.parseMultipart(body, "multipart/form-data; boundary=\"$boundary\"")
         assertEquals("m3u", parsed.fields["type"])
-        assertNull(parsed.fileName)
-        assertNull(parsed.fileBytes)
+        assertNull(parsed.file)
+    }
+
+    @Test
+    fun doesNotStartOnceStopped() {
+        server.stop()
+        assertNull(server.start(scope, host = "127.0.0.1"))
     }
 
     @Test

@@ -57,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -101,6 +102,13 @@ import java.util.Locale
 
 private enum class TvOverlay { NONE, INFO, CONTROLS, CHANNELS, TRACKS }
 
+/** Remote keys that control playback whatever has focus. */
+private val MediaKeyCodes = setOf(
+    KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE,
+    KeyEvent.KEYCODE_MEDIA_REWIND, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD,
+    KeyEvent.KEYCODE_INFO, KeyEvent.KEYCODE_CAPTIONS, KeyEvent.KEYCODE_GUIDE,
+)
+
 /** Everything the TV player needs to show about the current live channel. */
 data class LiveInfo(
     val channel: StreamEntity? = null,
@@ -143,6 +151,8 @@ fun TvPlayerScreen(
     var okDown by remember { mutableStateOf(false) }
     var playerView by remember { mutableStateOf<PlayerView?>(null) }
     val root = remember { FocusRequester() }
+    // Keys reach the root after any focused control; it only acts on them when it has focus itself.
+    var rootFocused by remember { mutableStateOf(false) }
     val isLive = request?.isLive == true
 
     LaunchedEffect(resizeMode) { playerView?.resizeMode = RESIZE_MODES[resizeMode].first }
@@ -193,6 +203,9 @@ fun TvPlayerScreen(
     fun handleKey(native: KeyEvent): Boolean {
         val down = native.action == KeyEvent.ACTION_DOWN
         val code = native.keyCode
+        // With controls, the channel list or an error showing, arrows and OK belong to them;
+        // only the media keys still work from anywhere.
+        if (!rootFocused && code !in MediaKeyCodes) return false
         if (code in OkKeyCodes) {
             // Opened on release: the press would otherwise land on the first control.
             if (down && native.repeatCount == 0) okDown = true
@@ -228,11 +241,11 @@ fun TvPlayerScreen(
                 true
             }
             KeyEvent.KEYCODE_DPAD_LEFT -> {
-                if (isLive) overlay = TvOverlay.CHANNELS else seekBy(-10_000)
+                if (!isLive) seekBy(-10_000) else if (channels.isNotEmpty()) overlay = TvOverlay.CHANNELS
                 true
             }
             KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                if (isLive) overlay = TvOverlay.CHANNELS else seekBy(30_000)
+                if (!isLive) seekBy(30_000) else if (channels.isNotEmpty()) overlay = TvOverlay.CHANNELS
                 true
             }
             KeyEvent.KEYCODE_MEDIA_REWIND -> {
@@ -285,6 +298,7 @@ fun TvPlayerScreen(
                 false
             }
             .focusRequester(root)
+            .onFocusChanged { rootFocused = it.isFocused }
             .onKeyEvent { handleKey(it.nativeKeyEvent) }
             .focusable(),
     ) {
@@ -324,7 +338,7 @@ fun TvPlayerScreen(
                 resizeLabel = RESIZE_MODES[resizeMode].second,
                 onTogglePlay = ::togglePlay,
                 onSeek = ::seekBy,
-                onChannels = { overlay = TvOverlay.CHANNELS },
+                onChannels = { if (channels.isNotEmpty()) overlay = TvOverlay.CHANNELS },
                 onPreviousChannel = onPreviousChannel,
                 onToggleFavorite = onToggleFavorite,
                 onTracks = { overlay = TvOverlay.TRACKS },

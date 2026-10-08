@@ -115,7 +115,6 @@ class PlayerActivity : FragmentActivity() {
         setUpCast()
 
         if (tv) {
-            mediaSession = runCatching { MediaSession.Builder(this, exoPlayer).build() }.getOrNull()
             lifecycleScope.launch {
                 container.settings.settings.collect { matchFrameRate = it.matchFrameRate }
             }
@@ -595,8 +594,21 @@ class PlayerActivity : FragmentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        // Only while the player is on screen, so the remote's play button can't restart a
+        // stream in the background after leaving.
+        if (tv && mediaSession == null) {
+            mediaSession = runCatching {
+                MediaSession.Builder(this, exoPlayer).setId("tellycine-player-${System.identityHashCode(this)}").build()
+            }.getOrNull()
+        }
+    }
+
     override fun onStop() {
         super.onStop()
+        mediaSession?.release()
+        mediaSession = null
         saveProgress()
         // Keep the TV playing when the app goes to the background while casting.
         if (!isInPictureInPictureMode && !isCasting()) player.pause()
@@ -605,7 +617,6 @@ class PlayerActivity : FragmentActivity() {
     override fun onDestroy() {
         saveProgress()
         progressJob?.cancel()
-        mediaSession?.release()
         exoPlayer.removeListener(listener)
         exoPlayer.release()
         castPlayer?.let {

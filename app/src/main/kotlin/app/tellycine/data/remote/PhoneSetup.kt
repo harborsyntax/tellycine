@@ -17,9 +17,9 @@ suspend fun addPlaylistFromPhone(context: Context, container: AppContainer, subm
     val epg = fields["epg"].orEmpty().trim()
     val playlist = when (fields["type"]) {
         "file" -> {
-            val bytes = submission.fileBytes ?: error("Choose a playlist file.")
-            val fileName = submission.fileName?.substringAfterLast('/')?.substringAfterLast('\\') ?: "playlist.m3u"
-            val uri = withContext(Dispatchers.IO) { PlaylistFiles.save(context, fileName, bytes.inputStream()) }
+            val upload = submission.file ?: error("Choose a playlist file.")
+            val fileName = upload.name.substringAfterLast('/').substringAfterLast('\\').ifBlank { "playlist.m3u" }
+            val uri = withContext(Dispatchers.IO) { upload.open().use { PlaylistFiles.save(context, fileName, it) } }
             PlaylistEntity(name = name.ifEmpty { fileName.substringBeforeLast('.').ifEmpty { "Playlist" } }, type = PlaylistType.M3U_FILE, url = uri, epgUrl = epg)
         }
         "m3u" -> {

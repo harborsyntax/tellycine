@@ -6,7 +6,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.asCoroutineDispatcher
 import java.io.BufferedInputStream
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.Inet4Address
@@ -15,9 +17,16 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
 import java.security.SecureRandom
+import java.util.concurrent.Executors
+
+/** An uploaded file, kept as a slice of the request body rather than a second copy of it. */
+class UploadedFile(val name: String, private val data: ByteArray, private val offset: Int, val size: Int) {
+    fun open(): InputStream = ByteArrayInputStream(data, offset, size)
+    fun bytes(): ByteArray = data.copyOfRange(offset, offset + size)
+}
 
 /** What a phone sent from the setup page: form fields, and a playlist file if one was attached. */
-class PhoneSubmission(val fields: Map<String, String>, val fileName: String?, val fileBytes: ByteArray?)
+class PhoneSubmission(val fields: Map<String, String>, val file: UploadedFile?)
 
 /**
  * A tiny web server, running only while the TV's "add from phone" screen is open, that serves a
@@ -29,33 +38,50 @@ class PhoneSetupServer(private val onSubmit: suspend (PhoneSubmission) -> Result
         val random = SecureRandom()
         repeat(8) { append(ALPHABET[random.nextInt(ALPHABET.length)]) }
     }
+    private val lock = Any()
     private var server: ServerSocket? = null
     private var job: Job? = null
+    private var stopped = false
+
+    /** A few threads of its own, so slow or idle connections can't hold up the rest of the app. */
+    private val executor = Executors.newFixedThreadPool(MAX_CONNECTIONS)
+    private val dispatcher = executor.asCoroutineDispatcher()
 
     /** Starts listening; returns the address to open on the phone, or null without a local network. */
     fun start(scope: CoroutineScope, host: String? = lanAddress()): String? {
         if (host == null) return null
         val socket = ServerSocket(0)
-        server = socket
-        job = scope.launch(Dispatchers.IO) {
-            while (isActive && !socket.isClosed) {
-                val client = runCatching { socket.accept() }.getOrNull() ?: break
-                launch { client.use { handle(it) } }
+        synchronized(lock) {
+            // The screen may have closed while the socket was opening.
+            if (stopped) {
+                socket.close()
+                return null
+            }
+            server = socket
+            job = scope.launch(Dispatchers.IO) {
+                while (isActive && !socket.isClosed) {
+                    val client = runCatching { socket.accept() }.getOrNull() ?: break
+                    launch(dispatcher) { client.use { handle(it) } }
+                }
             }
         }
         return "http://$host:${socket.localPort}/?t=$token"
     }
 
     fun stop() {
-        runCatching { server?.close() }
-        job?.cancel()
+        synchronized(lock) {
+            stopped = true
+            runCatching { server?.close() }
+            job?.cancel()
+        }
+        executor.shutdownNow()
     }
 
     private suspend fun handle(client: Socket) {
         try {
-            client.soTimeout = 30_000
+            client.soTimeout = 10_000
             val input = BufferedInputStream(client.getInputStream())
-            val head = readHead(input) ?: return
+            val head = readHead(input, deadline = System.nanoTime() + HEAD_TIMEOUT_NS) ?: return
             val lines = head.split("\r\n")
             val (method, target) = lines.first().split(" ").let { (it.getOrNull(0) ?: "") to (it.getOrNull(1) ?: "/") }
             val headers = lines.drop(1).mapNotNull { line ->
@@ -81,7 +107,7 @@ class PhoneSetupServer(private val onSubmit: suspend (PhoneSubmission) -> Result
                     val submission = if (type.startsWith("multipart/form-data")) {
                         parseMultipart(body, type)
                     } else {
-                        PhoneSubmission(parseUrlEncoded(String(body, Charsets.UTF_8)), null, null)
+                        PhoneSubmission(parseUrlEncoded(String(body, Charsets.UTF_8)), null)
                     }
                     val result = onSubmit(submission)
                     result.fold(
@@ -95,15 +121,20 @@ class PhoneSetupServer(private val onSubmit: suspend (PhoneSubmission) -> Result
                 }
                 else -> respond(client, 404, page("Not found", ""))
             }
+        } catch (e: OutOfMemoryError) {
+            // A playlist file too big for the TV's memory: say so rather than crash.
+            runCatching { respond(client, 413, page("That file is too big for this TV", "<p>Use a playlist URL instead.</p>")) }
         } catch (e: Exception) {
             Log.w("PhoneSetupServer", "Request failed", e)
         }
     }
 
-    private fun readHead(input: InputStream): String? {
+    /** Reads the request line and headers, giving up at [deadline] so a trickling client can't hold a thread. */
+    private fun readHead(input: InputStream, deadline: Long): String? {
         val out = ByteArrayOutputStream()
         var matched = 0
         while (out.size() < 16_384) {
+            if (System.nanoTime() > deadline) return null
             val b = input.read()
             if (b < 0) return null
             out.write(b)
@@ -149,6 +180,8 @@ class PhoneSetupServer(private val onSubmit: suspend (PhoneSubmission) -> Result
     companion object {
         private const val ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
         private const val MAX_BODY = 100L * 1024 * 1024
+        private const val MAX_CONNECTIONS = 4
+        private const val HEAD_TIMEOUT_NS = 15_000_000_000L
 
         /** This device's address on the local network (Wi-Fi or Ethernet). */
         fun lanAddress(): String? = runCatching {
@@ -172,8 +205,7 @@ class PhoneSetupServer(private val onSubmit: suspend (PhoneSubmission) -> Result
             require(boundary.isNotEmpty()) { "The form couldn't be read." }
             val delimiter = "--$boundary".toByteArray(Charsets.ISO_8859_1)
             val fields = LinkedHashMap<String, String>()
-            var fileName: String? = null
-            var fileBytes: ByteArray? = null
+            var upload: UploadedFile? = null
             var start = indexOf(body, delimiter, 0)
             while (start >= 0) {
                 val partStart = start + delimiter.size
@@ -188,12 +220,11 @@ class PhoneSetupServer(private val onSubmit: suspend (PhoneSubmission) -> Result
                     val contentEnd = (next - 2).coerceAtLeast(contentStart) // Drop the CRLF before the delimiter.
                     val disposition = head.lines().firstOrNull { it.trim().lowercase().startsWith("content-disposition") }.orEmpty()
                     val name = Regex("name=\"([^\"]*)\"").find(disposition)?.groupValues?.get(1)
-                    val file = Regex("filename=\"([^\"]*)\"").find(disposition)?.groupValues?.get(1)
+                    val filename = Regex("filename=\"([^\"]*)\"").find(disposition)?.groupValues?.get(1)
                     if (name != null) {
-                        if (file != null) {
-                            if (file.isNotBlank() && contentEnd > contentStart) {
-                                fileName = file
-                                fileBytes = body.copyOfRange(contentStart, contentEnd)
+                        if (filename != null) {
+                            if (filename.isNotBlank() && contentEnd > contentStart) {
+                                upload = UploadedFile(filename, body, contentStart, contentEnd - contentStart)
                             }
                         } else {
                             fields[name] = String(body, contentStart, contentEnd - contentStart, Charsets.UTF_8)
@@ -202,7 +233,7 @@ class PhoneSetupServer(private val onSubmit: suspend (PhoneSubmission) -> Result
                 }
                 start = next
             }
-            return PhoneSubmission(fields, fileName, fileBytes)
+            return PhoneSubmission(fields, upload)
         }
 
         private fun indexOf(data: ByteArray, pattern: ByteArray, from: Int): Int {
