@@ -11,7 +11,7 @@ Each playlist card shows:
 - the maximum number of connections, when the provider reports it or you've entered it. See [Maximum connections](Adding-Playlists.md#maximum-connections).
 
 ## Switching playlists
-With more than one playlist, tap the playlist name under the Mosaic logo on the Live TV, Movies, Series or Library tab to switch. You can also tap **Use this playlist** on a card. Each tab shows the active playlist.
+With more than one playlist, tap the playlist name under the Tellycine logo on the Live TV, Movies, Series or Library tab to switch. You can also tap **Use this playlist** on a card. Each tab shows the active playlist.
 
 ## Refreshing
 - **Refresh** reloads the playlist and its TV guide. **Stop** cancels a refresh in progress.

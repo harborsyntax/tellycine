@@ -19,7 +19,7 @@ The **Library** tab collects what you watch most.
 
 - **One item:** long-press it and choose **Remove from favourites**, **Remove from recently watched** or **Remove from continue watching**, depending on the section. Continue watching cards also have an **×**.
 - **Undo:** after removing an item, tap **Undo** in the message at the bottom of the screen to put it back.
-- **Clear all:** **Continue watching** and **Recently watched channels** have a **Clear all** button. Mosaic asks you to confirm first. Clearing Continue watching forgets those resume points. Favourites, downloads and finished titles aren't affected.
+- **Clear all:** **Continue watching** and **Recently watched channels** have a **Clear all** button. Tellycine asks you to confirm first. Clearing Continue watching forgets those resume points. Favourites, downloads and finished titles aren't affected.
 - **Everything:** to wipe all watch history for every playlist, use **Settings → Clear watch history**.
 
 ## Sorting and grouping
@@ -30,4 +30,4 @@ Tap the sort icon in the top bar:
   - **Playlist order:** channel number, then the playlist's own order.
 - **Group by category:** shows one row per category in every section, in the playlist's category order. Items whose category is unknown go under "Other".
 
-Mosaic remembers your choice.
+Tellycine remembers your choice.

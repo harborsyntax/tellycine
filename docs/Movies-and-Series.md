@@ -25,4 +25,4 @@ Tap a poster to open its details: artwork, rating, year, length, genre, plot, di
 - **Progress:** partly watched episodes show a progress bar.
 - **Download:** each episode has its own download button. See [Downloads](Downloads.md).
 
-Xtream accounts load seasons and episodes from the provider. For M3U playlists, Mosaic groups episodes into shows using the `S01E02` pattern in their names.
+Xtream accounts load seasons and episodes from the provider. For M3U playlists, Tellycine groups episodes into shows using the `S01E02` pattern in their names.

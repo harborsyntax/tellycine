@@ -43,24 +43,24 @@ jobs:
       - name: Set up release signing key
         if: steps.version.outputs.skip != 'true'
         env:
-          KEYSTORE_BASE64: ${{ secrets.MOSAIC_KEYSTORE_BASE64 }}
+          KEYSTORE_BASE64: ${{ secrets.TELLYCINE_KEYSTORE_BASE64 }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::Release signing secrets are missing. Add MOSAIC_KEYSTORE_BASE64, MOSAIC_KEYSTORE_PASSWORD, MOSAIC_KEY_ALIAS and MOSAIC_KEY_PASSWORD under Settings > Secrets and variables > Actions."
+            echo "::error::Release signing secrets are missing. Add TELLYCINE_KEYSTORE_BASE64, TELLYCINE_KEYSTORE_PASSWORD, TELLYCINE_KEY_ALIAS and TELLYCINE_KEY_PASSWORD under Settings > Secrets and variables > Actions."
             exit 1
           fi
-          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/mosaic-release.jks"
-          echo "MOSAIC_KEYSTORE=$RUNNER_TEMP/mosaic-release.jks" >> "$GITHUB_ENV"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/tellycine-release.jks"
+          echo "TELLYCINE_KEYSTORE=$RUNNER_TEMP/tellycine-release.jks" >> "$GITHUB_ENV"
 
       - name: Test and build release APK
         if: steps.version.outputs.skip != 'true'
         env:
-          MOSAIC_KEYSTORE_PASSWORD: ${{ secrets.MOSAIC_KEYSTORE_PASSWORD }}
-          MOSAIC_KEY_ALIAS: ${{ secrets.MOSAIC_KEY_ALIAS }}
-          MOSAIC_KEY_PASSWORD: ${{ secrets.MOSAIC_KEY_PASSWORD }}
+          TELLYCINE_KEYSTORE_PASSWORD: ${{ secrets.TELLYCINE_KEYSTORE_PASSWORD }}
+          TELLYCINE_KEY_ALIAS: ${{ secrets.TELLYCINE_KEY_ALIAS }}
+          TELLYCINE_KEY_PASSWORD: ${{ secrets.TELLYCINE_KEY_PASSWORD }}
         run: ./gradlew --no-daemon :core:test :app:assembleRelease
 
-      # Refuse to publish an APK that isn't signed with the permanent Mosaic key.
+      # Refuse to publish an APK that isn't signed with the permanent Tellycine key.
       # (apksigner, not keytool: minSdk 26+ APKs only carry v2/v3 signatures.)
       - name: Verify signing certificate
         if: steps.version.outputs.skip != 'true'
@@ -69,7 +69,7 @@ jobs:
           "$apksigner" verify --print-certs app/build/outputs/apk/release/app-release.apk | tee certs.txt
           expected="b8c7bcc0a92a603ee9365d7d7a52a203cb29de8f89119fc9740a3412c08ef6b6"
           if ! grep -qi "certificate SHA-256 digest: $expected" certs.txt; then
-            echo "::error::Release APK is not signed with the Mosaic release key (expected SHA-256 $expected)."
+            echo "::error::Release APK is not signed with the Tellycine release key (expected SHA-256 $expected)."
             exit 1
           fi
 
@@ -79,28 +79,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
-          apk="mosaic-${TAG}.apk"
+          apk="tellycine-${TAG}.apk"
           cp app/build/outputs/apk/release/app-release.apk "$apk"
           sha256sum "$apk" > "$apk.sha256"
           cat > notes.md <<NOTES
-          Mosaic ${TAG} — an IPTV player for Android phones and tablets (Android 8.0+).
+          Tellycine ${TAG} — an IPTV player for Android phones and tablets (Android 8.0+).
 
           **Install:** download \`${apk}\` on your device and open it (allow installing from unknown sources when asked).
 
-          - M3U/M3U8 links, local M3U files and Xtream Codes logins
-          - XMLTV TV guide with now/next and per-channel schedules
-          - Live TV, movies and series with categories, favourites, continue watching and search
-          - Multiple playlists, built to handle very large playlists and guides
-          - Media3 player with picture-in-picture, track selection, resume and channel zapping
-          - Material You design with adaptive phone/tablet layouts
+          - M3U/M3U8 links, local M3U files, Xtream Codes and Dispatcharr, with multiple playlists
+          - XMLTV TV guide, with a grid guide in landscape, and catch-up TV
+          - Live TV, movies and series with favourites, continue watching and search
+          - Offline downloads, Chromecast, and Open with… other players
+          - Media3 player with picture-in-picture, track selection, resume and channel switching
+          - Material 3 design with light and dark themes and phone/tablet layouts
 
           Signing certificate SHA-256: \`B8:C7:BC:C0:A9:2A:60:3E:E9:36:5D:7D:7A:52:A2:03:CB:29:DE:8F:89:11:9F:C9:74:0A:34:12:C0:8E:F6:B6\`
 
-          Mosaic does not provide any content.
+          Tellycine does not provide any content.
           NOTES
           # Per-version highlights, if present, go first.
           if [ -f "release-notes/${TAG}.md" ]; then
             { cat "release-notes/${TAG}.md"; echo; echo "---"; echo; cat notes.md; } > notes-full.md
             mv notes-full.md notes.md
           fi
-          gh release create "$TAG" "$apk" "$apk.sha256" --target "$GITHUB_SHA" --title "Mosaic ${TAG}" --notes-file notes.md
+          gh release create "$TAG" "$apk" "$apk.sha256" --target "$GITHUB_SHA" --title "Tellycine ${TAG}" --notes-file notes.md

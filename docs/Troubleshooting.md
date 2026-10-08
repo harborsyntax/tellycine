@@ -2,7 +2,7 @@
 
 ## Installing
 **"App not installed" when updating**
-Versions before 1.4.2 were signed with a temporary key. Uninstall once, then install the latest version. Later updates install over the top.
+Every release is signed with the same key, so updates install over the top. If Android still refuses, the installed copy was built and signed elsewhere (for example a debug build). Uninstall it once, then install the release.
 
 **Play Protect warns about an unknown developer**
 This is normal for apps installed outside the Play Store. Tap **More details → Install anyway**.
@@ -19,8 +19,8 @@ Your credentials are wrong, or the provider requires a particular user agent. Pi
 - **Check the channel IDs:** channels match the guide by `tvg-id`, then by name. If your playlist's IDs don't match the guide's channel IDs, add the matching guide URL.
 - **Try a manual refresh:** use **⋮ → Update TV guide only**.
 
-**The same programme appears more than once in a channel's guide**
-Fixed in 1.9.1. Older versions could match one channel to several guide channels with the same name, such as regional or HD versions, and show all their programmes. Mosaic now uses one guide channel per channel, preferring an exact `tvg-id` match, and skips repeated programmes. Guides re-import automatically the next time the app starts. To do it straight away, use **⋮ → Update TV guide only**. If a channel now shows the wrong region's schedule, give it the right `tvg-id` in your playlist.
+**A channel shows another region's schedule**
+Channels without a `tvg-id` are matched to the guide by name, and Tellycine uses the first guide channel with that name. If that's the wrong region, give the channel the right `tvg-id` in your playlist.
 
 ## Playback
 **A channel won't play**

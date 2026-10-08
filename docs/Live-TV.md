@@ -15,7 +15,7 @@
 - **The history icon** after a name means the channel has [catch-up](Catch-up.md).
 
 ## Grid TV guide (landscape)
-Turn your phone or tablet sideways and tap the **guide** icon in the top bar for a traditional TV guide. Tap the **list** icon to switch back. Mosaic remembers your choice, and uses the list whenever the screen is upright.
+Turn your phone or tablet sideways and tap the **guide** icon in the top bar for a traditional TV guide. Tap the **list** icon to switch back. Tellycine remembers your choice, and uses the list whenever the screen is upright.
 
 <img src="images/screens/tv-guide-grid.png" width="600" alt="Grid TV guide">
 
@@ -45,4 +45,4 @@ Long-press a channel to open its guide sheet.
 - With [Dispatcharr recordings](Dispatcharr.md) connected, current and upcoming programmes have a **record** button. Tap it again to cancel.
 
 ## Where the guide comes from
-Mosaic matches channels to the XMLTV guide by `tvg-id`, falling back to the channel name. It keeps the number of days ahead set in [Settings](Settings.md) (1–7), plus up to 7 days back for catch-up channels.
+Tellycine matches channels to the XMLTV guide by `tvg-id`, falling back to the channel name. It keeps the number of days ahead set in [Settings](Settings.md) (1–7), plus up to 7 days back for catch-up channels.

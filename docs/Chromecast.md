@@ -11,8 +11,8 @@
 | Content | Casts? |
 | --- | --- |
 | HLS (`.m3u8`), DASH, MP4 movies and episodes | ✅ |
-| Xtream Codes live channels | ✅ Mosaic switches them to the provider's HLS stream |
-| **Dispatcharr live channels** | ✅ On Dispatcharr 0.25 or newer, Mosaic casts its MP4 output. See [Dispatcharr](Dispatcharr.md#casting-live-channels) |
+| Xtream Codes live channels | ✅ Tellycine switches them to the provider's HLS stream |
+| **Dispatcharr live channels** | ✅ On Dispatcharr 0.25 or newer, Tellycine casts its MP4 output. See [Dispatcharr](Dispatcharr.md#casting-live-channels) |
 | Other raw MPEG-TS streams | ❌ Chromecast can't play raw TS |
 | Streams that need a specific user agent or referrer | ⚠️ Often fail, because the TV fetches the stream itself |
 | Dispatcharr recordings | ❌ They play on your phone only |
@@ -22,6 +22,6 @@ Many movies, especially MKV files, have Dolby Digital, Dolby Digital Plus, DTS o
 - **Dolby:** Chromecast sends it straight to your TV or soundbar. If they don't support Dolby, you get the picture with no sound. On Google TV models, check the Chromecast's surround sound setting.
 - **DTS and TrueHD:** Chromecast can't play them at all.
 
-Before casting a movie or episode, Mosaic checks its soundtracks. If the sound probably won't play, it says so on the player screen while casting, and mentions any other soundtrack in the file, such as AAC. To hear these titles, watch them on your phone or tablet instead, or pick a version with AAC sound if your provider has one.
+Before casting a movie or episode, Tellycine checks its soundtracks. If the sound probably won't play, it says so on the player screen while casting, and mentions any other soundtrack in the file, such as AAC. To hear these titles, watch them on your phone or tablet instead, or pick a version with AAC sound if your provider has one.
 
 Casting needs Google Play services on your phone. Without them, the Cast button doesn't appear.

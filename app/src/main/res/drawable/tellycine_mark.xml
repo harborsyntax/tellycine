@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tellycine brand mark: an old TV with aerials showing a film reel (telly + cine). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <group android:translateY="2.6">
+        <path android:strokeColor="#B4B2A9" android:strokeWidth="4.5" android:strokeLineCap="round" android:pathData="M50,27L33,7M50,27L67,7" />
+        <path android:fillColor="#888780" android:pathData="M19,26h62a13,13 0 0 1 13,13v38a13,13 0 0 1 -13,13h-62a13,13 0 0 1 -13,-13v-38a13,13 0 0 1 13,-13z" />
+        <path android:fillColor="#444441" android:pathData="M22,34h44a8,8 0 0 1 8,8v32a8,8 0 0 1 -8,8h-44a8,8 0 0 1 -8,-8v-32a8,8 0 0 1 8,-8z" />
+        <path android:fillColor="#EF9F27" android:pathData="M26,57a18,18 0 1 0 36,0a18,18 0 1 0 -36,0z" />
+        <path android:fillColor="#412402" android:pathData="M40.4,48a3.6,3.6 0 1 0 7.2,0a3.6,3.6 0 1 0 -7.2,0zM48.96,54.22a3.6,3.6 0 1 0 7.2,0a3.6,3.6 0 1 0 -7.2,0zM45.69,64.28a3.6,3.6 0 1 0 7.2,0a3.6,3.6 0 1 0 -7.2,0zM35.11,64.28a3.6,3.6 0 1 0 7.2,0a3.6,3.6 0 1 0 -7.2,0zM31.84,54.22a3.6,3.6 0 1 0 7.2,0a3.6,3.6 0 1 0 -7.2,0zM41.4,57a2.6,2.6 0 1 0 5.2,0a2.6,2.6 0 1 0 -5.2,0z" />
+        <path android:fillColor="#B4B2A9" android:pathData="M79.5,44a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z" />
+        <path android:fillColor="#5F5E5A" android:pathData="M79.5,58a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z" />
+        <path android:fillColor="#5F5E5A" android:pathData="M82,68h4a2,2 0 0 1 2,2v8a2,2 0 0 1 -2,2h-4a2,2 0 0 1 -2,-2v-8a2,2 0 0 1 2,-2z" />
+    </group>
+</vector>

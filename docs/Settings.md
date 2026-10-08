@@ -7,7 +7,7 @@ Open **Playlists → ⚙ Settings**.
 | Setting | What it does |
 | --- | --- |
 | **Theme** | System default, Light or Dark. |
-| **Dynamic colour** | Matches colours to your wallpaper (Android 12+). When it's off, Mosaic uses its own amber palette. |
+| **Dynamic colour** | Matches colours to your wallpaper (Android 12+). When it's off, Tellycine uses its own amber palette. |
 | **Default player** | **Built-in player**, or **External app** to hand all playback to another app. See [Player](Player.md). |
 | **Download over Wi-Fi only** | Downloads wait for Wi-Fi or another unmetered connection. On by default. See [Downloads](Downloads.md). |
 | **Manage downloads** | Opens the Downloads screen. |

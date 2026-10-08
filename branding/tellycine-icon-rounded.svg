@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Tellycine app icon</title>
+  <!-- tellycine-icon.svg with rounded corners for display (READMEs, web). -->
+  <defs><clipPath id="r"><rect width="1024" height="1024" rx="230"/></clipPath></defs>
+  <g clip-path="url(#r)">
+  <rect width="1024" height="1024" fill="#2C2C2A"/>
+  <g transform="translate(71.11,39.37) scale(8.82)"><path d="M50,27L33,7M50,27L67,7" fill="none" stroke="#B4B2A9" stroke-width="4.5" stroke-linecap="round"/><path d="M19,26h62a13,13 0 0 1 13,13v38a13,13 0 0 1 -13,13h-62a13,13 0 0 1 -13,-13v-38a13,13 0 0 1 13,-13z" fill="#888780"/><path d="M22,34h44a8,8 0 0 1 8,8v32a8,8 0 0 1 -8,8h-44a8,8 0 0 1 -8,-8v-32a8,8 0 0 1 8,-8z" fill="#444441"/><path d="M26,57a18,18 0 1 0 36,0a18,18 0 1 0 -36,0z" fill="#EF9F27"/><path d="M40.4,48a3.6,3.6 0 1 0 7.2,0a3.6,3.6 0 1 0 -7.2,0zM48.96,54.22a3.6,3.6 0 1 0 7.2,0a3.6,3.6 0 1 0 -7.2,0zM45.69,64.28a3.6,3.6 0 1 0 7.2,0a3.6,3.6 0 1 0 -7.2,0zM35.11,64.28a3.6,3.6 0 1 0 7.2,0a3.6,3.6 0 1 0 -7.2,0zM31.84,54.22a3.6,3.6 0 1 0 7.2,0a3.6,3.6 0 1 0 -7.2,0zM41.4,57a2.6,2.6 0 1 0 5.2,0a2.6,2.6 0 1 0 -5.2,0z" fill="#412402"/><path d="M79.5,44a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z" fill="#B4B2A9"/><path d="M79.5,58a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z" fill="#5F5E5A"/><path d="M82,68h4a2,2 0 0 1 2,2v8a2,2 0 0 1 -2,2h-4a2,2 0 0 1 -2,-2v-8a2,2 0 0 1 2,-2z" fill="#5F5E5A"/></g>
+  </g>
+</svg>

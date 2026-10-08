@@ -1,17 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Themed-icon layer: the system recolours it, so tiles differ by opacity only. -->
+<!-- Themed-icon layer: the system recolours it. The screen, dials and reel holes are cut out. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.6" android:pathData="M32.24,29.01h8.06a3.22,3.22 0 0 1 3.22,3.22v8.06a3.22,3.22 0 0 1 -3.22,3.22h-8.06a3.22,3.22 0 0 1 -3.22,-3.22v-8.06a3.22,3.22 0 0 1 3.22,-3.22z" />
-    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.75" android:pathData="M49.97,29.01h8.06a3.22,3.22 0 0 1 3.22,3.22v8.06a3.22,3.22 0 0 1 -3.22,3.22h-8.06a3.22,3.22 0 0 1 -3.22,-3.22v-8.06a3.22,3.22 0 0 1 3.22,-3.22z" />
-    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.9" android:pathData="M67.70,29.01h8.06a3.22,3.22 0 0 1 3.22,3.22v8.06a3.22,3.22 0 0 1 -3.22,3.22h-8.06a3.22,3.22 0 0 1 -3.22,-3.22v-8.06a3.22,3.22 0 0 1 3.22,-3.22z" />
-    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.45" android:pathData="M32.24,46.74h8.06a3.22,3.22 0 0 1 3.22,3.22v8.06a3.22,3.22 0 0 1 -3.22,3.22h-8.06a3.22,3.22 0 0 1 -3.22,-3.22v-8.06a3.22,3.22 0 0 1 3.22,-3.22z" />
-    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M49.97,46.74h8.06a3.22,3.22 0 0 1 3.22,3.22v8.06a3.22,3.22 0 0 1 -3.22,3.22h-8.06a3.22,3.22 0 0 1 -3.22,-3.22v-8.06a3.22,3.22 0 0 1 3.22,-3.22z M50.77,49.16L50.77,58.83L58.83,54.00z" />
-    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.75" android:pathData="M67.70,46.74h8.06a3.22,3.22 0 0 1 3.22,3.22v8.06a3.22,3.22 0 0 1 -3.22,3.22h-8.06a3.22,3.22 0 0 1 -3.22,-3.22v-8.06a3.22,3.22 0 0 1 3.22,-3.22z" />
-    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.9" android:pathData="M32.24,64.48h8.06a3.22,3.22 0 0 1 3.22,3.22v8.06a3.22,3.22 0 0 1 -3.22,3.22h-8.06a3.22,3.22 0 0 1 -3.22,-3.22v-8.06a3.22,3.22 0 0 1 3.22,-3.22z" />
-    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.6" android:pathData="M49.97,64.48h8.06a3.22,3.22 0 0 1 3.22,3.22v8.06a3.22,3.22 0 0 1 -3.22,3.22h-8.06a3.22,3.22 0 0 1 -3.22,-3.22v-8.06a3.22,3.22 0 0 1 3.22,-3.22z" />
-    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.45" android:pathData="M67.70,64.48h8.06a3.22,3.22 0 0 1 3.22,3.22v8.06a3.22,3.22 0 0 1 -3.22,3.22h-8.06a3.22,3.22 0 0 1 -3.22,-3.22v-8.06a3.22,3.22 0 0 1 3.22,-3.22z" />
+    <group android:translateX="23" android:translateY="20.77" android:scaleX="0.62" android:scaleY="0.62">
+        <path android:strokeColor="#FFFFFFFF" android:strokeWidth="4.5" android:strokeLineCap="round" android:pathData="M50,27L33,7M50,27L67,7" />
+        <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M19,26h62a13,13 0 0 1 13,13v38a13,13 0 0 1 -13,13h-62a13,13 0 0 1 -13,-13v-38a13,13 0 0 1 13,-13zM22,34h44a8,8 0 0 1 8,8v32a8,8 0 0 1 -8,8h-44a8,8 0 0 1 -8,-8v-32a8,8 0 0 1 8,-8zM79.5,44a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0zM79.5,58a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0zM82,68h4a2,2 0 0 1 2,2v8a2,2 0 0 1 -2,2h-4a2,2 0 0 1 -2,-2v-8a2,2 0 0 1 2,-2z" />
+        <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M26,57a18,18 0 1 0 36,0a18,18 0 1 0 -36,0zM40.4,48a3.6,3.6 0 1 0 7.2,0a3.6,3.6 0 1 0 -7.2,0zM48.96,54.22a3.6,3.6 0 1 0 7.2,0a3.6,3.6 0 1 0 -7.2,0zM45.69,64.28a3.6,3.6 0 1 0 7.2,0a3.6,3.6 0 1 0 -7.2,0zM35.11,64.28a3.6,3.6 0 1 0 7.2,0a3.6,3.6 0 1 0 -7.2,0zM31.84,54.22a3.6,3.6 0 1 0 7.2,0a3.6,3.6 0 1 0 -7.2,0zM41.4,57a2.6,2.6 0 1 0 5.2,0a2.6,2.6 0 1 0 -5.2,0z" />
+    </group>
 </vector>

@@ -4,4 +4,4 @@
 -dontwarn org.kxml2.**
 
 # The Cast options provider is only referenced by name from the manifest.
--keep class app.mosaic.cast.CastOptionsProvider { *; }
+-keep class app.tellycine.cast.CastOptionsProvider { *; }
