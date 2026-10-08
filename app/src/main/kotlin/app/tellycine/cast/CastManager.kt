@@ -5,14 +5,16 @@ import android.util.Log
 import com.google.android.gms.cast.framework.CastContext
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
+import app.tellycine.tv.isTelevision
 
 /**
- * Lazily initialises the Cast framework. On devices without Google Play services
- * [castContext] stays null and every cast entry point hides itself.
+ * Lazily initialises the Cast framework. On devices without Google Play services, and on TVs
+ * (which are the screen already), [castContext] stays null and every cast entry point hides itself.
  */
 class CastManager(private val context: Context) {
 
     val castContext: CastContext? by lazy {
+        if (context.isTelevision()) return@lazy null
         val available = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context) == ConnectionResult.SUCCESS
         if (!available) {
             null

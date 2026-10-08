@@ -1,6 +1,8 @@
 package app.tellycine.data.repo
 
+import android.content.Context
 import app.tellycine.data.db.PlaylistEntity
+import app.tellycine.data.db.PlaylistType
 import app.tellycine.data.db.TellycineDatabase
 import app.tellycine.data.settings.SettingsRepository
 import app.tellycine.data.sync.SyncManager
@@ -10,6 +12,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 class PlaylistRepository(
+    private val context: Context,
     private val db: TellycineDatabase,
     private val settings: SettingsRepository,
     private val syncManager: SyncManager,
@@ -34,6 +37,8 @@ class PlaylistRepository(
             dao.insert(playlist)
         } else {
             val existing = dao.get(playlist.id)
+            // A replaced playlist file that was copied into app storage isn't needed any more.
+            if (existing?.type == PlaylistType.M3U_FILE && existing.url != playlist.url) PlaylistFiles.delete(context, existing.url)
             dao.upsert(
                 playlist.copy(
                     detectedEpgUrl = existing?.detectedEpgUrl.orEmpty(),
@@ -61,6 +66,7 @@ class PlaylistRepository(
 
     suspend fun delete(id: Long) {
         syncManager.cancel(id)
+        dao.get(id)?.takeIf { it.type == PlaylistType.M3U_FILE }?.let { PlaylistFiles.delete(context, it.url) }
         val content = db.content()
         db.withTransaction {
             content.deleteStreams(id)

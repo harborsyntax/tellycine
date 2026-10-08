@@ -11,7 +11,17 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isRoot
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onRoot
@@ -21,11 +31,14 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import app.tellycine.TellycineApp
 import app.tellycine.data.settings.ThemeMode
+import app.tellycine.tv.TellycineTvTheme
+import app.tellycine.tv.TvApp
 import app.tellycine.ui.TellycineNavHost
 import app.tellycine.ui.theme.TellycineTheme
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import kotlinx.coroutines.Dispatchers
+import org.robolectric.shadows.ShadowDialog
 import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.io.FileOutputStream
@@ -47,6 +60,50 @@ class ScreenshotDriver(private val compose: ComposeRule) {
             TellycineTheme(themeMode = theme, dynamicColor = false) { TellycineNavHost() }
         }
         waitForText("Live TV")
+    }
+
+    /** Starts the TV interface instead of the phone one. */
+    fun launchTv() {
+        DemoData.seed(app.container)
+        compose.setContent {
+            TellycineTvTheme { TvApp() }
+        }
+        waitForText("Metro News 24")
+    }
+
+    /** Presses a remote-control key [times] times on whatever has focus. */
+    @OptIn(ExperimentalTestApi::class)
+    fun press(key: Key, times: Int = 1) {
+        repeat(times) {
+            // The newest window (an open dialog or panel) has the focus.
+            val roots = compose.onAllNodes(isRoot())
+            roots[roots.fetchSemanticsNodes().size - 1].performKeyInput { pressKey(key) }
+            compose.waitForIdle()
+        }
+    }
+
+    /** Presses [key] until [text] shows up, at most [limit] times. */
+    fun pressUntil(key: Key, text: String, limit: Int = 20) {
+        repeat(limit) {
+            if (compose.onAllNodesWithText(text, substring = true, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()) return
+            press(key)
+        }
+        waitForText(text)
+    }
+
+    /** Opens a screen from the TV side menu: Back opens the menu, then its item is chosen. */
+    fun tvTab(label: String, expect: String) {
+        back()
+        tvClick(label)
+        waitForText(expect)
+    }
+
+    /** Activates a TV control by its text. TV controls answer the remote, not touch, so this uses the click action. */
+    fun tvClick(text: String) {
+        waitForText(text)
+        compose.onAllNodes((hasText(text, substring = true) or hasContentDescription(text, substring = true)) and hasClickAction())
+            .onFirst().performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
     }
 
     fun applyTheme(mode: ThemeMode) {
@@ -84,8 +141,12 @@ class ScreenshotDriver(private val compose: ComposeRule) {
         waitForText(expect)
     }
 
+    /** Presses Back: on the topmost dialog or panel if one is open, otherwise on the screen. */
     fun back() {
-        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.runOnUiThread {
+            val dialog = ShadowDialog.getLatestDialog()?.takeIf { it.isShowing }
+            if (dialog != null) dialog.onBackPressed() else compose.activity.onBackPressedDispatcher.onBackPressed()
+        }
         compose.waitForIdle()
     }
 

@@ -61,6 +61,8 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setExternalPlayer(v: Boolean) = viewModelScope.launch { repo.setExternalPlayer(v) }
     fun setDownloadWifiOnly(v: Boolean) = viewModelScope.launch { repo.setDownloadWifiOnly(v) }
     fun clearHistory() = viewModelScope.launch { container.content.clearHistory() }
+    fun setStartOnLastChannel(v: Boolean) = viewModelScope.launch { repo.setStartOnLastChannel(v) }
+    fun setMatchFrameRate(v: Boolean) = viewModelScope.launch { repo.setMatchFrameRate(v) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

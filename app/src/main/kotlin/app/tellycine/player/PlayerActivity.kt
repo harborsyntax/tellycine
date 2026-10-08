@@ -52,6 +52,9 @@ import app.tellycine.data.repo.Categories
 import app.tellycine.data.repo.ContentRepository
 import app.tellycine.data.settings.ThemeMode
 import app.tellycine.ui.theme.TellycineTheme
+import app.tellycine.tv.TellycineTvTheme
+import app.tellycine.tv.isTelevision
+import androidx.media3.session.MediaSession
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -84,6 +87,18 @@ class PlayerActivity : FragmentActivity() {
     private var progressJob: Job? = null
     private var liveRetries = 0
 
+    // ---- TV ----
+    /** On a TV the player is driven by the remote, with its own controls. */
+    private val tv by lazy { isTelevision() }
+    /** The live channel playing, what's on and the channel watched before it (TV banner). */
+    private var liveInfo by mutableStateOf(LiveInfo())
+    private var previousChannel: StreamEntity? = null
+    private var liveInfoJob: Job? = null
+    /** Lets the remote's play/pause and voice commands reach the player. */
+    private var mediaSession: MediaSession? = null
+    /** "Match the TV's refresh rate" setting. */
+    private var matchFrameRate = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -99,7 +114,39 @@ class PlayerActivity : FragmentActivity() {
         activePlayer = exoPlayer
         setUpCast()
 
+        if (tv) {
+            mediaSession = runCatching { MediaSession.Builder(this, exoPlayer).build() }.getOrNull()
+            lifecycleScope.launch {
+                container.settings.settings.collect { matchFrameRate = it.matchFrameRate }
+            }
+        }
+
         setContent {
+            if (tv) {
+                TellycineTvTheme {
+                    TvPlayerScreen(
+                        player = activePlayer ?: exoPlayer,
+                        request = request,
+                        channels = channels,
+                        live = liveInfo,
+                        error = error,
+                        inPip = inPip,
+                        resizeMode = resizeMode,
+                        pipSupported = pipSupported(),
+                        onBack = { finish() },
+                        onRetry = { retry() },
+                        onZap = { zap(it) },
+                        onSelectChannel = { playChannel(it) },
+                        onChannelNumber = { tuneToNumber(it) },
+                        onPreviousChannel = { previousChannel?.let { playChannel(it) } },
+                        onToggleFavorite = { toggleFavorite() },
+                        onOpenWith = { request?.let { openExternally(it, chooser = true) } },
+                        onCycleResize = { resizeMode = (resizeMode + 1) % RESIZE_MODES.size },
+                        onEnterPip = { enterPip() },
+                    )
+                }
+                return@setContent
+            }
             TellycineTheme(themeMode = ThemeMode.DARK, dynamicColor = true) {
                 PlayerScreen(
                     player = activePlayer ?: exoPlayer,
@@ -182,6 +229,7 @@ class PlayerActivity : FragmentActivity() {
         }
         recordHistory(req, 0, 0)
         startProgressUpdates()
+        if (tv) loadLiveInfo(req)
     }
 
     // ---- Chromecast ----
@@ -279,6 +327,9 @@ class PlayerActivity : FragmentActivity() {
 
     private fun playChannel(stream: StreamEntity) {
         val current = request ?: return
+        if (stream.streamId != current.streamId) {
+            previousChannel = channels.firstOrNull { it.streamId == current.streamId } ?: liveInfo.channel
+        }
         saveProgress()
         start(
             current.copy(
@@ -300,6 +351,56 @@ class PlayerActivity : FragmentActivity() {
                 request = request?.copy(subtitle = now.title)
             }
         }
+    }
+
+    // ---- TV: channel banner, number entry, favourites ----
+
+    /** Loads the channel, what's on now and next, and whether it's a favourite, for the TV banner. */
+    private fun loadLiveInfo(req: PlayRequest) {
+        liveInfoJob?.cancel()
+        if (!req.isLive) {
+            liveInfo = LiveInfo()
+            return
+        }
+        liveInfo = LiveInfo(channel = channels.firstOrNull { it.streamId == req.streamId }, previous = previousChannel)
+        liveInfoJob = lifecycleScope.launch {
+            val content = container.content
+            val channel = content.getStream(req.playlistId, ContentKind.LIVE, req.streamId)
+            liveInfo = liveInfo.copy(channel = channel ?: liveInfo.channel)
+            launch {
+                content.isFavorite(req.playlistId, ContentKind.LIVE, req.streamId).collect { liveInfo = liveInfo.copy(favorite = it) }
+            }
+            val epgId = channel?.epgChannelId ?: return@launch
+            // Moves on to the next programme as each one ends.
+            while (isActive) {
+                val now = System.currentTimeMillis()
+                val upcoming = content.schedule(req.playlistId, epgId, now, limit = 2)
+                val current = upcoming.firstOrNull()?.takeIf { it.startMs <= now }
+                liveInfo = liveInfo.copy(now = current, next = upcoming.firstOrNull { it.startMs > now })
+                val nextChange = listOfNotNull(current?.stopMs, upcoming.firstOrNull { it.startMs > now }?.startMs).minOrNull()
+                delay(((nextChange ?: (now + 300_000)) - now).coerceIn(5_000, 600_000))
+            }
+        }
+    }
+
+    /** Tunes to the channel with the number typed on the remote. */
+    private fun tuneToNumber(number: Int) {
+        val req = request ?: return
+        lifecycleScope.launch {
+            val stream = channels.firstOrNull { it.number == number }
+                ?: container.content.channelList(req.playlistId, null).firstOrNull { it.number == number }
+            if (stream != null) {
+                playChannel(stream)
+            } else {
+                Toast.makeText(this@PlayerActivity, "No channel $number", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun toggleFavorite() {
+        val req = request ?: return
+        if (!req.isLive) return
+        lifecycleScope.launch { container.content.toggleFavorite(req.playlistId, ContentKind.LIVE, req.streamId) }
     }
 
     private fun retry() {
@@ -350,6 +451,7 @@ class PlayerActivity : FragmentActivity() {
         }
 
         override fun onVideoSizeChanged(videoSize: VideoSize) {
+            matchDisplayToVideo()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && pipSupported()) {
                 runCatching { setPictureInPictureParams(pipParams()) }
             }
@@ -415,6 +517,36 @@ class PlayerActivity : FragmentActivity() {
         }
     }
 
+    // ---- TV: refresh rate ----
+
+    /**
+     * Switches the TV to a refresh rate that is a whole multiple of the video's frame rate
+     * (50 Hz for 25 or 50 fps, 23.976 Hz for film...), at the current resolution, so motion is
+     * smooth. Only when the setting is on and the stream says its frame rate.
+     */
+    private fun matchDisplayToVideo() {
+        if (!tv || !matchFrameRate || isCasting()) return
+        val fps = exoPlayer.videoFormat?.frameRate?.takeIf { it > 1f } ?: return
+        @Suppress("DEPRECATION")
+        val display = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display else windowManager.defaultDisplay) ?: return
+        val current = display.mode
+        val matching = display.supportedModes
+            .filter { it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight && it.refreshRate >= 23f }
+            .mapNotNull { mode ->
+                val multiple = mode.refreshRate / fps
+                val whole = Math.round(multiple)
+                // Within 0.1%, so 59.94 Hz suits 29.97 fps but not 30 fps.
+                if (whole >= 1 && kotlin.math.abs(multiple - whole) / whole < 0.001f) mode to whole else null
+            }
+            .sortedBy { (_, whole) -> whole }
+        // Film (24 fps) is best shown at 24 Hz; anything else at 50 Hz or more, which also suits interlaced TV.
+        val best = (if (fps < 24.5f) matching.firstOrNull() else matching.firstOrNull { (mode, _) -> mode.refreshRate >= 47f })
+            ?.first ?: return
+        if (best.modeId != current.modeId && window.attributes.preferredDisplayModeId != best.modeId) {
+            window.attributes = window.attributes.apply { preferredDisplayModeId = best.modeId }
+        }
+    }
+
     // ---- Picture in picture & lifecycle ----
 
     private fun pipSupported() = packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE) && !isCasting()
@@ -429,7 +561,7 @@ class PlayerActivity : FragmentActivity() {
             builder.setAspectRatio(Rational(16, 9))
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            builder.setAutoEnterEnabled(player.isPlaying)
+            builder.setAutoEnterEnabled(player.isPlaying && !tv)
             builder.setSeamlessResizeEnabled(true)
         }
         return builder.build()
@@ -442,7 +574,7 @@ class PlayerActivity : FragmentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (player.isPlaying && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) enterPip()
+        if (!tv && player.isPlaying && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) enterPip()
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
@@ -473,6 +605,7 @@ class PlayerActivity : FragmentActivity() {
     override fun onDestroy() {
         saveProgress()
         progressJob?.cancel()
+        mediaSession?.release()
         exoPlayer.removeListener(listener)
         exoPlayer.release()
         castPlayer?.let {

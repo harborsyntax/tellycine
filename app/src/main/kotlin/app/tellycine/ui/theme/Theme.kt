@@ -46,7 +46,7 @@ private val LightColors = lightColorScheme(
     surfaceContainerHighest = Color(0xFFEAE1D8),
 )
 
-private val DarkColors = darkColorScheme(
+internal val DarkColors = darkColorScheme(
     primary = Color(0xFFFFB951),
     onPrimary = Color(0xFF462A00),
     primaryContainer = Color(0xFF643F00),
