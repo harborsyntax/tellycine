@@ -24,7 +24,7 @@ class TabletScreenshots {
         val d = ScreenshotDriver(compose)
         d.launch()
 
-        d.openTab("Live TV", "Tellycine News 24")
+        d.openTab("Live TV", "Metro News 24")
         d.shot("tablet-live-tv")
 
         d.openTab("Movies", "Midnight Harbor")

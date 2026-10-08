@@ -55,7 +55,7 @@ object DemoData {
 
     private val liveCategories = listOf("news" to "News", "sport" to "Sport", "ent" to "Entertainment", "kids" to "Kids", "docs" to "Documentaries", "music" to "Music")
     private val channels = listOf(
-        Triple("Tellycine News 24", "news", listOf("World Tonight", "Business Briefing", "The Morning Edition", "Headlines at Ten")),
+        Triple("Metro News 24", "news", listOf("World Tonight", "Business Briefing", "The Morning Edition", "Headlines at Ten")),
         Triple("Global Report", "news", listOf("Global Report Live", "Climate Desk", "Market Watch", "Late Edition")),
         Triple("City Sports 1", "sport", listOf("Premier Football Live", "Match Analysis", "Goals of the Week", "Golf Highlights")),
         Triple("City Sports 2", "sport", listOf("Tennis: Quarter-finals", "Cycling Tour Stage 12", "Motorsport Weekly", "Boxing Classics")),

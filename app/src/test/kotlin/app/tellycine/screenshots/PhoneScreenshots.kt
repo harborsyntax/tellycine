@@ -36,7 +36,7 @@ class PhoneScreenshots {
         val d = ScreenshotDriver(compose)
         d.launch()
 
-        d.openTab("Live TV", "Tellycine News 24")
+        d.openTab("Live TV", "Metro News 24")
         d.shot("live-tv")
 
         compose.onAllNodesWithText("City Sports 1", substring = true).onFirst().performTouchInput { longClick() }
@@ -116,7 +116,7 @@ class PhoneScreenshots {
     fun tvGuideGrid() {
         val d = ScreenshotDriver(compose)
         d.launch()
-        d.openTab("Live TV", "Tellycine News 24")
+        d.openTab("Live TV", "Metro News 24")
         compose.onNodeWithContentDescription("TV guide view").performClick()
         // The choice is saved first; the toggle flips once the grid is showing.
         compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("List view").fetchSemanticsNodes().isNotEmpty() }
