@@ -114,7 +114,7 @@ class ContentRepository(db: TellycineDatabase) {
         fromMs: Long = System.currentTimeMillis(),
         limit: Int = 300,
     ): List<ProgrammeEntity> =
-        // Guides imported before 1.9.1 may hold the same programme more than once.
+        // Defensive: a guide can list the same programme twice.
         dao.schedule(playlistId, channelId, fromMs, limit).distinctBy { it.startMs }
 
     suspend fun programmesBetween(playlistId: Long, channelId: String, fromMs: Long, toMs: Long): List<ProgrammeEntity> =

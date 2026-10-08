@@ -15,8 +15,6 @@ Tellycine isn't on the Play Store yet. It's distributed as an APK on GitHub.
 ## Updating
 Install the new APK over the existing app. Your playlists, favourites and settings are kept.
 
-> **Coming from Mosaic?** Tellycine 2.0 is the same app under a new name and app ID, so it installs as a new app alongside Mosaic. Add your playlists in Tellycine, then uninstall Mosaic.
-
 ## Verifying a download
 Every release is signed with the same Tellycine key. Its SHA-256 certificate fingerprint is:
 

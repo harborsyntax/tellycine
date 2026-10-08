@@ -87,12 +87,12 @@ jobs:
 
           **Install:** download \`${apk}\` on your device and open it (allow installing from unknown sources when asked).
 
-          - M3U/M3U8 links, local M3U files and Xtream Codes logins
-          - XMLTV TV guide with now/next and per-channel schedules
-          - Live TV, movies and series with categories, favourites, continue watching and search
-          - Multiple playlists, built to handle very large playlists and guides
-          - Media3 player with picture-in-picture, track selection, resume and channel zapping
-          - Material You design with adaptive phone/tablet layouts
+          - M3U/M3U8 links, local M3U files, Xtream Codes and Dispatcharr, with multiple playlists
+          - XMLTV TV guide, with a grid guide in landscape, and catch-up TV
+          - Live TV, movies and series with favourites, continue watching and search
+          - Offline downloads, Chromecast, and Open with… other players
+          - Media3 player with picture-in-picture, track selection, resume and channel switching
+          - Material 3 design with light and dark themes and phone/tablet layouts
 
           Signing certificate SHA-256: \`B8:C7:BC:C0:A9:2A:60:3E:E9:36:5D:7D:7A:52:A2:03:CB:29:DE:8F:89:11:9F:C9:74:0A:34:12:C0:8E:F6:B6\`
 
