@@ -18,7 +18,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -28,6 +30,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.LoadState
@@ -64,7 +67,15 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
     var showCategories by remember { mutableStateOf(false) }
     val gridFocus = remember { FocusRequester() }
     val gridState = rememberLazyGridState()
-    LaunchedEffect(selected) { gridState.scrollToItem(0) }
+    // The poster last focused, so coming back from a title's page lands on it again.
+    var lastFocused by rememberSaveable(selected) { mutableIntStateOf(0) }
+    var shownCategory by rememberSaveable { mutableStateOf(selected) }
+    LaunchedEffect(selected) {
+        if (selected != shownCategory) {
+            shownCategory = selected
+            gridState.scrollToItem(0)
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
         TvHeader(
@@ -106,7 +117,6 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
                 modifier = body
-                    .focusRequester(gridFocus)
                     .focusRestorer()
                     // Left from the first column opens the categories; Back opens the menu.
                     .focusProperties {
@@ -129,6 +139,9 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
                             meta = listOfNotNull(item.year, item.genre?.substringBefore(',')).joinToString(" · "),
                             rating = item.rating,
                             onClick = { onOpen(item) },
+                            modifier = Modifier
+                                .onFocusChanged { if (it.hasFocus) lastFocused = index }
+                                .then(if (index == lastFocused) Modifier.focusRequester(gridFocus) else Modifier),
                         )
                     }
                 }
