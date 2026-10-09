@@ -101,6 +101,8 @@ class PlayerActivity : FragmentActivity() {
     private var matchFrameRate = false
     /** Set when Back hands the channel to the guide's mini player, which keeps it playing. */
     private var toMini = false
+    /** "Stats for nerds", read while its panel is open. */
+    private lateinit var stats: PlaybackStats
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -121,6 +123,8 @@ class PlayerActivity : FragmentActivity() {
             exoPlayer = factory.create()
         }
         exoPlayer.addListener(listener)
+        stats = PlaybackStats(factory.traffic)
+        exoPlayer.addAnalyticsListener(stats)
         activePlayer = exoPlayer
         setUpCast()
 
@@ -154,6 +158,11 @@ class PlayerActivity : FragmentActivity() {
                         onOpenWith = { request?.let { openExternally(it, chooser = true) } },
                         onCycleResize = { resizeMode = (resizeMode + 1) % RESIZE_MODES.size },
                         onEnterPip = { enterPip() },
+                        onPlay = {
+                            saveProgress()
+                            start(it)
+                        },
+                        stats = ::statsRows,
                     )
                 }
                 return@setContent
@@ -175,6 +184,7 @@ class PlayerActivity : FragmentActivity() {
                     onSelectChannel = { playChannel(it) },
                     onCycleResize = { resizeMode = (resizeMode + 1) % RESIZE_MODES.size },
                     onEnterPip = { enterPip() },
+                    stats = ::statsRows,
                 )
             }
         }
@@ -219,6 +229,7 @@ class PlayerActivity : FragmentActivity() {
         val req = request
         if (tv && req != null && req.isLive && error == null && !isCasting()) {
             exoPlayer.removeListener(listener)
+            exoPlayer.removeAnalyticsListener(stats)
             container.tvPlayback.toMini(this, req)
             toMini = true
         }
@@ -554,6 +565,14 @@ class PlayerActivity : FragmentActivity() {
         }
     }
 
+    /** The stats panel's rows: the stream as the local player sees it. */
+    private fun statsRows(): List<Pair<String, String>> {
+        if (isCasting()) return listOf("Casting" to "Stats come from this device's player, which isn't playing")
+        @Suppress("DEPRECATION")
+        val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display else windowManager.defaultDisplay
+        return stats.rows(exoPlayer, display)
+    }
+
     // ---- TV: refresh rate ----
 
     /**
@@ -657,6 +676,7 @@ class PlayerActivity : FragmentActivity() {
         saveProgress()
         progressJob?.cancel()
         exoPlayer.removeListener(listener)
+        exoPlayer.removeAnalyticsListener(stats)
         // On a TV the player is shared: it stops only if nothing else has taken it over.
         if (tv) container.tvPlayback.release(this) else exoPlayer.release()
         castPlayer?.let {

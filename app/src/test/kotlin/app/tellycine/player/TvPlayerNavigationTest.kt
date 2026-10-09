@@ -51,6 +51,7 @@ class TvPlayerNavigationTest {
                     error = null, inPip = false, resizeMode = 0, pipSupported = false,
                     onBack = {}, onRetry = {}, onZap = { zaps += it }, onSelectChannel = { selected += it.streamId },
                     onChannelNumber = {}, onPreviousChannel = {}, onToggleFavorite = {}, onOpenWith = {}, onCycleResize = {}, onEnterPip = {},
+                    onPlay = {}, stats = { emptyList() },
                 )
             }
         }
