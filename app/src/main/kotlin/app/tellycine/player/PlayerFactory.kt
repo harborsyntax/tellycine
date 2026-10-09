@@ -28,7 +28,12 @@ import okhttp3.OkHttpClient
 @OptIn(UnstableApi::class)
 class PlayerFactory(private val context: Context, httpClient: OkHttpClient, private val tv: Boolean = false) {
 
-    private val httpDataSourceFactory = OkHttpDataSource.Factory(httpClient).setUserAgent(DEFAULT_USER_AGENT)
+    /** Bytes downloaded, for the stream's download rate in the stats panel. */
+    val traffic = TrafficMeter()
+
+    private val httpDataSourceFactory = OkHttpDataSource.Factory(httpClient)
+        .setUserAgent(DEFAULT_USER_AGENT)
+        .setTransferListener(traffic)
 
     /** Streams over OkHttp; also reads local files, for downloads. */
     private val dataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)

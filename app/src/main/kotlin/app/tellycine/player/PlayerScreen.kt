@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PictureInPictureAlt
+import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -92,9 +93,11 @@ fun PlayerScreen(
     onSelectChannel: (StreamEntity) -> Unit,
     onCycleResize: () -> Unit,
     onEnterPip: () -> Unit,
+    stats: () -> List<Pair<String, String>>,
 ) {
     var controlsVisible by remember { mutableStateOf(true) }
     var showChannels by remember { mutableStateOf(false) }
+    var showStats by remember { mutableStateOf(false) }
     var resizeLabel by remember { mutableStateOf<String?>(null) }
     var playerView by remember { mutableStateOf<PlayerView?>(null) }
 
@@ -161,6 +164,17 @@ fun PlayerScreen(
                         resizeLabel = RESIZE_MODES[(resizeMode + 1) % RESIZE_MODES.size].second
                     },
                     onEnterPip = onEnterPip,
+                    onToggleStats = { showStats = !showStats },
+                )
+            }
+
+            if (showStats) {
+                StatsPanel(
+                    stats,
+                    Modifier
+                        .align(Alignment.TopStart)
+                        .windowInsetsPadding(WindowInsets.safeDrawing)
+                        .padding(start = 16.dp, top = 64.dp, end = 16.dp),
                 )
             }
 
@@ -232,6 +246,7 @@ private fun TopControls(
     onToggleChannels: () -> Unit,
     onCycleResize: () -> Unit,
     onEnterPip: () -> Unit,
+    onToggleStats: () -> Unit,
 ) {
     Row(
         Modifier
@@ -270,6 +285,7 @@ private fun TopControls(
         if (!casting) {
             IconButton(onClick = onCycleResize) { Icon(Icons.Filled.AspectRatio, "Resize", tint = Color.White) }
         }
+        IconButton(onClick = onToggleStats) { Icon(Icons.Filled.QueryStats, "Stats for nerds", tint = Color.White) }
         if (pipSupported) {
             IconButton(onClick = onEnterPip) { Icon(Icons.Filled.PictureInPictureAlt, "Picture in picture", tint = Color.White) }
         }

@@ -52,6 +52,7 @@ class TvPlayerScreenshots {
                     player = player, request = request, channels = channels, live = live, error = null, inPip = false,
                     resizeMode = 0, pipSupported = true, onBack = {}, onRetry = {}, onZap = {}, onSelectChannel = {},
                     onChannelNumber = {}, onPreviousChannel = {}, onToggleFavorite = {}, onOpenWith = {}, onCycleResize = {}, onEnterPip = {},
+                    onPlay = {}, stats = { emptyList() },
                 )
             }
         }

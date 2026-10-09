@@ -9,6 +9,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.outlined.CalendarViewWeek
+import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -103,7 +105,7 @@ import app.tellycine.ui.components.formatTime
 import kotlinx.coroutines.delay
 import java.util.Locale
 
-private enum class TvOverlay { NONE, INFO, CONTROLS, CHANNELS, TRACKS }
+private enum class TvOverlay { NONE, INFO, CONTROLS, CHANNELS, TRACKS, GUIDE }
 
 /** Remote keys that control playback whatever has focus. */
 private val MediaKeyCodes = setOf(
@@ -147,7 +149,11 @@ fun TvPlayerScreen(
     onOpenWith: () -> Unit,
     onCycleResize: () -> Unit,
     onEnterPip: () -> Unit,
+    /** Plays a programme picked in the guide over the picture (catch-up). */
+    onPlay: (PlayRequest) -> Unit,
+    stats: () -> List<Pair<String, String>>,
 ) {
+    var showStats by remember { mutableStateOf(false) }
     var overlay by remember { mutableStateOf(TvOverlay.INFO) }
     var lastKey by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var digits by remember { mutableStateOf("") }
@@ -187,7 +193,7 @@ fun TvPlayerScreen(
             runCatching { root.requestFocus() }
         }
     }
-    BackHandler(enabled = digits.isNotEmpty() || overlay == TvOverlay.CONTROLS || overlay == TvOverlay.CHANNELS || overlay == TvOverlay.TRACKS) {
+    BackHandler(enabled = digits.isNotEmpty() || overlay in setOf(TvOverlay.CONTROLS, TvOverlay.CHANNELS, TvOverlay.TRACKS, TvOverlay.GUIDE)) {
         if (digits.isNotEmpty()) digits = "" else overlay = TvOverlay.NONE
     }
 
@@ -351,7 +357,30 @@ fun TvPlayerScreen(
                     overlay = TvOverlay.NONE
                     onEnterPip()
                 },
+                onGuide = { overlay = TvOverlay.GUIDE },
+                showingStats = showStats,
+                onToggleStats = { showStats = !showStats },
             )
+        }
+
+        if (overlay == TvOverlay.GUIDE && request != null) {
+            TvPlayerGuide(
+                request = request,
+                playerChannels = channels,
+                onPlayChannel = {
+                    onSelectChannel(it)
+                    overlay = TvOverlay.INFO
+                },
+                onPlay = {
+                    onPlay(it)
+                    overlay = TvOverlay.INFO
+                },
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(0.62f),
+            )
+        }
+
+        if (showStats) {
+            StatsPanel(stats, Modifier.align(Alignment.TopStart).padding(start = 48.dp, top = 32.dp, end = 48.dp))
         }
 
         AnimatedVisibility(
@@ -408,6 +437,9 @@ private fun BottomPanel(
     onCycleResize: () -> Unit,
     onOpenWith: () -> Unit,
     onEnterPip: () -> Unit,
+    onGuide: () -> Unit,
+    showingStats: Boolean,
+    onToggleStats: () -> Unit,
 ) {
     val isLive = request?.isLive == true
     val progress by produceState(PlaybackProgress(), player) {
@@ -521,6 +553,7 @@ private fun BottomPanel(
                         if (live.favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         onToggleFavorite,
                     )
+                    ControlButton("TV guide", Icons.Outlined.CalendarViewWeek, onGuide)
                 } else {
                     ControlButton("Back 10s", Icons.Filled.FastRewind, { onSeek(-10_000) })
                     ControlButton(
@@ -539,6 +572,7 @@ private fun BottomPanel(
                 if (pipSupported) {
                     ControlButton("Picture in picture", Icons.Filled.PictureInPictureAlt, onEnterPip)
                 }
+                ControlButton(if (showingStats) "Hide stats" else "Stats for nerds", Icons.Filled.QueryStats, onToggleStats)
             }
             RequestFocusOnStart(firstControl)
         }

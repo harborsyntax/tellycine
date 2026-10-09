@@ -14,6 +14,7 @@ Tap the video to show the controls.
 - **Channel up / down** and the **channel list**, on live TV. Switching stays within the category you opened the channel from.
 - **Cast**, when a Chromecast is on your network. See [Chromecast](Chromecast.md).
 - **Resize:** cycles through **Fit**, **Zoom** and **Stretch**.
+- **Stats for nerds:** shows what the player knows about the stream, updated every second: the stream type, video and audio formats, HDR and colour information, the decoders used, download rate, buffer, dropped frames and the screen's resolution and refresh rate. Press it again to hide them.
 - **Picture-in-picture:** the video carries on in a small window when you leave the app.
 
 Movies and episodes save your position as you watch, so you can resume later. Live streams that drop are retried automatically a few times.

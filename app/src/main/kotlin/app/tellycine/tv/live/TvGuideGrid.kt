@@ -172,6 +172,8 @@ fun TvGuideGrid(
     onLeftEdge: (() -> Unit)? = null,
     /** Shorter rows, with one line per channel and programme, so more channels fit. */
     compact: Boolean = false,
+    /** See-through cells, for the guide shown over the picture. */
+    translucent: Boolean = false,
 ) {
     val rowHeight = if (compact) COMPACT_ROW_HEIGHT else ROW_HEIGHT
     val window = state.window
@@ -315,6 +317,7 @@ fun TvGuideGrid(
                             GuideRow(
                                 row = row,
                                 compact = compact,
+                                translucent = translucent,
                                 focused = hasFocus && index == state.row,
                                 state = state,
                                 pxPerMs = pxPerMs,
@@ -385,6 +388,7 @@ private fun TimeHeader(window: GuideWindow, pxPerMs: Float, offset: () -> Float,
 private fun GuideRow(
     row: ChannelRow,
     compact: Boolean,
+    translucent: Boolean,
     focused: Boolean,
     state: TvGuideState,
     pxPerMs: Float,
@@ -412,7 +416,7 @@ private fun GuideRow(
         Box(Modifier.weight(1f).fillMaxHeight().clipToBounds()) {
             when {
                 programmes == null -> Unit
-                programmes.isEmpty() -> EmptyLane(row, highlighted = focused && !state.onChannel)
+                programmes.isEmpty() -> EmptyLane(row, translucent, highlighted = focused && !state.onChannel)
                 else -> programmes.forEach { p ->
                     if (p.stopMs > visibleFrom && p.startMs < visibleTo) {
                         key(p.id) {
@@ -422,6 +426,7 @@ private fun GuideRow(
                                 ProgrammeCell(
                                     programme = p,
                                     compact = compact,
+                                    translucent = translucent,
                                     xPx = (start - window.startMs) * pxPerMs,
                                     widthPx = (stop - start) * pxPerMs,
                                     offset = offset,
@@ -440,6 +445,9 @@ private fun GuideRow(
 }
 
 private val CellShape = RoundedCornerShape(8.dp)
+
+/** How opaque cells are over the picture: enough to read, while the channel shows through. */
+private const val TRANSLUCENT_ALPHA = 0.7f
 
 @Composable
 private fun ChannelCell(row: ChannelRow, compact: Boolean, highlighted: Boolean) {
@@ -488,6 +496,7 @@ private fun ChannelCell(row: ChannelRow, compact: Boolean, highlighted: Boolean)
 private fun ProgrammeCell(
     programme: ProgrammeEntity,
     compact: Boolean,
+    translucent: Boolean,
     xPx: Float,
     widthPx: Float,
     offset: () -> Float,
@@ -499,12 +508,13 @@ private fun ProgrammeCell(
     val density = LocalDensity.current
     val onNow = programme.startMs <= now && programme.stopMs > now
     val past = programme.stopMs <= now
-    val (background, content) = when {
+    val (solid, content) = when {
         highlighted -> TvPalette.focus to Color(0xFF2A1800)
         onNow -> Color(0xFF56442A) to Color(0xFFFADEBC)
         past -> Color(0xFF1A1611) to TvPalette.onSurfaceVariant
         else -> TvPalette.surfaceHigh to TvPalette.onSurface
     }
+    val background = if (translucent && !highlighted) solid.copy(alpha = TRANSLUCENT_ALPHA) else solid
     // Keeps the title in view while a programme that started earlier is partly scrolled past.
     val keepVisiblePx = with(density) { 80.dp.toPx() }
     val minVisiblePx = with(density) { 48.dp.toPx() }
@@ -551,13 +561,13 @@ private fun ProgrammeCell(
 }
 
 @Composable
-private fun EmptyLane(row: ChannelRow, highlighted: Boolean) {
+private fun EmptyLane(row: ChannelRow, translucent: Boolean, highlighted: Boolean) {
     Box(
         Modifier
             .fillMaxSize()
             .padding(horizontal = 1.dp)
             .clip(CellShape)
-            .background(if (highlighted) TvPalette.focus else Color(0xFF1A1611))
+            .background(if (highlighted) TvPalette.focus else Color(0xFF1A1611).copy(alpha = if (translucent) TRANSLUCENT_ALPHA else 1f))
             .then(if (highlighted) Modifier.border(2.dp, TvPalette.primary, CellShape) else Modifier)
             .padding(horizontal = 12.dp),
         contentAlignment = Alignment.CenterStart,
