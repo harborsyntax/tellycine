@@ -472,9 +472,8 @@ private fun BottomPanel(
                 )
             }
             Column(Modifier.weight(1f)) {
-                val channelLine = if (isLive) listOfNotNull(live.channel?.number?.toString(), request?.title).joinToString("  ") else request?.title
                 Text(
-                    channelLine.orEmpty(),
+                    request?.title.orEmpty(),
                     style = if (isLive) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineSmall,
                     color = if (isLive) TvPalette.primary else Color.White,
                     maxLines = 1,
@@ -642,7 +641,7 @@ private fun ChannelPanel(
                         selected = s.streamId == currentId,
                         onClick = { onSelect(s) },
                         headlineContent = {
-                            Text(listOfNotNull(s.number?.toString(), s.name).joinToString("  "), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(s.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         },
                         leadingContent = {
                             Artwork(

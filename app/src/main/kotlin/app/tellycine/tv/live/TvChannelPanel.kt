@@ -92,7 +92,7 @@ fun TvChannelPanel(
             )
             Column {
                 Text(
-                    listOfNotNull(row.stream.number?.toString(), row.stream.name).joinToString("  "),
+                    row.stream.name,
                     style = MaterialTheme.typography.headlineSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
