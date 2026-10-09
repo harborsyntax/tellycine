@@ -21,7 +21,7 @@ import okhttp3.OkHttpClient
  */
 @OptIn(UnstableApi::class)
 class TvPlayback(context: Context, httpClient: OkHttpClient) {
-    val factory = PlayerFactory(context.applicationContext, httpClient, tv = true)
+    val factory = PlayerFactory(context.applicationContext, httpClient)
 
     private var player: ExoPlayer? = null
     private var owner: Any? = null
