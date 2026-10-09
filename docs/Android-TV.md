@@ -13,7 +13,7 @@ Tellycine isn't on the Play Store, so it's installed from GitHub.
 3. In Downloader, enter this address. It always points to the latest version:
 
    ```
-   github.com/mrjack711/tellycine/releases/latest/download/tellycine.apk
+   github.com/harborsyntax/tellycine/releases/latest/download/tellycine.apk
    ```
 4. Choose **Install** when the download finishes.
 
