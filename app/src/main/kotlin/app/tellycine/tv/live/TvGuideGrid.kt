@@ -88,7 +88,8 @@ private val HOUR_WIDTH = 300.dp
 private val ROW_HEIGHT = 56.dp
 /** Compact rows fit about half as many channels again on screen. */
 private val COMPACT_ROW_HEIGHT = 36.dp
-private val HEADER_HEIGHT = 32.dp
+/** The row of times above the channels; the categories column starts below it too. */
+internal val GuideHeaderHeight = 32.dp
 private const val MINUTE = 60_000L
 private const val HOUR = 60 * MINUTE
 private const val SLOT = 30 * MINUTE
@@ -361,7 +362,7 @@ fun TvGuideGrid(
 
 @Composable
 private fun TimeHeader(window: GuideWindow, pxPerMs: Float, offset: () -> Float, visibleFrom: Long, visibleTo: Long) {
-    Row(Modifier.fillMaxWidth().height(HEADER_HEIGHT)) {
+    Row(Modifier.fillMaxWidth().height(GuideHeaderHeight)) {
         Box(Modifier.width(CHANNEL_WIDTH))
         Box(Modifier.weight(1f).fillMaxHeight().clipToBounds()) {
             var t = maxOf(window.startMs, floorToSlot(visibleFrom))

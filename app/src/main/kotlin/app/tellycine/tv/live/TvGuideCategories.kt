@@ -40,7 +40,6 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
@@ -80,9 +79,9 @@ fun TvGuideCategories(
     selected: String,
     onSelect: (String) -> Unit,
     onClose: () -> Unit,
-    /** Lines the first category up with the first channel, below the guide's time header. */
-    topPadding: Dp,
     modifier: Modifier = Modifier,
+    /** What the tucked column fades into: the colour behind the guide. */
+    fadeTo: Color = Color.Black,
 ) {
     val width by animateDpAsState(if (state.open) OpenWidth else TuckedWidth, label = "categories-width")
     val alpha by animateFloatAsState(if (state.open) 1f else 0.45f, label = "categories-alpha")
@@ -133,7 +132,8 @@ fun TvGuideCategories(
                 "Categories",
                 style = MaterialTheme.typography.labelLarge,
                 color = Color.White.copy(alpha = 0.7f),
-                modifier = Modifier.height(topPadding).padding(start = 12.dp, top = 6.dp),
+                // As tall as the guide's row of times, so the first category lines up with the first channel.
+                modifier = Modifier.height(GuideHeaderHeight).padding(start = 12.dp, top = 6.dp),
             )
             LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 itemsIndexed(options, key = { _, o -> o.id }) { index, option ->
@@ -183,7 +183,7 @@ fun TvGuideCategories(
                     .align(Alignment.CenterEnd)
                     .width(48.dp)
                     .fillMaxHeight()
-                    .background(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f)))),
+                    .background(Brush.horizontalGradient(listOf(Color.Transparent, fadeTo.copy(alpha = 0.6f)))),
             )
         }
     }

@@ -139,7 +139,6 @@ fun TvPlayerGuide(
                     runCatching { focus.requestFocus() }
                 },
                 onClose = { runCatching { focus.requestFocus() } },
-                topPadding = 32.dp,
                 modifier = Modifier.padding(end = 8.dp),
             )
             TvGuideGrid(
