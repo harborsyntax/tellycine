@@ -31,7 +31,10 @@ data class PlayRequest(
 ) {
     val isLive get() = kind == ContentKind.LIVE && !catchup
 
-    fun toIntent(context: Context): Intent = Intent(context, PlayerActivity::class.java)
+    fun toIntent(context: Context): Intent = putInto(Intent(context, PlayerActivity::class.java))
+
+    /** Adds this request to [intent], for [fromIntent] to read back; also starts a new task. */
+    fun putInto(intent: Intent): Intent = intent
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         .putExtra(EXTRA_PLAYLIST, playlistId)
         .putExtra(EXTRA_KIND, kind.name)

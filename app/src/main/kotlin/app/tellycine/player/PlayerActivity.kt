@@ -49,6 +49,7 @@ import app.tellycine.container
 import app.tellycine.core.ContentKind
 import app.tellycine.data.db.HistoryEntity
 import app.tellycine.data.db.StreamEntity
+import app.tellycine.player.multiview.MultiViewActivity
 import app.tellycine.data.repo.Categories
 import app.tellycine.data.repo.ContentRepository
 import app.tellycine.data.settings.ThemeMode
@@ -160,6 +161,7 @@ class PlayerActivity : FragmentActivity() {
                         onEnterPip = { enterPip() },
                         onPlay = { playFromGuide(it) },
                         stats = ::statsRows,
+                        onMultiView = ::openMultiView,
                     )
                 }
                 return@setContent
@@ -410,6 +412,15 @@ class PlayerActivity : FragmentActivity() {
         saveProgress()
         start(req)
         if (req.isLive && req.categoryId != current?.categoryId) loadChannels(req)
+    }
+
+    /** Moves the channel playing into multi-view, where more can be added beside it. */
+    private fun openMultiView() {
+        val req = request ?: return
+        // Lets go of the stream first: some accounts allow only one connection.
+        exoPlayer.stop()
+        startActivity(MultiViewActivity.intent(this, req))
+        finish()
     }
 
     // ---- TV: channel banner, number entry, favourites ----

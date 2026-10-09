@@ -71,6 +71,18 @@ The controls include **Channels**, the **channel you were watching before** (one
 - **TV guide** shows the guide over the lower part of the picture, so the channel keeps playing while you look. It opens on the channel you're watching, in its category. The categories are a faded column on the left: press **Left** from the channel names to open it, and OK on a category to show its channels (Right or Back returns without changing). OK on a programme on now changes channel; OK on a past one replays it, where the provider offers catch-up. Back closes it.
 - **Stats for nerds** shows the stream's formats, HDR and colour information, decoders, download rate, buffer, dropped frames and the TV's display mode, updated every second. Press it again to hide them.
 
+## Multi-view
+Watch up to four live channels at once.
+
+- **Start it** from a channel: press OK for the player's controls and choose **Multi-view**, or hold OK on a channel in the guide or channel list and choose **Multi-view**. It opens with that channel and the guide, ready to pick the next one: press OK on a channel to add it.
+- **Layout:** two channels side by side; three or four in a 2×2 grid. While there's room, an **Add a channel** tile opens the guide again.
+- **How many:** up to four, and no more from a playlist than it allows at once: the connection limit an Xtream server reports, or the one set in the playlist's settings. Each channel is a connection to your provider.
+- **Sound:** move between channels with the arrows and press OK for a channel's options. **Sound on/off** works per channel, so you can hear more than one at once; **Only this channel's sound** mutes the others; **Quieter** and **Louder** set its volume. The first channel is heard and channels added later start muted. A speaker icon on each channel shows whose sound is on.
+- **More options:** **Change channel**, **Watch full screen** (leaves multi-view and plays that channel on its own) and **Remove from multi-view**.
+- **Back** leaves multi-view.
+
+In multi-view, Dolby sound is decoded by the TV box rather than passed to your TV or receiver, so several channels can play at once. How many channels play smoothly depends on your device: older or lower-powered boxes may struggle with four HD channels.
+
 ## Movies, series and the Library
 - **Movies** and **Series** are poster grids. Press **Left** from the first column for the categories.
 - A title's page has **Play** or **Resume**, **From the beginning**, **Add to favourites** and **Download**. For series, choose a season, then an episode; hold OK on an episode to download it or play it from the beginning.
