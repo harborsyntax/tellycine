@@ -605,7 +605,7 @@ private fun ControlButton(label: String, icon: ImageVector, onClick: () -> Unit,
             containerColor = Color.Black.copy(alpha = 0.4f),
             contentColor = Color.White,
             focusedContainerColor = TvPalette.focus,
-            focusedContentColor = Color(0xFF2A1800),
+            focusedContentColor = TvPalette.onFocus,
         ),
     ) {
         Icon(icon, null, Modifier.size(20.dp))
@@ -625,7 +625,7 @@ private fun ChannelPanel(
     val state = rememberLazyListState(initialFirstVisibleItemIndex = (start - 3).coerceAtLeast(0))
     val current = remember { FocusRequester() }
     Surface(
-        colors = SurfaceDefaults.colors(containerColor = Color(0xF21A1611)),
+        colors = SurfaceDefaults.colors(containerColor = TvPalette.past.copy(alpha = 0.95f)),
         modifier = Modifier.width(420.dp).fillMaxHeight().ignoreStrayOkRelease(),
     ) {
         Column(Modifier.padding(start = 40.dp, end = 16.dp, top = 28.dp)) {
