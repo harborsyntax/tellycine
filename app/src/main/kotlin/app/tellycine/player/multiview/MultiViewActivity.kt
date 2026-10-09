@@ -58,6 +58,8 @@ class MultiViewActivity : ComponentActivity() {
     private var activePlaylistId by mutableStateOf<Long?>(null)
     /** The guide over the screen, to add a channel (null target) or change one. */
     private var picker by mutableStateOf<PickerTarget?>(null)
+    /** The layout chosen last time, or the grid. */
+    private var layout by mutableStateOf(MultiViewLayout.GRID)
 
     class PickerTarget(val replacing: MultiViewTile?)
 
@@ -67,6 +69,10 @@ class MultiViewActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).hide(WindowInsetsCompat.Type.systemBars())
 
+        lifecycleScope.launch {
+            val saved = container.settings.current().multiViewLayout
+            layout = MultiViewLayout.entries.firstOrNull { it.name == saved } ?: MultiViewLayout.GRID
+        }
         lifecycleScope.launch {
             container.playlists.activePlaylist.collect { playlist ->
                 if (playlist != null) limits[playlist.id] = playlist.effectiveMaxConnections
@@ -80,6 +86,7 @@ class MultiViewActivity : ComponentActivity() {
                     tiles = tiles,
                     spare = activePlaylistId?.let { MultiViewLimits.spare(tiles.map { t -> t.request.playlistId }, it, limits[it]) } ?: 0,
                     picker = picker,
+                    layout = layout,
                     actions = actions,
                 )
             }
@@ -226,6 +233,15 @@ class MultiViewActivity : ComponentActivity() {
 
         override fun retry(tile: MultiViewTile) = start(tile)
 
+        override fun setLayout(layout: MultiViewLayout) {
+            this@MultiViewActivity.layout = layout
+            container.appScope.launch { container.settings.setMultiViewLayout(layout.name) }
+        }
+
+        override fun makeBig(tile: MultiViewTile) {
+            if (tiles.remove(tile)) tiles.add(0, tile)
+        }
+
         override fun remove(tile: MultiViewTile) = this@MultiViewActivity.remove(tile)
 
         override fun fullScreen(tile: MultiViewTile) {
@@ -272,6 +288,9 @@ interface MultiViewActions {
     fun soloSound(tile: MultiViewTile)
     fun changeVolume(tile: MultiViewTile, delta: Float)
     fun retry(tile: MultiViewTile)
+    fun setLayout(layout: MultiViewLayout)
+    /** Puts [tile] first: the big channel in the side column and bottom row layouts. */
+    fun makeBig(tile: MultiViewTile)
     fun remove(tile: MultiViewTile)
     fun fullScreen(tile: MultiViewTile)
     fun exit()

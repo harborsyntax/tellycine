@@ -15,24 +15,31 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.VideoLabel
+import androidx.compose.material.icons.filled.ViewSidebar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -44,7 +51,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.min
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -66,18 +72,22 @@ import kotlin.math.roundToInt
 
 private val Gap = 8.dp
 
+/** Tiles narrower than this (in dp) get a smaller name. */
+private const val SMALL_TILE_WIDTH = 200f
+
 /** How much of the screen the guide takes while picking a channel. */
 private const val GuideShare = 0.62f
 
 /**
- * The channels in a grid: two side by side, three or four in a 2×2 grid, with a tile to add one
- * while there's room ([spare]). OK on a channel opens its sound and other options.
+ * The channels in the chosen [layout], with a tile to add one while there's room ([spare]). OK on
+ * a channel opens its sound and other options.
  */
 @Composable
 fun MultiViewScreen(
     tiles: List<MultiViewTile>,
     spare: Int,
     picker: MultiViewActivity.PickerTarget?,
+    layout: MultiViewLayout,
     actions: MultiViewActions,
 ) {
     var menuFor by remember { mutableStateOf<MultiViewTile?>(null) }
@@ -90,34 +100,26 @@ fun MultiViewScreen(
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
         val slots = (tiles.size + if (canAdd) 1 else 0).coerceIn(1, MultiViewLimits.MAX_CHANNELS)
-        val columns = if (slots == 1) 1 else 2
-        val rows = if (slots <= 2) 1 else 2
         // While the guide is open the channels keep playing in the space above it.
         val gridHeight = if (picker != null) maxHeight * (1f - GuideShare) else maxHeight
-        // The largest 16:9 cell that fits the grid.
-        val cellWidth = min((maxWidth - Gap * (columns + 1)) / columns, ((gridHeight - Gap * (rows + 1)) / rows) * 16f / 9f)
-        val cellHeight = cellWidth * 9f / 16f
+        val cells = layout.cells(slots, maxWidth.value, gridHeight.value, Gap.value)
 
-        Column(Modifier.fillMaxWidth().height(gridHeight), verticalArrangement = Arrangement.spacedBy(Gap, Alignment.CenterVertically)) {
-            for (r in 0 until rows) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Gap, Alignment.CenterHorizontally)) {
-                    for (c in 0 until columns) {
-                        val index = r * columns + c
-                        val cell = Modifier.size(cellWidth, cellHeight)
-                        when {
-                            index < tiles.size -> {
-                                val tile = tiles[index]
-                                ChannelTile(
-                                    tile = tile,
-                                    onClick = { menuFor = tile },
-                                    modifier = cell.then(if (index == 0) Modifier.focusRequester(firstTile) else Modifier),
-                                )
-                            }
-                            index == tiles.size && canAdd -> AddTile(spare, onClick = actions::add, modifier = cell.focusRequester(addTile))
-                            else -> Spacer(cell)
-                        }
-                    }
+        cells.forEachIndexed { index, cell ->
+            val place = Modifier
+                .offset(cell.x.dp, cell.y.dp)
+                .size(cell.width.dp, cell.height.dp)
+            if (index < tiles.size) {
+                val tile = tiles[index]
+                key(tile.key) {
+                    ChannelTile(
+                        tile = tile,
+                        small = cell.width < SMALL_TILE_WIDTH,
+                        onClick = { menuFor = tile },
+                        modifier = place.then(if (index == 0) Modifier.focusRequester(firstTile) else Modifier),
+                    )
                 }
+            } else {
+                AddTile(spare, onClick = actions::add, modifier = place.focusRequester(addTile))
             }
         }
 
@@ -133,12 +135,13 @@ fun MultiViewScreen(
                 )
             }
         } else {
-            Hint(Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp))
+            // At the top, clear of the channel names along the bottom of each tile.
+            Hint(Modifier.align(Alignment.TopCenter).padding(top = 12.dp))
         }
     }
 
-    // Focus comes back to the channels once the guide closes.
-    if (picker == null && tiles.isNotEmpty()) RequestFocusOnStart(firstTile, tiles.size)
+    // Focus comes back to the channels once the guide closes, and follows a channel made the big one.
+    if (picker == null && tiles.isNotEmpty()) RequestFocusOnStart(firstTile, tiles.size to tiles.first().key)
 
     menuFor?.let { tile ->
         if (tile !in tiles) {
@@ -147,6 +150,8 @@ fun MultiViewScreen(
             TileMenu(
                 tile = tile,
                 others = tiles.size > 1,
+                first = tiles.firstOrNull() === tile,
+                layout = layout,
                 actions = actions,
                 onDismiss = { menuFor = null },
             )
@@ -176,7 +181,7 @@ private fun Hint(modifier: Modifier) {
 
 @OptIn(UnstableApi::class)
 @Composable
-private fun ChannelTile(tile: MultiViewTile, onClick: () -> Unit, modifier: Modifier) {
+private fun ChannelTile(tile: MultiViewTile, small: Boolean, onClick: () -> Unit, modifier: Modifier) {
     Surface(
         onClick = onClick,
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
@@ -213,19 +218,19 @@ private fun ChannelTile(tile: MultiViewTile, onClick: () -> Unit, modifier: Modi
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f))))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = if (small) 8.dp else 12.dp, vertical = if (small) 4.dp else 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (small) 4.dp else 8.dp),
             ) {
                 Icon(
                     if (tile.soundOn) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
                     if (tile.soundOn) "Sound on" else "Sound off",
                     tint = if (tile.soundOn) TvPalette.primary else Color.White.copy(alpha = 0.6f),
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(if (small) 16.dp else 20.dp),
                 )
                 Text(
                     tile.request.title,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = if (small) MaterialTheme.typography.labelMedium else MaterialTheme.typography.titleSmall,
                     color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -270,17 +275,25 @@ private fun AddTile(spare: Int, onClick: () -> Unit, modifier: Modifier) {
 
 /** A channel's sound and other options. */
 @Composable
-private fun TileMenu(tile: MultiViewTile, others: Boolean, actions: MultiViewActions, onDismiss: () -> Unit) {
-    val first = remember { FocusRequester() }
+private fun TileMenu(
+    tile: MultiViewTile,
+    others: Boolean,
+    first: Boolean,
+    layout: MultiViewLayout,
+    actions: MultiViewActions,
+    onDismiss: () -> Unit,
+) {
+    val firstButton = remember { FocusRequester() }
     TvSidePanel(onDismiss = onDismiss) {
         Text(tile.request.title, style = MaterialTheme.typography.headlineSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.size(16.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // Scrolls if a Retry button makes it too tall for the screen.
+        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             TvActionButton(
                 if (tile.soundOn) "Sound off" else "Sound on",
                 onClick = { actions.toggleSound(tile) },
                 icon = if (tile.soundOn) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                modifier = Modifier.focusRequester(first),
+                modifier = Modifier.focusRequester(firstButton),
             )
             if (others) {
                 TvActionButton(
@@ -327,6 +340,16 @@ private fun TileMenu(tile: MultiViewTile, others: Boolean, actions: MultiViewAct
                 },
                 icon = Icons.Filled.Fullscreen,
             )
+            if (others && !first && layout != MultiViewLayout.GRID) {
+                TvActionButton(
+                    "Enlarge",
+                    onClick = {
+                        actions.makeBig(tile)
+                        onDismiss()
+                    },
+                    icon = Icons.Filled.OpenInFull,
+                )
+            }
             if (others) {
                 TvActionButton(
                     "Remove from multi-view",
@@ -336,8 +359,26 @@ private fun TileMenu(tile: MultiViewTile, others: Boolean, actions: MultiViewAct
                     },
                     icon = Icons.Filled.Close,
                 )
+                // The layout of the whole screen, with the one in use filled in.
+                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MultiViewLayout.entries.forEach { option ->
+                        TvActionButton(
+                            option.label,
+                            onClick = {
+                                actions.setLayout(option)
+                                onDismiss()
+                            },
+                            icon = when (option) {
+                                MultiViewLayout.GRID -> Icons.Filled.GridView
+                                MultiViewLayout.BIG_SIDE -> Icons.Filled.ViewSidebar
+                                MultiViewLayout.BIG_BOTTOM -> Icons.Filled.VideoLabel
+                            },
+                            primary = option == layout,
+                        )
+                    }
+                }
             }
         }
     }
-    RequestFocusOnStart(first)
+    RequestFocusOnStart(firstButton)
 }

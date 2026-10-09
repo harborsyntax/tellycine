@@ -75,7 +75,7 @@ The controls include **Channels**, the **channel you were watching before** (one
 Watch up to four live channels at once.
 
 - **Start it** from a channel: press OK for the player's controls and choose **Multi-view**, or hold OK on a channel in the guide or channel list and choose **Multi-view**. It opens with that channel and the guide, ready to pick the next one: press OK on a channel to add it.
-- **Layout:** two channels side by side; three or four in a 2×2 grid. While there's room, an **Add a channel** tile opens the guide again.
+- **Layout:** choose from any channel's options. **Grid** puts two channels side by side, or three or four in a 2×2 grid. **Side column** shows one channel big with the others small in a column beside it; **Bottom row** puts the others in a row below it. **Enlarge** on a small channel makes it the big one. Multi-view remembers the layout you used last. While there's room, an **Add a channel** tile opens the guide again.
 - **How many:** up to four, and no more from a playlist than it allows at once: the connection limit an Xtream server reports, or the one set in the playlist's settings. Each channel is a connection to your provider.
 - **Sound:** move between channels with the arrows and press OK for a channel's options. **Sound on/off** works per channel, so you can hear more than one at once; **Only this channel's sound** mutes the others; **Quieter** and **Louder** set its volume. The first channel is heard and channels added later start muted. A speaker icon on each channel shows whose sound is on.
 - **More options:** **Change channel**, **Watch full screen** (leaves multi-view and plays that channel on its own) and **Remove from multi-view**.

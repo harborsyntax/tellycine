@@ -49,6 +49,8 @@ data class AppSettings(
     val tvGuideCompact: Boolean = false,
     /** TV: the interface's colours. */
     val tvTheme: TvTheme = TvTheme.WARM,
+    /** TV: the multi-view layout used last (a MultiViewLayout name). */
+    val multiViewLayout: String? = null,
 )
 
 private val Context.dataStore by preferencesDataStore("settings")
@@ -71,6 +73,7 @@ class SettingsRepository(private val context: Context) {
         val matchFrameRate = booleanPreferencesKey("match_frame_rate")
         val tvGuideCompact = booleanPreferencesKey("tv_guide_compact")
         val tvTheme = stringPreferencesKey("tv_theme")
+        val multiViewLayout = stringPreferencesKey("multi_view_layout")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -90,6 +93,7 @@ class SettingsRepository(private val context: Context) {
             matchFrameRate = p[Keys.matchFrameRate] ?: false,
             tvGuideCompact = p[Keys.tvGuideCompact] ?: false,
             tvTheme = p[Keys.tvTheme]?.let { runCatching { TvTheme.valueOf(it) }.getOrNull() } ?: TvTheme.WARM,
+            multiViewLayout = p[Keys.multiViewLayout],
         )
     }
 
@@ -113,4 +117,5 @@ class SettingsRepository(private val context: Context) {
     suspend fun setMatchFrameRate(enabled: Boolean) = context.dataStore.edit { it[Keys.matchFrameRate] = enabled }
     suspend fun setTvGuideCompact(enabled: Boolean) = context.dataStore.edit { it[Keys.tvGuideCompact] = enabled }
     suspend fun setTvTheme(theme: TvTheme) = context.dataStore.edit { it[Keys.tvTheme] = theme.name }
+    suspend fun setMultiViewLayout(name: String) = context.dataStore.edit { it[Keys.multiViewLayout] = name }
 }
