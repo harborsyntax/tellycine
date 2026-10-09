@@ -108,7 +108,7 @@ class PlayerActivity : FragmentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         hideSystemBars()
 
-        factory = PlayerFactory(this, container.httpClient)
+        factory = PlayerFactory(this, container.httpClient, tv)
         exoPlayer = factory.create()
         exoPlayer.addListener(listener)
         activePlayer = exoPlayer

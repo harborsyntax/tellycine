@@ -66,9 +66,12 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.offset
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.C
 import androidx.media3.common.Format
@@ -498,8 +501,16 @@ private fun BottomPanel(
         }
 
         if (showControls) {
-            // Scrolls sideways as focus moves along it, so every control fits.
-            Row(Modifier.padding(top = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Scrolls sideways as focus moves along it, so every control fits. A focused button
+            // grows, so the row reaches into the panel's margins to leave it room: the scroll
+            // clips whatever is outside it.
+            Row(
+                Modifier
+                    .bleed(ControlRowBleed)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = ControlRowBleed, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 if (isLive) {
                     ControlButton("Channels", Icons.AutoMirrored.Filled.List, onChannels, Modifier.focusRequester(firstControl))
                     if (live.previous != null) {
@@ -532,6 +543,16 @@ private fun BottomPanel(
             RequestFocusOnStart(firstControl)
         }
     }
+}
+
+/** Room either side of the control row for a focused button to grow into. */
+private val ControlRowBleed = 20.dp
+
+/** Lays the content out [amount] wider on each side than the space given, without moving its neighbours. */
+private fun Modifier.bleed(amount: Dp) = layout { measurable, constraints ->
+    val px = amount.roundToPx()
+    val placeable = measurable.measure(constraints.offset(horizontal = 2 * px))
+    layout((placeable.width - 2 * px).coerceAtLeast(0), placeable.height) { placeable.place(-px, 0) }
 }
 
 private data class PlaybackProgress(val positionMs: Long = 0, val durationMs: Long = 0, val playing: Boolean = false)
