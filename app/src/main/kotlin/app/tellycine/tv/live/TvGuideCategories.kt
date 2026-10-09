@@ -131,7 +131,7 @@ fun TvGuideCategories(
             Text(
                 "Categories",
                 style = MaterialTheme.typography.labelLarge,
-                color = Color.White.copy(alpha = 0.7f),
+                color = TvPalette.onSurfaceVariant,
                 // As tall as the guide's row of times, so the first category lines up with the first channel.
                 modifier = Modifier.height(GuideHeaderHeight).padding(start = 12.dp, top = 6.dp),
             )
@@ -144,11 +144,11 @@ fun TvGuideCategories(
                         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
                         colors = ClickableSurfaceDefaults.colors(
                             containerColor = if (current) Color.White.copy(alpha = 0.1f) else Color.Transparent,
-                            contentColor = if (current) TvPalette.primary else Color.White,
+                            contentColor = if (current) TvPalette.primary else TvPalette.onSurface,
                             focusedContainerColor = TvPalette.focus,
-                            focusedContentColor = Color(0xFF2A1800),
+                            focusedContentColor = TvPalette.onFocus,
                             disabledContainerColor = if (current) Color.White.copy(alpha = 0.1f) else Color.Transparent,
-                            disabledContentColor = if (current) TvPalette.primary else Color.White,
+                            disabledContentColor = if (current) TvPalette.primary else TvPalette.onSurface,
                         ),
                         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
                         modifier = Modifier

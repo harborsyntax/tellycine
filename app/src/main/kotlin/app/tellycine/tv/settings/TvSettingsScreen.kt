@@ -33,6 +33,7 @@ import app.tellycine.tv.components.TvSwitchRow
 import app.tellycine.tv.components.TvValueRow
 import app.tellycine.ui.components.TellycineLogo
 import app.tellycine.ui.components.tellycineViewModel
+import app.tellycine.data.settings.TvTheme
 import app.tellycine.ui.settings.SettingsViewModel
 
 @Composable
@@ -41,6 +42,7 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     var playerDialog by remember { mutableStateOf(false) }
     var epgDialog by remember { mutableStateOf(false) }
+    var themeDialog by remember { mutableStateOf(false) }
     var clearDialog by remember { mutableStateOf(false) }
     val first = remember { FocusRequester() }
 
@@ -52,6 +54,16 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
                 contentPadding = PaddingValues(start = TvSpacing.screenStart, end = TvSpacing.screenEnd, bottom = TvSpacing.screenBottom),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
+                item { TvSectionLabel("Appearance") }
+                item {
+                    TvValueRow(
+                        "Theme: ${s.tvTheme.label}",
+                        s.tvTheme.description,
+                        onClick = { themeDialog = true },
+                        modifier = Modifier.focusRequester(first),
+                    )
+                }
+
                 item { TvSectionLabel("Playback") }
                 item {
                     TvValueRow(
@@ -59,7 +71,6 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
                         if (s.externalPlayer) "Another app: Android asks which one, and you can pick one to always use. Dispatcharr recordings still play here."
                         else "Built-in player",
                         onClick = { playerDialog = true },
-                        modifier = Modifier.focusRequester(first),
                     )
                 }
                 item {
@@ -152,6 +163,19 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
                 playerDialog = false
             },
             onDismiss = { playerDialog = false },
+        )
+    }
+    if (themeDialog) {
+        // Each choice applies at once, so the screen behind shows it.
+        TvChoiceDialog(
+            title = "Theme",
+            options = TvTheme.entries.map { it to it.label },
+            selected = s.tvTheme,
+            onSelect = {
+                vm.setTvTheme(it)
+                themeDialog = false
+            },
+            onDismiss = { themeDialog = false },
         )
     }
     if (epgDialog) {

@@ -42,6 +42,7 @@ import app.tellycine.AppContainer
 import app.tellycine.BuildConfig
 import app.tellycine.data.settings.AppSettings
 import app.tellycine.data.settings.ThemeMode
+import app.tellycine.data.settings.TvTheme
 import app.tellycine.ui.components.TellycineLogo
 import app.tellycine.ui.components.tellycineViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -56,6 +57,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setTheme(mode: ThemeMode) = viewModelScope.launch { repo.setThemeMode(mode) }
     fun setDynamicColor(v: Boolean) = viewModelScope.launch { repo.setDynamicColor(v) }
     fun setEpgDays(v: Int) = viewModelScope.launch { repo.setEpgDays(v) }
+    fun setTvTheme(theme: TvTheme) = viewModelScope.launch { repo.setTvTheme(theme) }
     fun setRefreshOnLaunch(v: Boolean) = viewModelScope.launch { repo.setRefreshOnLaunch(v) }
     fun setPreferHls(v: Boolean) = viewModelScope.launch { repo.setPreferHls(v) }
     fun setExternalPlayer(v: Boolean) = viewModelScope.launch { repo.setExternalPlayer(v) }

@@ -464,7 +464,7 @@ private fun ChannelCell(row: ChannelRow, compact: Boolean, highlighted: Boolean)
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        val content = if (highlighted) Color(0xFF2A1800) else MaterialTheme.colorScheme.onSurface
+        val content = if (highlighted) TvPalette.onFocus else MaterialTheme.colorScheme.onSurface
         s.number?.let {
             Text(
                 "$it",
@@ -510,9 +510,9 @@ private fun ProgrammeCell(
     val onNow = programme.startMs <= now && programme.stopMs > now
     val past = programme.stopMs <= now
     val (solid, content) = when {
-        highlighted -> TvPalette.focus to Color(0xFF2A1800)
-        onNow -> Color(0xFF56442A) to Color(0xFFFADEBC)
-        past -> Color(0xFF1A1611) to TvPalette.onSurfaceVariant
+        highlighted -> TvPalette.focus to TvPalette.onFocus
+        onNow -> TvPalette.onNow to TvPalette.onOnNow
+        past -> TvPalette.past to TvPalette.onSurfaceVariant
         else -> TvPalette.surfaceHigh to TvPalette.onSurface
     }
     val background = if (translucent && !highlighted) solid.copy(alpha = TRANSLUCENT_ALPHA) else solid
@@ -568,7 +568,7 @@ private fun EmptyLane(row: ChannelRow, translucent: Boolean, highlighted: Boolea
             .fillMaxSize()
             .padding(horizontal = 1.dp)
             .clip(CellShape)
-            .background(if (highlighted) TvPalette.focus else Color(0xFF1A1611).copy(alpha = if (translucent) TRANSLUCENT_ALPHA else 1f))
+            .background(if (highlighted) TvPalette.focus else TvPalette.past.copy(alpha = if (translucent) TRANSLUCENT_ALPHA else 1f))
             .then(if (highlighted) Modifier.border(2.dp, TvPalette.primary, CellShape) else Modifier)
             .padding(horizontal = 12.dp),
         contentAlignment = Alignment.CenterStart,
@@ -576,7 +576,7 @@ private fun EmptyLane(row: ChannelRow, translucent: Boolean, highlighted: Boolea
         Text(
             row.nowTitle ?: "No guide information",
             style = MaterialTheme.typography.bodyMedium,
-            color = if (highlighted) Color(0xFF2A1800) else TvPalette.onSurfaceVariant,
+            color = if (highlighted) TvPalette.onFocus else TvPalette.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

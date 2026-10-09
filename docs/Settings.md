@@ -18,4 +18,4 @@ Open **Playlists → ⚙ Settings**. On a TV, choose **Settings** in the side me
 | **Open on the last channel** | TV only: starts the channel you watched last when Tellycine opens. |
 | **Match the TV's refresh rate** | TV only: switches the display to suit each video (for example 50 Hz for 25 and 50 fps channels). See [Android TV](Android-TV.md#tv-settings). |
 
-On TV, **Theme** and **Dynamic colour** aren't offered: the TV interface is always dark.
+On TV, **Theme** offers the TV's own colour themes instead (see [Android TV](Android-TV.md#tv-settings)), all of them dark, and **Dynamic colour** isn't offered.

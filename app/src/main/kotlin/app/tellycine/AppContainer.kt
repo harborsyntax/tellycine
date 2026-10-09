@@ -11,6 +11,7 @@ import app.tellycine.data.repo.DownloadRepository
 import app.tellycine.data.repo.DvrRepository
 import app.tellycine.data.repo.PlaylistRepository
 import app.tellycine.data.settings.SettingsRepository
+import app.tellycine.data.settings.TvTheme
 import app.tellycine.data.sync.PlaylistSyncer
 import app.tellycine.data.sync.SyncManager
 import app.tellycine.player.TvPlayback
@@ -38,6 +39,11 @@ class AppContainer(context: Context) {
     val cast = CastManager(context)
     /** TV only: the player shared by the full-screen player and the guide's mini player. */
     val tvPlayback by lazy { TvPlayback(context, httpClient) }
+
+    /** The TV interface's colours, ready for its first frame. */
+    val tvTheme: StateFlow<TvTheme> = settings.settings
+        .map { it.tvTheme }
+        .stateIn(appScope, SharingStarted.Eagerly, TvTheme.WARM)
 
     /** Cached so playback can be launched synchronously from click handlers. */
     val externalPlayerDefault: StateFlow<Boolean> = settings.settings

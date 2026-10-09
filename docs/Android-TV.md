@@ -92,8 +92,9 @@ Many TVs don't have a file picker. If **Playlist file** says there's no way to c
 <img src="images/screens/tv-playlists.png" width="640" alt="Playlists on TV">
 
 ## TV settings
-Two settings are only on TV:
+These settings are only on TV:
+- **Theme:** the TV interface's colours, all dark for the big screen. **Warm** (amber on dark brown, the original look), **Midnight** (cool white and sky blue on blue-black), **Graphite** (pure white and teal on neutral grey), **Forest** (soft green on deep green) or **High contrast** (white and yellow on black, easiest to read from across the room). A theme applies as soon as you pick it.
 - **Open on the last channel:** start playing the channel you watched last when Tellycine opens.
 - **Match the TV's refresh rate:** switch the display to suit each video (50 Hz for UK and European channels, 24 Hz for films) so motion is smooth. The screen may go blank for a moment when it switches. It only applies when the stream reports its frame rate. Google TV also has its own **Match content frame rate** setting under *Display & sound → Advanced display settings*.
 
-All the other [settings](Settings.md) work as on the phone. The TV interface is always dark.
+All the other [settings](Settings.md) work as on the phone.

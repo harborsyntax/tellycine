@@ -216,7 +216,7 @@ private fun ProgrammeCard(hit: ProgrammeHit, replayable: Boolean, onClick: () ->
         onClick = onClick,
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (onNow) androidx.compose.ui.graphics.Color(0xFF56442A) else TvPalette.surfaceHigh,
+            containerColor = if (onNow) TvPalette.onNow else TvPalette.surfaceHigh,
             focusedContainerColor = TvPalette.focus,
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),

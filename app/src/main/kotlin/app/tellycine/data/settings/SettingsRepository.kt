@@ -13,6 +13,15 @@ import kotlinx.coroutines.flow.map
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** Colour themes for the TV interface, chosen in its Settings. */
+enum class TvTheme(val label: String, val description: String) {
+    WARM("Warm", "Amber on dark brown, as Tellycine has always looked"),
+    MIDNIGHT("Midnight", "Cool white and sky blue on blue-black"),
+    GRAPHITE("Graphite", "Pure white and teal on neutral grey, with no colour cast"),
+    FOREST("Forest", "Soft green on deep green"),
+    HIGH_CONTRAST("High contrast", "White and yellow on black, easiest to read from across the room"),
+}
+
 /** Ordering for the Library's favourites and history rows. */
 enum class LibrarySort { RECENT, NAME_ASC, NAME_DESC, PLAYLIST_ORDER }
 
@@ -38,6 +47,8 @@ data class AppSettings(
     val matchFrameRate: Boolean = false,
     /** TV: shorter guide rows, so more channels fit on screen. */
     val tvGuideCompact: Boolean = false,
+    /** TV: the interface's colours. */
+    val tvTheme: TvTheme = TvTheme.WARM,
 )
 
 private val Context.dataStore by preferencesDataStore("settings")
@@ -59,6 +70,7 @@ class SettingsRepository(private val context: Context) {
         val startOnLastChannel = booleanPreferencesKey("start_on_last_channel")
         val matchFrameRate = booleanPreferencesKey("match_frame_rate")
         val tvGuideCompact = booleanPreferencesKey("tv_guide_compact")
+        val tvTheme = stringPreferencesKey("tv_theme")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -77,6 +89,7 @@ class SettingsRepository(private val context: Context) {
             startOnLastChannel = p[Keys.startOnLastChannel] ?: false,
             matchFrameRate = p[Keys.matchFrameRate] ?: false,
             tvGuideCompact = p[Keys.tvGuideCompact] ?: false,
+            tvTheme = p[Keys.tvTheme]?.let { runCatching { TvTheme.valueOf(it) }.getOrNull() } ?: TvTheme.WARM,
         )
     }
 
@@ -99,4 +112,5 @@ class SettingsRepository(private val context: Context) {
     suspend fun setStartOnLastChannel(enabled: Boolean) = context.dataStore.edit { it[Keys.startOnLastChannel] = enabled }
     suspend fun setMatchFrameRate(enabled: Boolean) = context.dataStore.edit { it[Keys.matchFrameRate] = enabled }
     suspend fun setTvGuideCompact(enabled: Boolean) = context.dataStore.edit { it[Keys.tvGuideCompact] = enabled }
+    suspend fun setTvTheme(theme: TvTheme) = context.dataStore.edit { it[Keys.tvTheme] = theme.name }
 }
