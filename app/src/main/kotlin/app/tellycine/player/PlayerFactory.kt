@@ -21,9 +21,12 @@ import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import app.tellycine.data.net.DEFAULT_USER_AGENT
 import okhttp3.OkHttpClient
 
-/** Builds an ExoPlayer tuned for IPTV (MPEG-TS quirks, generous buffering, per-stream headers). */
+/**
+ * Builds an ExoPlayer tuned for IPTV (MPEG-TS quirks, generous buffering, per-stream headers).
+ * [tv] is true on a TV, whose hardware decoders are stricter about where a stream starts.
+ */
 @OptIn(UnstableApi::class)
-class PlayerFactory(private val context: Context, httpClient: OkHttpClient) {
+class PlayerFactory(private val context: Context, httpClient: OkHttpClient, private val tv: Boolean = false) {
 
     private val httpDataSourceFactory = OkHttpDataSource.Factory(httpClient).setUserAgent(DEFAULT_USER_AGENT)
 
@@ -32,8 +35,15 @@ class PlayerFactory(private val context: Context, httpClient: OkHttpClient) {
 
     private fun extractors() = DefaultExtractorsFactory()
         .setTsExtractorFlags(
-            DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
+            // Starting a live MPEG-TS stream on any I-frame, rather than waiting for an IDR frame,
+            // freezes the picture on many TV decoders; phones cope, and start sooner with it.
+            // (HLS streams don't use these flags: their segments start on an IDR frame.)
+            if (tv) {
                 DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
+            } else {
+                DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
+                    DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
+            }
         )
         .setConstantBitrateSeekingEnabled(true)
 
