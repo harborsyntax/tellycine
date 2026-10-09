@@ -1,7 +1,8 @@
 name: Screenshots
 
 # Renders documentation screenshots with Robolectric + Roborazzi (no emulator needed) and
-# commits them to docs/images/screens on the same branch. Run it from the Actions tab after
+# commits them to docs/images/screens on the same branch, along with the Google Play listing's
+# screenshots and graphics in fastlane/metadata/android/en-GB/images. Run it from the Actions tab after
 # UI changes, or it runs automatically when the screenshot tests change.
 on:
   workflow_dispatch:
@@ -33,7 +34,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Render screenshots
-        run: ./gradlew --no-daemon :app:testDebugUnitTest --tests '*Screenshots*'
+        run: ./gradlew --no-daemon :app:testDebugUnitTest --tests '*Screenshots*' --tests '*StoreGraphics*'
 
       - name: Upload test report on failure
         if: failure()
@@ -46,13 +47,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: screenshots
-          path: docs/images/screens/
+          path: |
+            docs/images/screens/
+            fastlane/metadata/android/en-GB/images/
 
       - name: Commit screenshots
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/images/screens
+          git add docs/images/screens fastlane/metadata/android/en-GB/images
           if git diff --cached --quiet; then
             echo "Screenshots unchanged."
           else

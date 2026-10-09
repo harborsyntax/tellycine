@@ -72,4 +72,15 @@ class M3uParserTest {
         assertEquals(ContentKind.SERIES, ContentKind.classify("http://h:80/series/u/p/123.mkv"))
         assertEquals(ContentKind.LIVE, ContentKind.classify("http://h:80/u/p/123"))
     }
+
+    @Test
+    fun theGooglePlayReviewPlaylistParses() {
+        // The playlist given to Play reviewers (play/review-playlist.m3u), with its comment lines.
+        val (_, entries) = parse(java.io.File("../play/review-playlist.m3u").readText())
+        assertEquals(
+            listOf("Akamai live test stream", "Apple HLS test pattern", "Big Buck Bunny", "Tears of Steel"),
+            entries.map { it.name },
+        )
+        assertEquals(true, entries.all { it.url.startsWith("https://") })
+    }
 }

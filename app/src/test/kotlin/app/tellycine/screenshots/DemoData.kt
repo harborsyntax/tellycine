@@ -60,7 +60,7 @@ object DemoData {
         Triple("City Sports 1", "sport", listOf("Premier Football Live", "Match Analysis", "Goals of the Week", "Golf Highlights")),
         Triple("City Sports 2", "sport", listOf("Tennis: Quarter-finals", "Cycling Tour Stage 12", "Motorsport Weekly", "Boxing Classics")),
         Triple("Arena Extra", "sport", listOf("Basketball Tonight", "Rugby Review", "Athletics Gala", "Sports Quiz")),
-        Triple("Channel Bright", "ent", listOf("The Great Bake Off", "Quiz Night", "Evening Drama", "Late Show")),
+        Triple("Channel Bright", "ent", listOf("Sunday Bakes", "Quiz Night", "Evening Drama", "Late Show")),
         Triple("Lumen TV", "ent", listOf("Home Makeover", "Comedy Hour", "Talent Search", "Movie: Summer Lights")),
         Triple("Panorama One", "ent", listOf("Travel Diaries", "Cooking Together", "Reality Island", "Night Cinema")),
         Triple("Tiny Tales", "kids", listOf("Bluebell Farm", "Robot Friends", "Story Time", "Cartoon Club")),

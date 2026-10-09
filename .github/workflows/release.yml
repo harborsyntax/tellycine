@@ -52,13 +52,14 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/tellycine-release.jks"
           echo "TELLYCINE_KEYSTORE=$RUNNER_TEMP/tellycine-release.jks" >> "$GITHUB_ENV"
 
-      - name: Test and build release APK
+      # The APK is for installing directly; the app bundle (.aab) is what Google Play takes.
+      - name: Test and build release APK and app bundle
         if: steps.version.outputs.skip != 'true'
         env:
           TELLYCINE_KEYSTORE_PASSWORD: ${{ secrets.TELLYCINE_KEYSTORE_PASSWORD }}
           TELLYCINE_KEY_ALIAS: ${{ secrets.TELLYCINE_KEY_ALIAS }}
           TELLYCINE_KEY_PASSWORD: ${{ secrets.TELLYCINE_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon :core:test :app:assembleRelease
+        run: ./gradlew --no-daemon :core:test :app:assembleRelease :app:bundleRelease
 
       # Refuse to publish an APK that isn't signed with the permanent Tellycine key.
       # (apksigner, not keytool: minSdk 26+ APKs only carry v2/v3 signatures.)
@@ -72,6 +73,12 @@ jobs:
             echo "::error::Release APK is not signed with the Tellycine release key (expected SHA-256 $expected)."
             exit 1
           fi
+          # The app bundle carries a JAR signature; keytool prints its certificate as colon-separated hex.
+          keytool -printcert -jarfile app/build/outputs/bundle/release/app-release.aab | tee aab-certs.txt
+          if ! tr -d ':' < aab-certs.txt | grep -qi "SHA256 $expected"; then
+            echo "::error::Release app bundle is not signed with the Tellycine release key (expected SHA-256 $expected)."
+            exit 1
+          fi
 
       - name: Create GitHub release
         if: steps.version.outputs.skip != 'true'
@@ -82,6 +89,8 @@ jobs:
           apk="tellycine-${TAG}.apk"
           cp app/build/outputs/apk/release/app-release.apk "$apk"
           sha256sum "$apk" > "$apk.sha256"
+          aab="tellycine-${TAG}.aab"
+          cp app/build/outputs/bundle/release/app-release.aab "$aab"
           # The same APK under a fixed name, so releases/latest/download/tellycine.apk always works
           # (handy when typing the address into a TV).
           cp "$apk" tellycine.apk
@@ -98,6 +107,8 @@ jobs:
           - Material 3 design with light and dark themes and phone/tablet layouts
           - Android TV and Google TV interface for the remote, with a grid guide and adding playlists from your phone
 
+          \`${aab}\` is the app bundle for Google Play; it can't be installed directly.
+
           Signing certificate SHA-256: \`B8:C7:BC:C0:A9:2A:60:3E:E9:36:5D:7D:7A:52:A2:03:CB:29:DE:8F:89:11:9F:C9:74:0A:34:12:C0:8E:F6:B6\`
 
           Tellycine does not provide any content.
@@ -107,4 +118,4 @@ jobs:
             { cat "release-notes/${TAG}.md"; echo; echo "---"; echo; cat notes.md; } > notes-full.md
             mv notes-full.md notes.md
           fi
-          gh release create "$TAG" "$apk" "$apk.sha256" tellycine.apk --target "$GITHUB_SHA" --title "Tellycine ${TAG}" --notes-file notes.md
+          gh release create "$TAG" "$apk" "$apk.sha256" tellycine.apk "$aab" --target "$GITHUB_SHA" --title "Tellycine ${TAG}" --notes-file notes.md

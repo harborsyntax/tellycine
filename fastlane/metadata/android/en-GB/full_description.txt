@@ -1,0 +1,38 @@
+Tellycine is a player for IPTV playlists you already have. Add your provider's playlist and TV guide, then watch live TV, movies and series on your phone, tablet and Android TV.
+
+Tellycine doesn't include, sell or recommend any channels, streams or other content. You need a playlist from a provider you subscribe to, or one of your own.
+
+YOUR PLAYLISTS
+• M3U and M3U8 playlists, from a link or a file on your device
+• Xtream Codes-compatible logins and Dispatcharr servers
+• As many playlists as you like, and switch between them
+• XMLTV TV guide data
+
+LIVE TV
+• A traditional grid TV guide, or a channel list showing what's on now
+• Categories and favourites
+• Catch-up, where your provider offers it
+• Quick channel switching, picture-in-picture and Chromecast
+
+ANDROID TV AND GOOGLE TV
+• A full interface for the remote, with a grid guide and a categories column
+• Multi-view: up to four live channels at once, with sound and volume per channel and three layouts
+• A mini player keeps your channel playing while you browse the guide
+• Five colour themes made for big screens
+• Add a playlist from your phone by scanning a QR code
+• Voice search
+
+MOVIES AND SERIES
+• Browse your provider's movies and series by category
+• Continue watching, resume where you left off, and download for offline viewing
+• Search across channels, the TV guide, movies and series
+
+THE PLAYER
+• Audio and subtitle tracks, and picture fit options
+• Stats for nerds: formats, HDR, decoders, download rate and buffer
+• Open a stream in another player if you prefer
+
+PRIVATE BY DESIGN
+• No account, ads, analytics or tracking
+• Your playlists, logins and watch history stay on your device
+• Tellycine only connects to the servers you add

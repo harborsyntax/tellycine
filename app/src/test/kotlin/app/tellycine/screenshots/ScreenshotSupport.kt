@@ -158,6 +158,26 @@ class ScreenshotDriver(private val compose: ComposeRule) {
         roundCorners(file)
     }
 
+    /**
+     * Saves the screen for the Google Play listing, as images/[path].png under [STORE_IMAGES]:
+     * square corners and no transparency, which Play doesn't accept.
+     */
+    fun storeShot(path: String) {
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        val file = File("../$STORE_IMAGES/$path.png")
+        file.parentFile?.mkdirs()
+        captureScreenRoboImage(file.path)
+        val source = BitmapFactory.decodeFile(file.path)
+        val out = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
+        Canvas(out).apply {
+            drawColor(android.graphics.Color.BLACK)
+            drawBitmap(source, 0f, 0f, null)
+        }
+        out.setHasAlpha(false)
+        FileOutputStream(file).use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
     /** Makes the corners transparent, with a radius proportional to the shorter side. */
     private fun roundCorners(file: File) {
         val source = BitmapFactory.decodeFile(file.path)
@@ -174,7 +194,9 @@ class ScreenshotDriver(private val compose: ComposeRule) {
         FileOutputStream(file).use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
-    private companion object {
-        const val CORNER_FRACTION = 0.06f
+    companion object {
+        private const val CORNER_FRACTION = 0.06f
+        /** The Play listing, in the layout fastlane and F-Droid read. */
+        const val STORE_IMAGES = "fastlane/metadata/android/en-GB/images"
     }
 }

@@ -1,0 +1,5 @@
+Tellycine is now on Google Play.
+
+• Multi-view on Android TV: up to four live channels at once, with sound and volume per channel
+• Grid, side column and bottom row layouts for multi-view
+• More room in the TV guide for channel names and programmes
