@@ -367,10 +367,6 @@ fun TvPlayerScreen(
             TvPlayerGuide(
                 request = request,
                 playerChannels = channels,
-                onPlayChannel = {
-                    onSelectChannel(it)
-                    overlay = TvOverlay.INFO
-                },
                 onPlay = {
                     onPlay(it)
                     overlay = TvOverlay.INFO

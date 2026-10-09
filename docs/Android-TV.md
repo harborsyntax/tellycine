@@ -68,7 +68,7 @@ Stream URLs are shown as a **QR code**: scan it with your phone to open or copy 
 
 The controls include **Channels**, the **channel you were watching before** (one press to flip back), **favourite**, **TV guide**, **audio & subtitles**, **aspect ratio**, **Open with…**, **picture-in-picture** (on TVs that support it) and **Stats for nerds**.
 
-- **TV guide** shows the guide over the lower part of the picture, so the channel keeps playing while you look. It opens on the channel you're watching. OK on a programme on now changes channel; OK on a past one replays it, where the provider offers catch-up. Back closes it.
+- **TV guide** shows the guide over the lower part of the picture, so the channel keeps playing while you look. It opens on the channel you're watching, in its category; press **Left** from the channel names to pick another category. OK on a programme on now changes channel; OK on a past one replays it, where the provider offers catch-up. Back closes it.
 - **Stats for nerds** shows the stream's formats, HDR and colour information, decoders, download rate, buffer, dropped frames and the TV's display mode, updated every second. Press it again to hide them.
 
 ## Movies, series and the Library
