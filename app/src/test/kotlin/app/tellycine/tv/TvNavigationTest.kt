@@ -2,9 +2,14 @@ package app.tellycine.tv
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isFocused
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -46,15 +51,38 @@ class TvNavigationTest {
     }
 
     @Test
+    fun leftFromTheChannelsOpensTheCategoriesColumnAndOkPicksOne() {
+        val d = ScreenshotDriver(compose)
+        d.launchTv()
+
+        // Left steps back to the channel, then once more into the categories column, on the current one.
+        d.pressUntil(Key.DirectionLeft, "Press OK to watch")
+        d.press(Key.DirectionLeft)
+        compose.onNode(hasText("All channels") and hasText("12") and isFocused()).assertExists()
+
+        // OK on Sport shows its channels and returns to them: OK then plays the first.
+        d.press(Key.DirectionDown, 3)
+        compose.onNode(hasText("Sport") and isFocused() and !isButton).assertExists()
+        d.press(Key.DirectionCenter)
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Metro News 24").fetchSemanticsNodes().isEmpty() }
+        d.press(Key.DirectionCenter)
+        val started = shadowOf(ApplicationProvider.getApplicationContext<TellycineApp>()).nextStartedActivity
+        assertNotNull(started)
+        assertEquals("https://example.com/live/2.m3u8", started.getStringExtra("url"))
+    }
+
+    @Test
     fun upFromTheFirstChannelReachesTheHeaderAndBackOpensTheMenu() {
         val d = ScreenshotDriver(compose)
         d.launchTv()
 
         d.press(Key.DirectionUp)
-        compose.onNode(hasText("All channels") and hasClickAction()).assertIsFocused()
+        compose.onNode(hasText("All channels") and hasClickAction() and isButton).assertIsFocused()
 
         d.back()
         d.waitForText("Playlists")
         compose.onNode(hasText("Live TV") and hasClickAction()).assertIsFocused()
     }
+
+    private val isButton = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
 }

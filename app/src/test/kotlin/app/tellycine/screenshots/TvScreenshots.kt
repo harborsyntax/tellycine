@@ -44,8 +44,9 @@ class TvScreenshots {
         d.shot("tv-channel-options")
         d.back()
 
-        // Left from the channel column opens the categories.
-        d.pressUntil(Key.DirectionLeft, "Live TV categories")
+        // Left from the channel column opens the categories column.
+        d.pressUntil(Key.DirectionLeft, "Press OK to watch")
+        d.press(Key.DirectionLeft)
         d.shot("tv-categories")
         d.back()
 

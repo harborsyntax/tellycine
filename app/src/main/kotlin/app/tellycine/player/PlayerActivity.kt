@@ -158,10 +158,7 @@ class PlayerActivity : FragmentActivity() {
                         onOpenWith = { request?.let { openExternally(it, chooser = true) } },
                         onCycleResize = { resizeMode = (resizeMode + 1) % RESIZE_MODES.size },
                         onEnterPip = { enterPip() },
-                        onPlay = {
-                            saveProgress()
-                            start(it)
-                        },
+                        onPlay = { playFromGuide(it) },
                         stats = ::statsRows,
                     )
                 }
@@ -399,6 +396,20 @@ class PlayerActivity : FragmentActivity() {
                 request = request?.copy(subtitle = now.title)
             }
         }
+    }
+
+    /**
+     * A channel or past programme picked in the guide over the picture. A channel from another
+     * category brings that category's channels, so up/down then move through them.
+     */
+    private fun playFromGuide(req: PlayRequest) {
+        val current = request
+        if (req.isLive && current != null && req.streamId != current.streamId) {
+            previousChannel = channels.firstOrNull { it.streamId == current.streamId } ?: liveInfo.channel
+        }
+        saveProgress()
+        start(req)
+        if (req.isLive && req.categoryId != current?.categoryId) loadChannels(req)
     }
 
     // ---- TV: channel banner, number entry, favourites ----
