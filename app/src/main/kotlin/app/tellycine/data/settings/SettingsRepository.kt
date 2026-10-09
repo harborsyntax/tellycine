@@ -32,6 +32,10 @@ data class AppSettings(
     val downloadWifiOnly: Boolean = true,
     /** Show Live TV as a grid guide (channels by time) when the screen is landscape. */
     val liveGuideGrid: Boolean = false,
+    /** TV: open on the last channel watched when the app starts. */
+    val startOnLastChannel: Boolean = false,
+    /** TV: switch the display's refresh rate to suit the video (e.g. 50 Hz for 25/50 fps channels). */
+    val matchFrameRate: Boolean = false,
 )
 
 private val Context.dataStore by preferencesDataStore("settings")
@@ -50,6 +54,8 @@ class SettingsRepository(private val context: Context) {
         val libraryGroup = booleanPreferencesKey("library_group_by_category")
         val downloadWifiOnly = booleanPreferencesKey("download_wifi_only")
         val liveGuideGrid = booleanPreferencesKey("live_guide_grid")
+        val startOnLastChannel = booleanPreferencesKey("start_on_last_channel")
+        val matchFrameRate = booleanPreferencesKey("match_frame_rate")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -65,6 +71,8 @@ class SettingsRepository(private val context: Context) {
             libraryGroupByCategory = p[Keys.libraryGroup] ?: false,
             downloadWifiOnly = p[Keys.downloadWifiOnly] ?: true,
             liveGuideGrid = p[Keys.liveGuideGrid] ?: false,
+            startOnLastChannel = p[Keys.startOnLastChannel] ?: false,
+            matchFrameRate = p[Keys.matchFrameRate] ?: false,
         )
     }
 
@@ -84,4 +92,6 @@ class SettingsRepository(private val context: Context) {
     suspend fun setLibraryGroupByCategory(enabled: Boolean) = context.dataStore.edit { it[Keys.libraryGroup] = enabled }
     suspend fun setDownloadWifiOnly(enabled: Boolean) = context.dataStore.edit { it[Keys.downloadWifiOnly] = enabled }
     suspend fun setLiveGuideGrid(enabled: Boolean) = context.dataStore.edit { it[Keys.liveGuideGrid] = enabled }
+    suspend fun setStartOnLastChannel(enabled: Boolean) = context.dataStore.edit { it[Keys.startOnLastChannel] = enabled }
+    suspend fun setMatchFrameRate(enabled: Boolean) = context.dataStore.edit { it[Keys.matchFrameRate] = enabled }
 }

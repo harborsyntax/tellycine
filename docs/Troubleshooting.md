@@ -52,5 +52,24 @@ Your provider only offers this title as a stream of short segments, which can't 
 **A download failed with "The server returned HTTP 4xx"**
 The provider refused the download. Check you can stream the title, and that you aren't already at your provider's connection limit (for example, watching live TV at the same time). Then tap retry.
 
+## Android TV
+**Tellycine isn't in the TV's app list**
+It's listed with a wide banner. On Google TV, look under **Apps → See all**. If you installed it with Downloader and still can't find it, open it from **Settings → Apps**.
+
+**"Choose file" doesn't open anything**
+Many TVs don't have a file picker. Use **Add from phone** on the Playlists screen to send the playlist file from your phone, or use a playlist URL.
+
+**Add from phone: the page won't open on my phone**
+Check the phone is on the same Wi-Fi network as the TV (not mobile data or a guest network), and that the Add from phone screen is still open on the TV. Some routers keep devices apart ("client isolation"); turn that off, or use the on-screen form instead.
+
+**Long-pressing does nothing**
+Hold **OK** for about half a second, then let go: the options open when you release. **Menu**, if your remote has one, opens a channel's options too.
+
+**The picture judders on 25 or 50 fps channels**
+Turn on **Settings → Match the TV's refresh rate**, or Google TV's **Match content frame rate**. Not every stream says its frame rate, so it doesn't always apply.
+
+**My Fire TV won't install it**
+Newer Fire TV devices run Amazon's Vega OS, which can't run Android apps. Fire TV devices with Fire OS can install it with Downloader.
+
 ## Reporting a problem
 Open an issue on GitHub, or include the output of `adb logcat` captured while the problem happens.

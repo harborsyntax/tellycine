@@ -82,10 +82,13 @@ jobs:
           apk="tellycine-${TAG}.apk"
           cp app/build/outputs/apk/release/app-release.apk "$apk"
           sha256sum "$apk" > "$apk.sha256"
+          # The same APK under a fixed name, so releases/latest/download/tellycine.apk always works
+          # (handy when typing the address into a TV).
+          cp "$apk" tellycine.apk
           cat > notes.md <<NOTES
-          Tellycine ${TAG} — an IPTV player for Android phones and tablets (Android 8.0+).
+          Tellycine ${TAG} — an IPTV player for Android phones, tablets and TVs (Android 8.0+).
 
-          **Install:** download \`${apk}\` on your device and open it (allow installing from unknown sources when asked).
+          **Install:** download \`${apk}\` on your device and open it (allow installing from unknown sources when asked). On a TV, use the Downloader app with \`github.com/${GITHUB_REPOSITORY}/releases/latest/download/tellycine.apk\`.
 
           - M3U/M3U8 links, local M3U files, Xtream Codes and Dispatcharr, with multiple playlists
           - XMLTV TV guide, with a grid guide in landscape, and catch-up TV
@@ -93,6 +96,7 @@ jobs:
           - Offline downloads, Chromecast, and Open with… other players
           - Media3 player with picture-in-picture, track selection, resume and channel switching
           - Material 3 design with light and dark themes and phone/tablet layouts
+          - Android TV and Google TV interface for the remote, with a grid guide and adding playlists from your phone
 
           Signing certificate SHA-256: \`B8:C7:BC:C0:A9:2A:60:3E:E9:36:5D:7D:7A:52:A2:03:CB:29:DE:8F:89:11:9F:C9:74:0A:34:12:C0:8E:F6:B6\`
 
@@ -103,4 +107,4 @@ jobs:
             { cat "release-notes/${TAG}.md"; echo; echo "---"; echo; cat notes.md; } > notes-full.md
             mv notes-full.md notes.md
           fi
-          gh release create "$TAG" "$apk" "$apk.sha256" --target "$GITHUB_SHA" --title "Tellycine ${TAG}" --notes-file notes.md
+          gh release create "$TAG" "$apk" "$apk.sha256" tellycine.apk --target "$GITHUB_SHA" --title "Tellycine ${TAG}" --notes-file notes.md

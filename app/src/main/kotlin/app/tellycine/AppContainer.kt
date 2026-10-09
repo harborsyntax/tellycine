@@ -29,7 +29,7 @@ class AppContainer(context: Context) {
     val settings = SettingsRepository(context)
     val downloader = Downloader(context, httpClient)
     val syncManager = SyncManager(database, PlaylistSyncer(context, database, downloader), settings, appScope)
-    val playlists = PlaylistRepository(database, settings, syncManager)
+    val playlists = PlaylistRepository(context, database, settings, syncManager)
     val content = ContentRepository(database)
     val details = DetailsRepository(downloader)
     val dvr = DvrRepository(database, httpClient)

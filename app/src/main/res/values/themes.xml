@@ -14,6 +14,16 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
+    <!-- The TV interface is always dark. -->
+    <style name="Theme.Tellycine.Tv" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">@color/brand_primary_on_dark</item>
+        <item name="colorPrimaryDark">@color/tv_background</item>
+        <item name="colorAccent">@color/brand_primary_on_dark</item>
+        <item name="android:windowBackground">@color/tv_background</item>
+        <item name="android:statusBarColor">@color/tv_background</item>
+        <item name="android:navigationBarColor">@color/tv_background</item>
+    </style>
+
     <style name="Theme.Tellycine.Player" parent="Theme.AppCompat.NoActionBar">
         <item name="colorPrimary">@color/brand_primary_on_dark</item>
         <item name="colorPrimaryDark">@android:color/black</item>

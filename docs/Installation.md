@@ -3,7 +3,7 @@
 Tellycine isn't on the Play Store yet. It's distributed as an APK on GitHub.
 
 ## Requirements
-- Android 8.0 or newer, on a phone, tablet or foldable.
+- Android 8.0 or newer, on a phone, tablet, foldable or TV.
 - Chromecast support needs Google Play services. Everything else works without it.
 
 ## Install
@@ -11,6 +11,9 @@ Tellycine isn't on the Play Store yet. It's distributed as an APK on GitHub.
 2. Download `tellycine-vX.Y.Z.apk`.
 3. Open the downloaded file. If asked, allow your browser or file manager to **install unknown apps**.
 4. Play Protect may warn that the app is from an **unknown developer**. This is normal for apps installed outside the Play Store. Tap **More details → Install anyway**.
+
+## On a TV
+See [Android TV & Google TV](Android-TV.md#installing-on-a-tv): the Downloader app can fetch the latest version from a fixed address.
 
 ## Updating
 Install the new APK over the existing app. Your playlists, favourites and settings are kept.

@@ -6,7 +6,7 @@
   <img src="images/screens/library.png" width="260" alt="Library">
 </p>
 
-Tellycine is an IPTV player for Android phones and tablets. It plays your own M3U playlists, Xtream Codes accounts and Dispatcharr servers, with a TV guide, catch-up, recordings, offline downloads and Chromecast, in a clean Material 3 design.
+Tellycine is an IPTV player for Android phones, tablets and TVs. It plays your own M3U playlists, Xtream Codes accounts and Dispatcharr servers, with a TV guide, catch-up, recordings, offline downloads and Chromecast, in a clean Material 3 design.
 
 > Tellycine is a player only. It doesn't provide any channels or content; you add playlists from your own provider.
 
@@ -25,6 +25,7 @@ Tellycine is an IPTV player for Android phones and tablets. It plays your own M3
 - [Player](Player.md): controls, channel switching, picture-in-picture, external players
 - [Chromecast](Chromecast.md)
 - [Dispatcharr](Dispatcharr.md): recordings and source URLs
+- [Android TV & Google TV](Android-TV.md): the TV interface, the remote, and adding playlists from your phone
 - [Settings](Settings.md)
 
 ## Help

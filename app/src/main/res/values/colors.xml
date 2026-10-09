@@ -6,4 +6,5 @@
     <color name="brand_primary">#845400</color>
     <color name="brand_primary_dark">#643F00</color>
     <color name="brand_primary_on_dark">#FFB951</color>
+    <color name="tv_background">#110D09</color>
 </resources>

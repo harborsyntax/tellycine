@@ -15,8 +15,8 @@ android {
         applicationId = "app.tellycine"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -130,6 +130,12 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.fragment)
     implementation(libs.androidx.media3.datasource.okhttp)
+    implementation(libs.androidx.media3.session)
+
+    // Android TV interface
+    implementation(libs.androidx.tv.material)
+    // QR codes, so a phone can open links shown on the TV
+    implementation(libs.zxing.core)
 
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.coil.compose)

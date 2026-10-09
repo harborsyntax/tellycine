@@ -10,7 +10,7 @@
 </h1>
 
 <p align="center">
-  An IPTV player for Android phones and tablets, built with Jetpack Compose and Material 3.
+  An IPTV player for Android phones, tablets and TVs, built with Jetpack Compose and Material 3.
   <br><br>
   <a href="https://github.com/mrjack711/tellycine/releases/latest"><b>Download the latest APK</b></a>
   &nbsp;·&nbsp;
@@ -41,14 +41,19 @@ Tellycine is a player only. It doesn't provide any channels or content; you add 
 - **Dispatcharr:** DVR recordings (watch, schedule and delete), and sharing Dispatcharr or source stream URLs.
 - **Built for big playlists:** stream-parsed imports and paged lists keep huge playlists and guides fast.
 - **Material 3 design:** Material You colours, light and dark themes, and layouts that adapt to phones, tablets and foldables.
+- **Android TV & Google TV:** a full TV interface for the remote, with a traditional grid guide, channel switching and number entry, voice search, and adding playlists from your phone with a QR code. Same app, same APK.
 
 <p align="center">
   <img src="docs/images/screens/tablet-live-tv.png" width="640" alt="Tablet layout">
 </p>
 
+<p align="center">
+  <img src="docs/images/screens/tv-guide.png" width="640" alt="Android TV guide">
+</p>
+
 ## Documentation
 
-See the **[documentation](docs/Home.md)** for installation, adding playlists, catch-up, Chromecast, Dispatcharr, troubleshooting and developer notes.
+See the **[documentation](docs/Home.md)** for installation, adding playlists, catch-up, Chromecast, Dispatcharr, [Android TV](docs/Android-TV.md), troubleshooting and developer notes.
 
 ## Building
 

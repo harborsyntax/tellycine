@@ -15,6 +15,7 @@
 - [Player](Player.md)
 - [Chromecast](Chromecast.md)
 - [Dispatcharr](Dispatcharr.md)
+- [Android TV](Android-TV.md)
 - [Settings](Settings.md)
 
 **Help**

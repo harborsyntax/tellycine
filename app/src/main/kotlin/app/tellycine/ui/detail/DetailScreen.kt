@@ -66,6 +66,8 @@ import app.tellycine.data.repo.ContentRepository
 import app.tellycine.player.play
 import app.tellycine.ui.components.Artwork
 import app.tellycine.ui.components.formatDuration
+import app.tellycine.ui.components.progress
+import app.tellycine.ui.components.resumePosition
 import app.tellycine.ui.components.tellycineViewModel
 import app.tellycine.ui.downloads.DownloadButton
 import app.tellycine.ui.downloads.downloadStatus
@@ -402,10 +404,3 @@ private fun EpisodeRow(
         downloadButton()
     }
 }
-
-private fun HistoryEntity.progress(): Float? =
-    if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else null
-
-/** Resume position, or 0 when the item was (almost) finished. */
-private fun HistoryEntity.resumePosition(): Long =
-    if (durationMs > 0 && positionMs > durationMs * 0.95) 0L else positionMs
