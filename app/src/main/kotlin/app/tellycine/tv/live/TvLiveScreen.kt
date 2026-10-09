@@ -20,9 +20,12 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material.icons.filled.UnfoldLess
+import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material.icons.outlined.CalendarViewWeek
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -54,10 +57,12 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.ListItem
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import app.tellycine.container
 import app.tellycine.core.ContentKind
 import app.tellycine.data.db.ChannelRow
 import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.data.repo.Categories
+import app.tellycine.player.MiniPlayback
 import app.tellycine.player.play
 import app.tellycine.tv.TvPalette
 import app.tellycine.tv.components.RequestFocusOnStart
@@ -94,6 +99,15 @@ fun TvLiveScreen(session: SessionState, onAddPlaylist: () -> Unit) {
     val categoryName = options.firstOrNull { it.id == selected }?.name ?: "All channels"
     // The guide is the TV's main view; the plain list is one press away.
     var listView by rememberSaveable { mutableStateOf(false) }
+    val compact by vm.tvGuideCompact.collectAsStateWithLifecycle()
+    // A live channel left with Back plays on in the top corner of the guide.
+    val playback = context.container.tvPlayback
+    val mini = playback.mini.takeIf { !listView }
+    val openMini = { m: MiniPlayback -> context.startActivity(m.request.toIntent(context)) }
+    // It only plays while the guide is on screen: not in the list, other screens, or behind other apps.
+    LaunchedEffect(listView) { if (listView) playback.stopMini() }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { playback.stopMini() }
+    DisposableEffect(playback) { onDispose { playback.stopMini() } }
     var showCategories by remember { mutableStateOf(false) }
     var share by remember { mutableStateOf<Pair<String, String>?>(null) }
     val contentFocus = remember { FocusRequester() }
@@ -145,6 +159,13 @@ fun TvLiveScreen(session: SessionState, onAddPlaylist: () -> Unit) {
     val playRow = { row: ChannelRow -> context.play(vm.playRequest(row)) }
     val headerActions: @Composable () -> Unit = {
         TvActionButton(categoryName, onClick = { showCategories = true }, icon = Icons.Filled.Category)
+        if (!listView) {
+            TvActionButton(
+                if (compact) "Expand" else "Compact",
+                onClick = { vm.setTvGuideCompact(!compact) },
+                icon = if (compact) Icons.Filled.UnfoldMore else Icons.Filled.UnfoldLess,
+            )
+        }
         TvActionButton(
             if (listView) "Guide" else "List",
             onClick = { listView = !listView },
@@ -158,6 +179,8 @@ fun TvLiveScreen(session: SessionState, onAddPlaylist: () -> Unit) {
         } else {
             val focusedRow = channels.itemCount.takeIf { it > 0 }?.let { channels.peek(guide.row.coerceIn(0, it - 1)) }
             GuideDetails(
+                mini = mini,
+                onOpenMini = openMini,
                 row = focusedRow,
                 programme = guide.focusedProgramme(focusedRow),
                 now = now,
@@ -211,6 +234,7 @@ fun TvLiveScreen(session: SessionState, onAddPlaylist: () -> Unit) {
                 onLeftEdge = { showCategories = true },
                 focusRequester = contentFocus,
                 modifier = body.padding(start = TvSpacing.screenStart, end = TvSpacing.screenEnd, bottom = 12.dp),
+                compact = compact,
             )
         }
     }
@@ -253,6 +277,8 @@ fun TvLiveScreen(session: SessionState, onAddPlaylist: () -> Unit) {
 /** The top of the guide: what the highlight is on, with the screen's actions and the clock. */
 @Composable
 private fun GuideDetails(
+    mini: MiniPlayback?,
+    onOpenMini: (MiniPlayback) -> Unit,
     row: ChannelRow?,
     programme: ProgrammeEntity?,
     now: Long,
@@ -267,6 +293,7 @@ private fun GuideDetails(
             .padding(start = TvSpacing.screenStart, end = TvSpacing.screenEnd, top = TvSpacing.screenTop, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(24.dp),
     ) {
+        if (mini != null) TvMiniPlayer(mini, onOpen = { onOpenMini(mini) })
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             if (row != null) {
                 Text(

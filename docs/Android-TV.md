@@ -42,9 +42,11 @@ Live TV opens on the **guide**: channels down the side and time across the top.
 | Left (on a channel) | Open the **categories**. |
 | OK | Watch what's on now, replay a past programme, or see the schedule for an upcoming one. |
 | Hold OK (or Menu) | The channel's **options and schedule**: watch live, watch from the start, favourite, open in another app, show the stream URL, and replay or record programmes. |
-| Up (from the first channel) | Reach the **category** and **List** buttons. |
+| Up (from the first channel) | Reach the **category**, **Compact** and **List** buttons. |
 
-The top of the screen describes the highlighted programme. **List** switches to a plain channel list with what's on now; **Guide** switches back.
+The top of the screen describes the highlighted programme. **Compact** shrinks the rows to fit more channels on screen; **Expand** makes them bigger again. **List** switches to a plain channel list with what's on now; **Guide** switches back.
+
+When you go back to the guide from a live channel, it keeps playing in a **mini player** in the top corner. Press OK on the mini player, or **hold Back** anywhere in the guide, to return to it full screen. It stops when you leave the guide.
 
 <img src="images/screens/tv-channel-options.png" width="640" alt="A channel's options and schedule">
 
@@ -62,7 +64,7 @@ Stream URLs are shown as a **QR code**: scan it with your phone to open or copy 
 | Play/Pause, Rewind, Fast forward | | As labelled |
 | Info | Show what's on now and next | Show progress |
 | Menu or Captions | Audio & subtitles | Audio & subtitles |
-| Back | Close the controls, then return to the guide | |
+| Back | Close the controls, then return to the guide (the channel keeps playing in the mini player) | Close the controls, then stop |
 
 The controls include **Channels**, the **channel you were watching before** (one press to flip back), **favourite**, **audio & subtitles**, **aspect ratio**, **Open with…** and **picture-in-picture** (on TVs that support it).
 
