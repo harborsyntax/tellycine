@@ -1,5 +1,8 @@
 package app.tellycine.tv.live
 
+import app.tellycine.player.multiview.MultiViewActivity
+import app.tellycine.container
+import androidx.compose.material.icons.filled.GridView
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -89,7 +92,7 @@ fun TvChannelPanel(
             )
             Column {
                 Text(
-                    listOfNotNull(row.stream.number?.toString(), row.stream.name).joinToString("  "),
+                    row.stream.name,
                     style = MaterialTheme.typography.headlineSmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -137,6 +140,16 @@ fun TvChannelPanel(
             )
         }
         Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            TvActionButton(
+                "Multi-view",
+                onClick = {
+                    vm.dismissSchedule()
+                    // The guide's mini player lets go of its connection first.
+                    context.container.tvPlayback.stopMini()
+                    context.startActivity(MultiViewActivity.intent(context, vm.playRequest(row)))
+                },
+                icon = Icons.Filled.GridView,
+            )
             TvActionButton(
                 "Open with…",
                 onClick = {

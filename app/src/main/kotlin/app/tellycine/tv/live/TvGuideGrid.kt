@@ -83,7 +83,7 @@ import app.tellycine.ui.live.GuideWindow
 import java.util.Calendar
 import kotlin.math.roundToInt
 
-private val CHANNEL_WIDTH = 220.dp
+private val CHANNEL_WIDTH = 190.dp
 private val HOUR_WIDTH = 300.dp
 private val ROW_HEIGHT = 56.dp
 /** Compact rows fit about half as many channels again on screen. */
@@ -465,15 +465,6 @@ private fun ChannelCell(row: ChannelRow, compact: Boolean, highlighted: Boolean)
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         val content = if (highlighted) TvPalette.onFocus else MaterialTheme.colorScheme.onSurface
-        s.number?.let {
-            Text(
-                "$it",
-                style = MaterialTheme.typography.labelLarge,
-                color = content.copy(alpha = 0.75f),
-                maxLines = 1,
-                modifier = Modifier.width(36.dp),
-            )
-        }
         Artwork(
             url = s.logo,
             fallbackText = s.name,

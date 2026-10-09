@@ -6,7 +6,7 @@
 </p>
 
 ## Browsing channels
-- **Each row** shows the channel number, logo, name, the programme on now and how far through it is.
+- **Each row** shows the channel's logo, name, the programme on now and how far through it is.
 - **Categories:** on phones they're the chips above the list; tap **☰** to search the full category list. On tablets and in landscape on larger screens, they're in a side pane.
 
   <img src="images/screens/tablet-live-tv.png" width="600" alt="Tablet layout">

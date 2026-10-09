@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.outlined.CalendarViewWeek
 import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.foundation.focusable
@@ -152,6 +153,8 @@ fun TvPlayerScreen(
     /** Plays a programme picked in the guide over the picture (catch-up). */
     onPlay: (PlayRequest) -> Unit,
     stats: () -> List<Pair<String, String>>,
+    /** Opens multi-view with the channel playing; null where it isn't offered. */
+    onMultiView: (() -> Unit)? = null,
 ) {
     var showStats by remember { mutableStateOf(false) }
     var overlay by remember { mutableStateOf(TvOverlay.INFO) }
@@ -358,6 +361,7 @@ fun TvPlayerScreen(
                     onEnterPip()
                 },
                 onGuide = { overlay = TvOverlay.GUIDE },
+                onMultiView = onMultiView,
                 showingStats = showStats,
                 onToggleStats = { showStats = !showStats },
             )
@@ -434,6 +438,7 @@ private fun BottomPanel(
     onOpenWith: () -> Unit,
     onEnterPip: () -> Unit,
     onGuide: () -> Unit,
+    onMultiView: (() -> Unit)?,
     showingStats: Boolean,
     onToggleStats: () -> Unit,
 ) {
@@ -467,9 +472,8 @@ private fun BottomPanel(
                 )
             }
             Column(Modifier.weight(1f)) {
-                val channelLine = if (isLive) listOfNotNull(live.channel?.number?.toString(), request?.title).joinToString("  ") else request?.title
                 Text(
-                    channelLine.orEmpty(),
+                    request?.title.orEmpty(),
                     style = if (isLive) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineSmall,
                     color = if (isLive) TvPalette.primary else Color.White,
                     maxLines = 1,
@@ -550,6 +554,7 @@ private fun BottomPanel(
                         onToggleFavorite,
                     )
                     ControlButton("TV guide", Icons.Outlined.CalendarViewWeek, onGuide)
+                    if (onMultiView != null) ControlButton("Multi-view", Icons.Filled.GridView, onMultiView)
                 } else {
                     ControlButton("Back 10s", Icons.Filled.FastRewind, { onSeek(-10_000) })
                     ControlButton(
@@ -636,7 +641,7 @@ private fun ChannelPanel(
                         selected = s.streamId == currentId,
                         onClick = { onSelect(s) },
                         headlineContent = {
-                            Text(listOfNotNull(s.number?.toString(), s.name).joinToString("  "), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(s.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         },
                         leadingContent = {
                             Artwork(

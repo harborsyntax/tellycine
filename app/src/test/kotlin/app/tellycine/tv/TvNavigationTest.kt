@@ -9,8 +9,8 @@ import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.tellycine.TellycineApp
@@ -37,9 +37,12 @@ class TvNavigationTest {
         val d = ScreenshotDriver(compose)
         d.launchTv()
 
-        // Down moves to the next channel; the top of the screen describes it.
+        // Down moves to the next channel; the top of the screen names it as well as its row.
+        fun shown(name: String) = compose.onAllNodesWithText(name, useUnmergedTree = true).fetchSemanticsNodes().size
+        d.waitForText("Global Report")
+        assertEquals(1, shown("Global Report"))
         d.press(Key.DirectionDown)
-        d.waitForText("102  Global Report")
+        compose.waitUntil(15_000) { shown("Global Report") == 2 }
 
         // Left steps back through the guide to the channel itself; OK there plays it.
         d.pressUntil(Key.DirectionLeft, "Press OK to watch")

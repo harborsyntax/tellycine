@@ -53,7 +53,7 @@ fun ChannelItem(
         headlineContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    if (s.number != null) "${s.number}  ${s.name}" else s.name,
+                    s.name,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),

@@ -332,7 +332,7 @@ private fun GuideDetails(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             if (row != null) {
                 Text(
-                    listOfNotNull(row.stream.number?.toString(), row.stream.name).joinToString("  "),
+                    row.stream.name,
                     style = MaterialTheme.typography.labelLarge,
                     color = TvPalette.primary,
                     maxLines = 1,
@@ -423,7 +423,7 @@ private fun TvChannelList(
                     modifier = Modifier.okClicks(onClick = { onPlay(row) }, onLongClick = { onOptions(row) }),
                     headlineContent = {
                         Text(
-                            listOfNotNull(s.number?.toString(), s.name).joinToString("   "),
+                            s.name,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )

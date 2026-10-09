@@ -72,5 +72,15 @@
             android:taskAffinity="app.tellycine.player"
             android:excludeFromRecents="true"
             android:theme="@style/Theme.Tellycine.Player" />
+
+        <activity
+            android:name=".player.multiview.MultiViewActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:taskAffinity="app.tellycine.player"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Tellycine.Player" />
     </application>
 </manifest>

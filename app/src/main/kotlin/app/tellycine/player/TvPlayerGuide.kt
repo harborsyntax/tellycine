@@ -53,6 +53,8 @@ fun TvPlayerGuide(
     /** Plays a channel (a live request, with the guide's category) or a past programme. */
     onPlay: (PlayRequest) -> Unit,
     modifier: Modifier = Modifier,
+    /** What picking a channel will do, at the end of the header line. */
+    hint: String? = null,
 ) {
     val vm = tellycineViewModel { c, _ -> LiveViewModel(c) }
     val content = LocalContext.current.container.content
@@ -116,18 +118,29 @@ fun TvPlayerGuide(
     ) {
         val row = channels.itemCount.takeIf { it > 0 }?.let { channels.peek(guide.row.coerceIn(0, it - 1)) }
         val programme = guide.focusedProgramme(row)
-        Text(
-            listOfNotNull(
-                row?.stream?.name,
-                programme?.title,
-                programme?.let { "${formatTime(it.startMs)} – ${formatTime(it.stopMs)}" },
-            ).joinToString("  ·  "),
-            style = MaterialTheme.typography.titleMedium,
-            color = TvPalette.primary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-        )
+        Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+            Text(
+                listOfNotNull(
+                    row?.stream?.name,
+                    programme?.title,
+                    programme?.let { "${formatTime(it.startMs)} – ${formatTime(it.stopMs)}" },
+                ).joinToString("  ·  "),
+                style = MaterialTheme.typography.titleMedium,
+                color = TvPalette.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (hint != null) {
+                Text(
+                    hint,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    maxLines = 1,
+                    modifier = Modifier.padding(start = 24.dp),
+                )
+            }
+        }
         Row(Modifier.weight(1f)) {
             TvGuideCategories(
                 state = categoryColumn,

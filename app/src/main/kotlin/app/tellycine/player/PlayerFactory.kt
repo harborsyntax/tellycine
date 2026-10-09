@@ -15,6 +15,9 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioCapabilities
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
 import app.tellycine.data.net.DEFAULT_USER_AGENT
@@ -49,19 +52,33 @@ class PlayerFactory(private val context: Context, httpClient: OkHttpClient) {
         return DefaultMediaSourceFactory(dataSourceFactory, extractors())
     }
 
-    fun create(): ExoPlayer {
+    /**
+     * A player for one stream, or with [multiView] for one of several playing at once: their
+     * sound is decoded here so it can be mixed (a TV or receiver takes only one Dolby stream at a
+     * time), none takes the audio focus from the others, and smaller buffers keep four of them
+     * within a TV's memory.
+     */
+    fun create(multiView: Boolean = false): ExoPlayer {
         val extractors = extractors()
 
         val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(
-                /* minBufferMs = */ 15_000,
-                /* maxBufferMs = */ 50_000,
-                /* bufferForPlaybackMs = */ 1_500,
-                /* bufferForPlaybackAfterRebufferMs = */ 3_000,
-            )
+            .apply {
+                if (multiView) {
+                    setBufferDurationsMs(8_000, 20_000, 1_500, 3_000)
+                    setTargetBufferBytes(16 * 1024 * 1024)
+                } else {
+                    setBufferDurationsMs(
+                        /* minBufferMs = */ 15_000,
+                        /* maxBufferMs = */ 50_000,
+                        /* bufferForPlaybackMs = */ 1_500,
+                        /* bufferForPlaybackAfterRebufferMs = */ 3_000,
+                    )
+                }
+            }
             .build()
 
-        val renderers = DefaultRenderersFactory(context).setEnableDecoderFallback(true)
+        val renderers = (if (multiView) MixableAudioRenderersFactory(context) else DefaultRenderersFactory(context))
+            .setEnableDecoderFallback(true)
 
         return ExoPlayer.Builder(context, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory, extractors))
@@ -71,12 +88,16 @@ class PlayerFactory(private val context: Context, httpClient: OkHttpClient) {
                     .setUsage(C.USAGE_MEDIA)
                     .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
                     .build(),
-                /* handleAudioFocus = */ true,
+                /* handleAudioFocus = */ !multiView,
             )
             .setHandleAudioBecomingNoisy(true)
             .setSeekBackIncrementMs(10_000)
             .setSeekForwardIncrementMs(30_000)
             .build()
+            .apply {
+                // A quarter or half of the screen needs no more than 720p, where a stream offers a choice.
+                if (multiView) trackSelectionParameters = trackSelectionParameters.buildUpon().setMaxVideoSize(1280, 720).build()
+            }
     }
 
     /** Applies request headers; must be called before preparing each new item. */
@@ -107,4 +128,16 @@ class PlayerFactory(private val context: Context, httpClient: OkHttpClient) {
         }
         return builder.build()
     }
+}
+
+/** Decodes all sound to PCM rather than passing Dolby through, so several players' sound can mix. */
+@OptIn(UnstableApi::class)
+private class MixableAudioRenderersFactory(context: Context) : DefaultRenderersFactory(context) {
+    @Suppress("DEPRECATION")
+    override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
+        DefaultAudioSink.Builder(context)
+            .setEnableFloatOutput(enableFloatOutput)
+            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+            .setAudioCapabilities(AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES)
+            .build()
 }

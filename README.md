@@ -41,7 +41,7 @@ Tellycine is a player only. It doesn't provide any channels or content; you add 
 - **Dispatcharr:** DVR recordings (watch, schedule and delete), and sharing Dispatcharr or source stream URLs.
 - **Built for big playlists:** stream-parsed imports and paged lists keep huge playlists and guides fast.
 - **Material 3 design:** Material You colours, light and dark themes, and layouts that adapt to phones, tablets and foldables.
-- **Android TV & Google TV:** a full TV interface for the remote, with a traditional grid guide, channel switching and number entry, voice search, and adding playlists from your phone with a QR code. Same app, same APK.
+- **Android TV & Google TV:** a full TV interface for the remote, with a traditional grid guide, channel switching and number entry, multi-view (up to four channels at once), voice search, and adding playlists from your phone with a QR code. Same app, same APK.
 
 <p align="center">
   <img src="docs/images/screens/tablet-live-tv.png" width="640" alt="Tablet layout">

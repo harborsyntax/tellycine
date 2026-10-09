@@ -280,12 +280,7 @@ private fun ChannelCell(row: ChannelRow, onClick: () -> Unit, onLongClick: () ->
             shape = RoundedCornerShape(8.dp),
             modifier = Modifier.size(width = 44.dp, height = 32.dp),
         )
-        Column {
-            s.number?.let {
-                Text("$it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Text(s.name, style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        }
+        Text(s.name, style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 
