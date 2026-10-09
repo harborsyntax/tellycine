@@ -27,6 +27,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Rational
 import android.view.WindowManager
+import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
@@ -98,6 +99,8 @@ class PlayerActivity : FragmentActivity() {
     private var mediaSession: MediaSession? = null
     /** "Match the TV's refresh rate" setting. */
     private var matchFrameRate = false
+    /** Set when Back hands the channel to the guide's mini player, which keeps it playing. */
+    private var toMini = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -108,8 +111,15 @@ class PlayerActivity : FragmentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         hideSystemBars()
 
-        factory = PlayerFactory(this, container.httpClient, tv)
-        exoPlayer = factory.create()
+        if (tv) {
+            // Shared with the guide's mini player, so a live channel can keep playing there.
+            val playback = container.tvPlayback
+            factory = playback.factory
+            exoPlayer = playback.claim(this)
+        } else {
+            factory = PlayerFactory(this, container.httpClient)
+            exoPlayer = factory.create()
+        }
         exoPlayer.addListener(listener)
         activePlayer = exoPlayer
         setUpCast()
@@ -118,6 +128,8 @@ class PlayerActivity : FragmentActivity() {
             lifecycleScope.launch {
                 container.settings.settings.collect { matchFrameRate = it.matchFrameRate }
             }
+            // After the player's own panels have had their say.
+            onBackPressedDispatcher.addCallback(this) { leave() }
         }
 
         setContent {
@@ -132,7 +144,7 @@ class PlayerActivity : FragmentActivity() {
                         inPip = inPip,
                         resizeMode = resizeMode,
                         pipSupported = pipSupported(),
-                        onBack = { finish() },
+                        onBack = { leave() },
                         onRetry = { retry() },
                         onZap = { zap(it) },
                         onSelectChannel = { playChannel(it) },
@@ -179,12 +191,38 @@ class PlayerActivity : FragmentActivity() {
         val req = PlayRequest.fromIntent(intent) ?: return finish()
         saveProgress()
         channels = emptyList()
+        // The channel already playing in the guide's mini player carries on, full screen.
+        val fromMini = tv && req.isLive && request == null &&
+            exoPlayer.currentMediaItem?.localConfiguration?.uri?.toString() == req.url
         lifecycleScope.launch {
             // The playlist decides how a stream is adapted for Chromecast.
             if (playlist?.id != req.playlistId) playlist = container.playlists.get(req.playlistId)
-            start(req)
+            if (fromMini) resume(req) else start(req)
             if (req.isLive) loadChannels(req)
         }
+    }
+
+    /** Shows [req], which the shared TV player is already playing, without restarting it. */
+    private fun resume(req: PlayRequest) {
+        request = req
+        error = null
+        liveRetries = 0
+        exoPlayer.playWhenReady = true
+        recordHistory(req, 0, 0)
+        startProgressUpdates()
+        loadLiveInfo(req)
+        matchDisplayToVideo()
+    }
+
+    /** Back on a TV: a live channel carries on in the guide's mini player; anything else stops. */
+    private fun leave() {
+        val req = request
+        if (tv && req != null && req.isLive && error == null && !isCasting()) {
+            exoPlayer.removeListener(listener)
+            container.tvPlayback.toMini(this, req)
+            toMini = true
+        }
+        finish()
     }
 
     private fun start(req: PlayRequest) {
@@ -610,15 +648,17 @@ class PlayerActivity : FragmentActivity() {
         mediaSession?.release()
         mediaSession = null
         saveProgress()
-        // Keep the TV playing when the app goes to the background while casting.
-        if (!isInPictureInPictureMode && !isCasting()) player.pause()
+        // Keep the TV playing when the app goes to the background while casting, and the
+        // channel playing on in the guide's mini player.
+        if (!isInPictureInPictureMode && !isCasting() && !toMini) player.pause()
     }
 
     override fun onDestroy() {
         saveProgress()
         progressJob?.cancel()
         exoPlayer.removeListener(listener)
-        exoPlayer.release()
+        // On a TV the player is shared: it stops only if nothing else has taken it over.
+        if (tv) container.tvPlayback.release(this) else exoPlayer.release()
         castPlayer?.let {
             it.setSessionAvailabilityListener(null)
             it.removeListener(listener)

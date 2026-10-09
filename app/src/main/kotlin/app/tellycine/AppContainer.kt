@@ -13,6 +13,7 @@ import app.tellycine.data.repo.PlaylistRepository
 import app.tellycine.data.settings.SettingsRepository
 import app.tellycine.data.sync.PlaylistSyncer
 import app.tellycine.data.sync.SyncManager
+import app.tellycine.player.TvPlayback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,6 +36,8 @@ class AppContainer(context: Context) {
     val dvr = DvrRepository(database, httpClient)
     val downloads = DownloadRepository(context, database, settings, appScope)
     val cast = CastManager(context)
+    /** TV only: the player shared by the full-screen player and the guide's mini player. */
+    val tvPlayback by lazy { TvPlayback(context, httpClient) }
 
     /** Cached so playback can be launched synchronously from click handlers. */
     val externalPlayerDefault: StateFlow<Boolean> = settings.settings

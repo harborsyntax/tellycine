@@ -86,6 +86,8 @@ import kotlin.math.roundToInt
 private val CHANNEL_WIDTH = 220.dp
 private val HOUR_WIDTH = 300.dp
 private val ROW_HEIGHT = 56.dp
+/** Compact rows fit about half as many channels again on screen. */
+private val COMPACT_ROW_HEIGHT = 36.dp
 private val HEADER_HEIGHT = 32.dp
 private const val MINUTE = 60_000L
 private const val HOUR = 60 * MINUTE
@@ -168,7 +170,10 @@ fun TvGuideGrid(
     modifier: Modifier = Modifier,
     /** Left from the channel column; when null, focus moves on to the side menu. */
     onLeftEdge: (() -> Unit)? = null,
+    /** Shorter rows, with one line per channel and programme, so more channels fit. */
+    compact: Boolean = false,
 ) {
+    val rowHeight = if (compact) COMPACT_ROW_HEIGHT else ROW_HEIGHT
     val window = state.window
     val density = LocalDensity.current
     val pxPerMs = with(density) { HOUR_WIDTH.toPx() } / HOUR
@@ -305,10 +310,11 @@ fun TvGuideGrid(
                     items(channels.itemCount, key = channels.itemKey { rowKey(it) }) { index ->
                         val row = channels[index]
                         if (row == null) {
-                            Box(Modifier.fillMaxWidth().height(ROW_HEIGHT))
+                            Box(Modifier.fillMaxWidth().height(rowHeight))
                         } else {
                             GuideRow(
                                 row = row,
+                                compact = compact,
                                 focused = hasFocus && index == state.row,
                                 state = state,
                                 pxPerMs = pxPerMs,
@@ -378,6 +384,7 @@ private fun TimeHeader(window: GuideWindow, pxPerMs: Float, offset: () -> Float,
 @Composable
 private fun GuideRow(
     row: ChannelRow,
+    compact: Boolean,
     focused: Boolean,
     state: TvGuideState,
     pxPerMs: Float,
@@ -400,8 +407,8 @@ private fun GuideRow(
         onDispose { state.programmes.remove(key) }
     }
     val programmes = state.programmes[key]
-    Row(Modifier.fillMaxWidth().height(ROW_HEIGHT).padding(vertical = 2.dp)) {
-        ChannelCell(row, highlighted = focused && state.onChannel)
+    Row(Modifier.fillMaxWidth().height(if (compact) COMPACT_ROW_HEIGHT else ROW_HEIGHT).padding(vertical = 2.dp)) {
+        ChannelCell(row, compact, highlighted = focused && state.onChannel)
         Box(Modifier.weight(1f).fillMaxHeight().clipToBounds()) {
             when {
                 programmes == null -> Unit
@@ -414,6 +421,7 @@ private fun GuideRow(
                             if (stop > start) {
                                 ProgrammeCell(
                                     programme = p,
+                                    compact = compact,
                                     xPx = (start - window.startMs) * pxPerMs,
                                     widthPx = (stop - start) * pxPerMs,
                                     offset = offset,
@@ -434,7 +442,7 @@ private fun GuideRow(
 private val CellShape = RoundedCornerShape(8.dp)
 
 @Composable
-private fun ChannelCell(row: ChannelRow, highlighted: Boolean) {
+private fun ChannelCell(row: ChannelRow, compact: Boolean, highlighted: Boolean) {
     val s = row.stream
     Row(
         Modifier
@@ -462,13 +470,13 @@ private fun ChannelCell(row: ChannelRow, highlighted: Boolean) {
             fallbackText = s.name,
             contentScale = ContentScale.Fit,
             shape = RoundedCornerShape(6.dp),
-            modifier = Modifier.size(width = 52.dp, height = 36.dp),
+            modifier = if (compact) Modifier.size(width = 40.dp, height = 26.dp) else Modifier.size(width = 52.dp, height = 36.dp),
         )
         Text(
             s.name,
             style = MaterialTheme.typography.titleSmall,
             color = content,
-            maxLines = 2,
+            maxLines = if (compact) 1 else 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
@@ -479,6 +487,7 @@ private fun ChannelCell(row: ChannelRow, highlighted: Boolean) {
 @Composable
 private fun ProgrammeCell(
     programme: ProgrammeEntity,
+    compact: Boolean,
     xPx: Float,
     widthPx: Float,
     offset: () -> Float,
@@ -508,7 +517,8 @@ private fun ProgrammeCell(
             .clip(CellShape)
             .background(background)
             .then(if (highlighted) Modifier.border(2.dp, TvPalette.primary, CellShape) else Modifier)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 10.dp, vertical = if (compact) 0.dp else 6.dp),
+        contentAlignment = if (compact) Alignment.CenterStart else Alignment.TopStart,
     ) {
         Column(
             Modifier
@@ -525,7 +535,8 @@ private fun ProgrammeCell(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            // Compact rows have room for the title only; the details above the guide give the times.
+            if (!compact) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (recording) Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFFFF5449)))
                 if (replayable && !onNow) Icon(Icons.Filled.Replay, "Catch-up available", Modifier.size(12.dp), tint = content)
                 Text(

@@ -36,6 +36,8 @@ data class AppSettings(
     val startOnLastChannel: Boolean = false,
     /** TV: switch the display's refresh rate to suit the video (e.g. 50 Hz for 25/50 fps channels). */
     val matchFrameRate: Boolean = false,
+    /** TV: shorter guide rows, so more channels fit on screen. */
+    val tvGuideCompact: Boolean = false,
 )
 
 private val Context.dataStore by preferencesDataStore("settings")
@@ -56,6 +58,7 @@ class SettingsRepository(private val context: Context) {
         val liveGuideGrid = booleanPreferencesKey("live_guide_grid")
         val startOnLastChannel = booleanPreferencesKey("start_on_last_channel")
         val matchFrameRate = booleanPreferencesKey("match_frame_rate")
+        val tvGuideCompact = booleanPreferencesKey("tv_guide_compact")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -73,6 +76,7 @@ class SettingsRepository(private val context: Context) {
             liveGuideGrid = p[Keys.liveGuideGrid] ?: false,
             startOnLastChannel = p[Keys.startOnLastChannel] ?: false,
             matchFrameRate = p[Keys.matchFrameRate] ?: false,
+            tvGuideCompact = p[Keys.tvGuideCompact] ?: false,
         )
     }
 
@@ -94,4 +98,5 @@ class SettingsRepository(private val context: Context) {
     suspend fun setLiveGuideGrid(enabled: Boolean) = context.dataStore.edit { it[Keys.liveGuideGrid] = enabled }
     suspend fun setStartOnLastChannel(enabled: Boolean) = context.dataStore.edit { it[Keys.startOnLastChannel] = enabled }
     suspend fun setMatchFrameRate(enabled: Boolean) = context.dataStore.edit { it[Keys.matchFrameRate] = enabled }
+    suspend fun setTvGuideCompact(enabled: Boolean) = context.dataStore.edit { it[Keys.tvGuideCompact] = enabled }
 }

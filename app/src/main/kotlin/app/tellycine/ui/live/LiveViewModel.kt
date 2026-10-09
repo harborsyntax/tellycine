@@ -139,6 +139,14 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
         viewModelScope.launch { container.settings.setLiveGuideGrid(enabled) }
     }
 
+    /** TV: whether the guide uses its compact rows. */
+    val tvGuideCompact: StateFlow<Boolean> = container.settings.settings.map { it.tvGuideCompact }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun setTvGuideCompact(enabled: Boolean) {
+        viewModelScope.launch { container.settings.setTvGuideCompact(enabled) }
+    }
+
     /** Recently shown grid rows, so scrolling back up doesn't query the database again. */
     private val guideCache = LruCache<String, List<ProgrammeEntity>>(300)
 
