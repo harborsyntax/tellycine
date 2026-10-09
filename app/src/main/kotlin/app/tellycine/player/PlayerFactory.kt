@@ -17,16 +17,12 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
-import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import app.tellycine.data.net.DEFAULT_USER_AGENT
 import okhttp3.OkHttpClient
 
-/**
- * Builds an ExoPlayer tuned for IPTV (MPEG-TS quirks, generous buffering, per-stream headers).
- * [tv] is true on a TV, whose hardware decoders are stricter about how a stream is cut into frames.
- */
+/** Builds an ExoPlayer tuned for IPTV (MPEG-TS quirks, generous buffering, per-stream headers). */
 @OptIn(UnstableApi::class)
-class PlayerFactory(private val context: Context, httpClient: OkHttpClient, private val tv: Boolean = false) {
+class PlayerFactory(private val context: Context, httpClient: OkHttpClient) {
 
     /** Bytes downloaded, for the stream's download rate in the stats panel. */
     val traffic = TrafficMeter()
@@ -39,18 +35,12 @@ class PlayerFactory(private val context: Context, httpClient: OkHttpClient, priv
     private val dataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
 
     private fun extractors() = DefaultExtractorsFactory()
-        .setTsExtractorFlags(
-            // On a TV, read MPEG-TS the way Media3 reads HLS, which plays there. Splitting H.264
-            // into frames by slice headers can cut an interlaced frame into its two fields, and
-            // starting on any I-frame rather than an IDR frame, both stall many TV decoders: the
-            // picture freezes while the sound carries on. Phones cope, and start sooner with them.
-            if (tv) {
-                0
-            } else {
-                DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
-                    DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
-            }
-        )
+        // MPEG-TS is read the way Media3 reads HLS, with no extra flags. Splitting H.264 into
+        // frames by slice headers (FLAG_DETECT_ACCESS_UNITS) can cut an interlaced frame into its
+        // two fields, and starting on any I-frame rather than an IDR frame
+        // (FLAG_ALLOW_NON_IDR_KEYFRAMES) can stall the decoder: on TVs and phones alike, the
+        // picture froze on live channels while the sound carried on.
+        .setTsExtractorFlags(0)
         .setConstantBitrateSeekingEnabled(true)
 
     /** Reads a stream's tracks without playing it, e.g. to check soundtracks before casting. */
