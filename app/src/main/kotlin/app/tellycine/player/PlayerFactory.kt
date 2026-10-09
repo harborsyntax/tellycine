@@ -23,7 +23,7 @@ import okhttp3.OkHttpClient
 
 /**
  * Builds an ExoPlayer tuned for IPTV (MPEG-TS quirks, generous buffering, per-stream headers).
- * [tv] is true on a TV, whose hardware decoders are stricter about where a stream starts.
+ * [tv] is true on a TV, whose hardware decoders are stricter about how a stream is cut into frames.
  */
 @OptIn(UnstableApi::class)
 class PlayerFactory(private val context: Context, httpClient: OkHttpClient, private val tv: Boolean = false) {
@@ -35,11 +35,12 @@ class PlayerFactory(private val context: Context, httpClient: OkHttpClient, priv
 
     private fun extractors() = DefaultExtractorsFactory()
         .setTsExtractorFlags(
-            // Starting a live MPEG-TS stream on any I-frame, rather than waiting for an IDR frame,
-            // freezes the picture on many TV decoders; phones cope, and start sooner with it.
-            // (HLS streams don't use these flags: their segments start on an IDR frame.)
+            // On a TV, read MPEG-TS the way Media3 reads HLS, which plays there. Splitting H.264
+            // into frames by slice headers can cut an interlaced frame into its two fields, and
+            // starting on any I-frame rather than an IDR frame, both stall many TV decoders: the
+            // picture freezes while the sound carries on. Phones cope, and start sooner with them.
             if (tv) {
-                DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
+                0
             } else {
                 DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
                     DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS
