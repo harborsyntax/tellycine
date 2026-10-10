@@ -60,6 +60,7 @@ import app.tellycine.tv.components.TvChannelTile
 import app.tellycine.tv.components.TvClock
 import app.tellycine.tv.components.TvEmptyState
 import app.tellycine.tv.components.TvPosterCard
+import app.tellycine.tv.components.TvSourceLabel
 import app.tellycine.tv.components.TvSpacing
 import app.tellycine.tv.components.TvTextInputDialog
 import app.tellycine.ui.components.Artwork
@@ -77,8 +78,8 @@ fun TvSearchScreen(onOpen: (StreamEntity) -> Unit) {
     val query by vm.query.collectAsStateWithLifecycle()
     val results by vm.results.collectAsStateWithLifecycle()
     val filter by vm.filter.collectAsStateWithLifecycle()
-    val playlist by vm.playlist.collectAsStateWithLifecycle()
-    val vodEnabled = playlist?.vodEnabled != false
+    val playlists by vm.playlists.collectAsStateWithLifecycle()
+    val vodEnabled = playlists.isEmpty() || playlists.any { it.vodEnabled }
     val context = LocalContext.current
     var typing by rememberSaveable { mutableStateOf(false) }
     val box = remember { FocusRequester() }
@@ -150,7 +151,11 @@ fun TvSearchScreen(onOpen: (StreamEntity) -> Unit) {
             // Until the (debounced) search catches up with the query, it counts as searching.
             val pending = results.searching || results.query != query.trim()
             when {
-                query.trim().length < 2 -> TvEmptyState(Icons.Filled.Search, "Search your playlist", "Press OK on the search box to type, or use Voice.")
+                query.trim().length < 2 -> TvEmptyState(
+                    Icons.Filled.Search,
+                    if (playlists.size > 1) "Search your playlists" else "Search your playlist",
+                    "Press OK on the search box to type, or use Voice.",
+                )
                 pending && results.isEmpty -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
                 !results.searching && results.isEmpty -> TvEmptyState(Icons.Filled.Search, "No results", "Nothing matches \"${results.query}\".")
                 else -> LazyColumn(
@@ -158,17 +163,24 @@ fun TvSearchScreen(onOpen: (StreamEntity) -> Unit) {
                     contentPadding = PaddingValues(top = 16.dp, bottom = TvSpacing.screenBottom),
                     verticalArrangement = Arrangement.spacedBy(20.dp),
                 ) {
+                    val sources = results.sources
                     resultRow("Live TV", results.live) { s ->
-                        TvChannelTile(name = s.name, logo = s.logo, onClick = { context.play(vm.channelRequest(s)) })
+                        TvChannelTile(name = s.name, logo = s.logo, onClick = { context.play(vm.channelRequest(s)) }, source = sources[s.playlistId])
                     }
                     resultRow("TV guide", results.programmes) { hit ->
-                        ProgrammeCard(hit, replayable = vm.canReplay(hit), onClick = { context.play(vm.programmeRequest(hit)) })
+                        ProgrammeCard(hit, sources[hit.channel.playlistId], replayable = vm.canReplay(hit), onClick = { context.play(vm.programmeRequest(hit)) })
                     }
                     resultRow("Movies", results.movies) { s ->
-                        TvPosterCard(title = s.name, poster = s.logo, meta = s.year, rating = s.rating, onClick = { onOpen(s) }, modifier = Modifier.width(130.dp))
+                        TvPosterCard(
+                            title = s.name, poster = s.logo, meta = s.year, rating = s.rating, onClick = { onOpen(s) },
+                            modifier = Modifier.width(130.dp), source = sources[s.playlistId],
+                        )
                     }
                     resultRow("Series", results.series) { s ->
-                        TvPosterCard(title = s.name, poster = s.logo, meta = s.year, rating = s.rating, onClick = { onOpen(s) }, modifier = Modifier.width(130.dp))
+                        TvPosterCard(
+                            title = s.name, poster = s.logo, meta = s.year, rating = s.rating, onClick = { onOpen(s) },
+                            modifier = Modifier.width(130.dp), source = sources[s.playlistId],
+                        )
                     }
                 }
             }
@@ -206,9 +218,9 @@ private fun <T> LazyListScope.resultRow(title: String, list: List<T>, card: @Com
     }
 }
 
-/** A programme from the guide: its channel, time and title. */
+/** A programme from the guide: its channel, time and title, and the playlist it's from if [source] is given. */
 @Composable
-private fun ProgrammeCard(hit: ProgrammeHit, replayable: Boolean, onClick: () -> Unit) {
+private fun ProgrammeCard(hit: ProgrammeHit, source: String?, replayable: Boolean, onClick: () -> Unit) {
     val p = hit.programme
     val now = remember(hit) { System.currentTimeMillis() }
     val onNow = p.startMs <= now && p.stopMs > now
@@ -241,6 +253,7 @@ private fun ProgrammeCard(hit: ProgrammeHit, replayable: Boolean, onClick: () ->
                 if (replayable && !onNow && p.stopMs <= now) {
                     Text("Catch-up available", style = MaterialTheme.typography.labelSmall, maxLines = 1)
                 }
+                source?.let { TvSourceLabel(it) }
             }
         }
     }

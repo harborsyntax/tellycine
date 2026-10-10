@@ -89,7 +89,7 @@ In multi-view, Dolby sound is decoded by the TV box rather than passed to your T
 - **Library** has rows for continue watching, recently watched channels and favourites, with **Clear all** and **Sort**. Hold OK on an item to remove it.
 
 ## Search
-Press OK on the search box to type with the on-screen keyboard, or choose **Voice** to speak. Results are grouped into channels, the TV guide, movies and series.
+Press OK on the search box to type with the on-screen keyboard, or choose **Voice** to speak. Search looks in all your playlists. Results are grouped into channels, the TV guide, movies and series; with more than one playlist, each shows the playlist it's from.
 
 <img src="images/screens/tv-search.png" width="640" alt="Search on TV">
 

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
@@ -44,7 +45,16 @@ private fun focusBorder() = CardDefaults.border(
     focusedBorder = Border(BorderStroke(3.dp, TvPalette.focus), shape = CardShape),
 )
 
-/** A movie or series poster with its title underneath. */
+/** Which playlist something is from, under a card's title. */
+@Composable
+fun TvSourceLabel(name: String, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Icon(Icons.AutoMirrored.Filled.PlaylistPlay, "Playlist", Modifier.size(14.dp), tint = TvPalette.primary)
+        Text(name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** A movie or series poster with its title underneath, and the playlist it's from if [source] is given. */
 @Composable
 fun TvPosterCard(
     title: String,
@@ -54,6 +64,7 @@ fun TvPosterCard(
     meta: String? = null,
     rating: Double? = null,
     onLongClick: (() -> Unit)? = null,
+    source: String? = null,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Card(
@@ -83,10 +94,11 @@ fun TvPosterCard(
         if (!meta.isNullOrBlank()) {
             Text(meta, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
+        source?.let { TvSourceLabel(it) }
     }
 }
 
-/** A channel's logo on a tile with its name underneath. */
+/** A channel's logo on a tile with its name underneath, and the playlist it's from if [source] is given. */
 @Composable
 fun TvChannelTile(
     name: String,
@@ -96,6 +108,7 @@ fun TvChannelTile(
     width: Dp = 168.dp,
     subtitle: String? = null,
     onLongClick: (() -> Unit)? = null,
+    source: String? = null,
 ) {
     Column(modifier.width(width), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Card(
@@ -114,6 +127,7 @@ fun TvChannelTile(
         if (subtitle != null) {
             Text(subtitle, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+        source?.let { TvSourceLabel(it) }
     }
 }
 
