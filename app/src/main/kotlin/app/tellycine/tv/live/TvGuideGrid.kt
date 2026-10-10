@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -513,6 +514,9 @@ private fun ProgrammeCell(
     Box(
         Modifier
             .offset { IntOffset((xPx - offset()).roundToInt(), 0) }
+            // Its full length even when that's wider than the screen, so a long programme that
+            // started earlier still reaches its end (the lane clips what's off screen).
+            .wrapContentWidth(Alignment.Start, unbounded = true)
             .width(with(density) { widthPx.toDp() })
             .fillMaxHeight()
             .padding(horizontal = 1.dp)

@@ -55,8 +55,9 @@ class ScreenshotDriver(private val compose: ComposeRule) {
     private var theme by mutableStateOf(ThemeMode.DARK)
     val app: TellycineApp get() = ApplicationProvider.getApplicationContext()
 
-    fun launch() {
-        DemoData.seed(app.container)
+    /** Starts the phone interface on the demo playlist, after [afterSeed] has had a chance to change it. */
+    fun launch(afterSeed: (playlistId: Long) -> Unit = {}) {
+        afterSeed(DemoData.seed(app.container))
         compose.setContent {
             TellycineTheme(themeMode = theme, dynamicColor = false) { TellycineNavHost() }
         }
@@ -64,8 +65,8 @@ class ScreenshotDriver(private val compose: ComposeRule) {
     }
 
     /** Starts the TV interface instead of the phone one. */
-    fun launchTv() {
-        DemoData.seed(app.container)
+    fun launchTv(afterSeed: (playlistId: Long) -> Unit = {}) {
+        afterSeed(DemoData.seed(app.container))
         compose.setContent {
             TellycineTvTheme { TvApp() }
         }
