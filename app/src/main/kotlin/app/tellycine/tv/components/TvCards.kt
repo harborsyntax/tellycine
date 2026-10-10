@@ -1,5 +1,6 @@
 package app.tellycine.tv.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -34,7 +36,6 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
-import androidx.compose.foundation.BorderStroke
 import app.tellycine.tv.TvPalette
 import app.tellycine.ui.components.Artwork
 
@@ -42,6 +43,13 @@ private val CardShape = RoundedCornerShape(12.dp)
 
 @Composable
 private fun focusBorder() = CardDefaults.border(
+    focusedBorder = Border(BorderStroke(3.dp, TvPalette.focus), shape = CardShape),
+)
+
+/** A chosen card's border: the accent colour, or the focus colour while it's focused. */
+@Composable
+private fun selectedBorder() = CardDefaults.border(
+    border = Border(BorderStroke(3.dp, TvPalette.primary), shape = CardShape),
     focusedBorder = Border(BorderStroke(3.dp, TvPalette.focus), shape = CardShape),
 )
 
@@ -65,14 +73,19 @@ fun TvPosterCard(
     rating: Double? = null,
     onLongClick: (() -> Unit)? = null,
     source: String? = null,
+    /** Shows the card as the chosen one of a set, such as the season being shown. */
+    selected: Boolean = false,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Card(
             onClick = onClick,
             shape = CardDefaults.shape(CardShape),
-            border = focusBorder(),
+            border = if (selected) selectedBorder() else focusBorder(),
             scale = CardDefaults.scale(focusedScale = 1.06f),
-            modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).semantics { contentDescription = title }.okClicks(onClick, onLongClick),
+            modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).semantics {
+                contentDescription = title
+                if (selected) this.selected = true
+            }.okClicks(onClick, onLongClick),
         ) {
             Box(Modifier.fillMaxSize()) {
                 Artwork(url = poster, fallbackText = title, shape = CardShape, modifier = Modifier.fillMaxSize())
@@ -90,7 +103,13 @@ fun TvPosterCard(
                 }
             }
         }
-        Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            color = if (selected) TvPalette.primary else Color.Unspecified,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         if (!meta.isNullOrBlank()) {
             Text(meta, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }

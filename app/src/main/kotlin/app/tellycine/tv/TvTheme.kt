@@ -1,5 +1,7 @@
 package app.tellycine.tv
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -13,6 +15,8 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
 import app.tellycine.container
 import app.tellycine.data.settings.TvTheme
+import app.tellycine.ui.components.ArtworkTint
+import app.tellycine.ui.components.tintedBy
 import app.tellycine.ui.theme.DarkColors
 
 /** The colours of a TV theme. All are dark: a big, bright screen is tiring to look at in a dim room. */
@@ -245,6 +249,28 @@ fun TellycineTvTheme(content: @Composable () -> Unit) {
         val material3 = if (theme == TvTheme.WARM) WarmMaterial3Scheme else material3ColorScheme(colors)
         androidx.compose.material3.MaterialTheme(colorScheme = material3) {
             MaterialTheme(colorScheme = scheme, content = content)
+        }
+    }
+}
+
+/**
+ * Tints [content] with colours from a title's artwork: the background, surfaces and accent. The
+ * focus highlight keeps the theme's colours, and High contrast isn't tinted at all; [content] is
+ * told whether it's tinted.
+ */
+@Composable
+fun TvArtworkTint(tint: ArtworkTint?, content: @Composable (tinted: Boolean) -> Unit) {
+    val base = LocalTvColors.current
+    val use = tint?.takeIf { base != TvTheme.HIGH_CONTRAST.colors() }
+    val spec = tween<Color>(600)
+    val background by animateColorAsState(use?.background ?: base.background, spec, label = "background")
+    val accent by animateColorAsState(use?.accent ?: base.primary, spec, label = "accent")
+    val onAccent by animateColorAsState(use?.onAccent ?: base.onPrimary, spec, label = "onAccent")
+    CompositionLocalProvider(LocalTvColors provides base.copy(background = background, primary = accent, onPrimary = onAccent)) {
+        androidx.compose.material3.MaterialTheme(colorScheme = androidx.compose.material3.MaterialTheme.colorScheme.tintedBy(use)) {
+            MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(background = background, primary = accent, onPrimary = onAccent)) {
+                content(use != null)
+            }
         }
     }
 }

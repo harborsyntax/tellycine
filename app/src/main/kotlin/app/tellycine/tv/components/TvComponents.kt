@@ -133,6 +133,8 @@ fun TvActionButton(
     icon: ImageVector? = null,
     primary: Boolean = false,
     enabled: Boolean = true,
+    /** For a [primary] button, its colour while it isn't focused, and its text's. */
+    accent: Pair<Color, Color>? = null,
 ) {
     val content: @Composable RowScope.() -> Unit = {
         if (icon != null) {
@@ -143,7 +145,8 @@ fun TvActionButton(
     }
     val padding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
     if (primary) {
-        Button(onClick = onClick, modifier = modifier, enabled = enabled, contentPadding = padding, content = content)
+        val colors = accent?.let { (container, text) -> ButtonDefaults.colors(containerColor = container, contentColor = text) } ?: ButtonDefaults.colors()
+        Button(onClick = onClick, modifier = modifier, enabled = enabled, contentPadding = padding, colors = colors, content = content)
     } else {
         OutlinedButton(onClick = onClick, modifier = modifier, enabled = enabled, contentPadding = padding, content = content)
     }

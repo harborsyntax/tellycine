@@ -75,6 +75,23 @@ class XtreamParserTest {
         assertEquals(1500, info.episodes[1].durationSecs)
         assertEquals(setOf(1, 2), info.seasons.keys)
         assertEquals("Season 1", info.seasons[1]!!.name)
+        assertEquals("http://s1", info.seasons[1]!!.cover)
+    }
+
+    @Test
+    fun readsEveryBackdropAndTheTrailer() {
+        val vod = parser.parseVodInfo(
+            """{"info":{"name":"Film","backdrop_path":["http://b1","","http://b2","http://b1"],"youtube_trailer":"dQw4w9WgXcQ"},
+                "movie_data":{"container_extension":"mkv"}}""".reader()
+        )
+        assertEquals(listOf("http://b1", "http://b2"), vod.backdrops)
+        assertEquals("https://www.youtube.com/watch?v=dQw4w9WgXcQ", vod.trailer)
+
+        val series = parser.parseSeriesInfo(
+            """{"info":{"name":"Show","backdrop_path":"http://only","youtube_trailer":""},"episodes":[]}""".reader()
+        )
+        assertEquals(listOf("http://only"), series.backdrops)
+        assertNull(series.trailer)
     }
 
     @Test

@@ -49,13 +49,18 @@ data class DetailInfo(
     val playlist: PlaylistEntity? = null,
     val title: String = "",
     val poster: String? = null,
-    val backdrop: String? = null,
+    /** Wide artwork for behind the page, shown in turn when there's more than one. */
+    val backdrops: List<String> = emptyList(),
     val plot: String? = null,
     val meta: List<String> = emptyList(),
     val rating: Double? = null,
     val cast: String? = null,
     val director: String? = null,
     val seasons: Map<Int, String> = emptyMap(),
+    /** Season posters, for the seasons the provider has one for. */
+    val seasonCovers: Map<Int, String> = emptyMap(),
+    /** The trailer's YouTube address. */
+    val trailer: String? = null,
     val episodes: List<EpisodeUi> = emptyList(),
     val error: String? = null,
 )
@@ -133,7 +138,7 @@ class DetailViewModel(
                 playlist = playlist,
                 title = stream.name,
                 poster = stream.logo,
-                backdrop = stream.backdrop,
+                backdrops = listOfNotNull(stream.backdrop),
                 plot = stream.plot,
                 meta = listOfNotNull(stream.year, stream.genre),
                 rating = stream.rating,
@@ -146,7 +151,7 @@ class DetailViewModel(
                         val vod = container.details.vodInfo(playlist, streamId)
                         info.copy(
                             poster = vod.cover ?: info.poster,
-                            backdrop = vod.backdrop ?: info.backdrop,
+                            backdrops = vod.backdrops.ifEmpty { info.backdrops },
                             plot = vod.plot ?: info.plot,
                             meta = listOfNotNull(
                                 vod.releaseDate?.take(4) ?: stream.year,
@@ -156,6 +161,7 @@ class DetailViewModel(
                             rating = vod.rating?.takeIf { it > 0 } ?: info.rating,
                             cast = vod.cast,
                             director = vod.director,
+                            trailer = vod.trailer,
                         )
                     }
                     playlist.type == PlaylistType.XTREAM && kind == ContentKind.SERIES -> {
@@ -163,13 +169,15 @@ class DetailViewModel(
                         val urls = XtreamUrls(playlist.url, playlist.username, playlist.password)
                         info.copy(
                             poster = series.cover ?: info.poster,
-                            backdrop = series.backdrop ?: info.backdrop,
+                            backdrops = series.backdrops.ifEmpty { info.backdrops },
                             plot = series.plot ?: info.plot,
                             meta = listOfNotNull(series.releaseDate?.take(4) ?: stream.year, series.genre ?: stream.genre),
                             rating = series.rating?.takeIf { it > 0 } ?: info.rating,
                             cast = series.cast,
                             director = series.director,
+                            trailer = series.trailer,
                             seasons = series.seasons.mapValues { (n, s) -> s.name?.takeIf { it.isNotBlank() } ?: "Season $n" },
+                            seasonCovers = series.seasons.mapNotNull { (n, s) -> s.cover?.let { n to it } }.toMap(),
                             episodes = series.episodes.map { e ->
                                 EpisodeUi(
                                     id = e.id,

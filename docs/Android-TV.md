@@ -85,7 +85,7 @@ In multi-view, Dolby sound is decoded by the TV box rather than passed to your T
 
 ## Movies, series and the Library
 - **Movies** and **Series** are poster grids. Press **Left** from the first column for the categories.
-- A title's page has **Play** or **Resume**, **From the beginning**, **Add to favourites** and **Download**. For series, choose a season, then an episode; hold OK on an episode to download it or play it from the beginning.
+- A title's page fills the screen with its backdrop, or a blurred copy of its poster, and takes its colours from the artwork (except with the High contrast theme). It has **Play** or **Resume**, **From the beginning**, **Add to favourites**, **Trailer** (when the provider has one; it opens in the YouTube app) and **Download**. For series, choose a season (shown as posters when the provider has them), then an episode; hold OK on an episode to download it or play it from the beginning.
 - **Library** has rows for continue watching, recently watched channels and favourites, with **Clear all** and **Sort**. Hold OK on an item to remove it.
 
 ## Search

@@ -1,5 +1,9 @@
 package app.tellycine.ui.detail
 
+import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -19,7 +23,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -28,10 +35,12 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Theaters
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilledTonalIconToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,31 +53,37 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import android.widget.Toast
-import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tellycine.core.ContentKind
 import app.tellycine.data.db.HistoryEntity
 import app.tellycine.data.repo.ContentRepository
+import app.tellycine.player.openTrailer
 import app.tellycine.player.play
 import app.tellycine.ui.components.Artwork
+import app.tellycine.ui.components.DetailBackdrop
+import app.tellycine.ui.components.artworkTint
 import app.tellycine.ui.components.formatDuration
 import app.tellycine.ui.components.progress
+import app.tellycine.ui.components.rememberArtworkColour
 import app.tellycine.ui.components.resumePosition
 import app.tellycine.ui.components.tellycineViewModel
+import app.tellycine.ui.components.tintedBy
 import app.tellycine.ui.downloads.DownloadButton
 import app.tellycine.ui.downloads.downloadStatus
 
@@ -94,155 +109,168 @@ fun DetailScreen(
         vm.messages.collect { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
     }
 
-    // A Surface (not a plain background) so text defaults to onSurface and stays readable in dark mode.
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-        Box(Modifier.fillMaxSize()) {
-            BoxWithConstraints(Modifier.fillMaxSize()) {
-                val wide = maxWidth >= 720.dp
-                val seasonEpisodes = remember(info.episodes, season) { info.episodes.filter { it.season == season } }
+    // The page takes its colours from the artwork, keeping the theme's light or dark look.
+    val colour = rememberArtworkColour(info.backdrops.firstOrNull() ?: info.poster)
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val tint = remember(colour, dark) { colour?.let { artworkTint(it, dark) } }
+    MaterialTheme(colorScheme = MaterialTheme.colorScheme.tintedBy(tint)) {
+        // A Surface (not a plain background) so text defaults to onSurface and stays readable in dark mode.
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+            Box(Modifier.fillMaxSize()) {
+                BoxWithConstraints(Modifier.fillMaxSize()) {
+                    val wide = maxWidth >= 720.dp
+                    val seasonEpisodes = remember(info.episodes, season) { info.episodes.filter { it.season == season } }
 
-                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
-                    item(key = "header") {
-                        Header(info, wide)
-                    }
-                    item(key = "actions") {
-                        Column(
-                            Modifier.padding(horizontal = 16.dp).widthIn(max = 900.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                when (kind) {
-                                    ContentKind.MOVIE -> {
-                                        val h = history[ContentRepository.movieKey(streamId)]
-                                        val resume = h?.resumePosition() ?: 0L
-                                        PlayButton(
-                                            label = if (resume > 0) "Resume" else "Play",
-                                            progress = h?.progress(),
-                                            enabled = info.stream != null,
-                                        ) { vm.moviePlayRequest(resume)?.let(context::play) }
-                                    }
-                                    else -> {
-                                        val n = next
-                                        if (n != null) {
-                                            val (ep, h) = n
+                    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 32.dp)) {
+                        item(key = "header") {
+                            Header(info, wide)
+                        }
+                        item(key = "actions") {
+                            Column(
+                                Modifier.padding(horizontal = 16.dp).widthIn(max = 900.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    when (kind) {
+                                        ContentKind.MOVIE -> {
+                                            val h = history[ContentRepository.movieKey(streamId)]
                                             val resume = h?.resumePosition() ?: 0L
                                             PlayButton(
-                                                label = "${if (resume > 0) "Resume" else "Play"} S${ep.season} E${ep.number}",
+                                                label = if (resume > 0) "Resume" else "Play",
                                                 progress = h?.progress(),
-                                                enabled = true,
-                                            ) { context.play(vm.episodePlayRequest(ep, resume)) }
+                                                enabled = info.stream != null,
+                                            ) { vm.moviePlayRequest(resume)?.let(context::play) }
+                                        }
+                                        else -> {
+                                            val n = next
+                                            if (n != null) {
+                                                val (ep, h) = n
+                                                val resume = h?.resumePosition() ?: 0L
+                                                PlayButton(
+                                                    label = "${if (resume > 0) "Resume" else "Play"} S${ep.season} E${ep.number}",
+                                                    progress = h?.progress(),
+                                                    enabled = true,
+                                                ) { context.play(vm.episodePlayRequest(ep, resume)) }
+                                            }
                                         }
                                     }
-                                }
-                                FilledTonalIconToggleButton(checked = favorite, onCheckedChange = { vm.toggleFavorite() }) {
-                                    if (favorite) Icon(Icons.Filled.Favorite, "Remove from favourites")
-                                    else Icon(Icons.Filled.FavoriteBorder, "Add to favourites")
-                                }
-                                if (kind == ContentKind.MOVIE && info.stream != null) {
-                                    val d = downloads[ContentRepository.movieKey(streamId)]
-                                    DownloadButton(
-                                        download = d,
-                                        fileOk = d != null && vm.isDownloadOk(d),
-                                        onDownload = { vm.download() },
-                                        onRetry = vm::retryDownload,
-                                        onRemove = vm::removeDownload,
-                                        filled = true,
-                                    )
-                                }
-                            }
-                            if (kind == ContentKind.MOVIE) {
-                                downloads[ContentRepository.movieKey(streamId)]?.let { d ->
-                                    Text(
-                                        downloadStatus(context, d, vm.isDownloadOk(d)),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                            if (info.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-                            info.error?.let { error ->
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Icon(Icons.Filled.ErrorOutline, null, tint = MaterialTheme.colorScheme.error)
-                                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                                }
-                            }
-                            info.plot?.let { plot -> ExpandableText(plot) }
-                            info.director?.takeIf { it.isNotBlank() }?.let { Credit("Director", it) }
-                            info.cast?.takeIf { it.isNotBlank() }?.let { Credit("Cast", it) }
-                        }
-                    }
-
-                    if (info.seasons.isNotEmpty()) {
-                        item(key = "seasons") {
-                            val seasons = info.seasons.keys.toList()
-                            val index = seasons.indexOf(season).coerceAtLeast(0)
-                            if (seasons.size > 1) {
-                                ScrollableTabRow(
-                                    selectedTabIndex = index,
-                                    edgePadding = 16.dp,
-                                    modifier = Modifier.padding(top = 16.dp),
-                                ) {
-                                    seasons.forEach { s ->
-                                        Tab(
-                                            selected = s == season,
-                                            onClick = { vm.selectSeason(s) },
-                                            text = { Text(info.seasons[s] ?: "Season $s") },
+                                    FilledTonalIconToggleButton(checked = favorite, onCheckedChange = { vm.toggleFavorite() }) {
+                                        if (favorite) Icon(Icons.Filled.Favorite, "Remove from favourites")
+                                        else Icon(Icons.Filled.FavoriteBorder, "Add to favourites")
+                                    }
+                                    info.trailer?.let { trailer ->
+                                        FilledTonalIconButton(onClick = { context.openTrailer(trailer, tv = false) }) {
+                                            Icon(Icons.Filled.Theaters, "Trailer")
+                                        }
+                                    }
+                                    if (kind == ContentKind.MOVIE && info.stream != null) {
+                                        val d = downloads[ContentRepository.movieKey(streamId)]
+                                        DownloadButton(
+                                            download = d,
+                                            fileOk = d != null && vm.isDownloadOk(d),
+                                            onDownload = { vm.download() },
+                                            onRetry = vm::retryDownload,
+                                            onRemove = vm::removeDownload,
+                                            filled = true,
                                         )
                                     }
                                 }
-                            } else {
+                                if (kind == ContentKind.MOVIE) {
+                                    downloads[ContentRepository.movieKey(streamId)]?.let { d ->
+                                        Text(
+                                            downloadStatus(context, d, vm.isDownloadOk(d)),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                                if (info.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                                info.error?.let { error ->
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Icon(Icons.Filled.ErrorOutline, null, tint = MaterialTheme.colorScheme.error)
+                                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
+                                info.plot?.let { plot -> ExpandableText(plot) }
+                                info.director?.takeIf { it.isNotBlank() }?.let { Credit("Director", it) }
+                                info.cast?.takeIf { it.isNotBlank() }?.let { Credit("Cast", it) }
+                            }
+                        }
+
+                        if (info.seasons.isNotEmpty()) {
+                            item(key = "seasons") {
+                                val seasons = info.seasons.keys.toList()
+                                val index = seasons.indexOf(season).coerceAtLeast(0)
+                                if (seasons.size > 1 && info.seasonCovers.isNotEmpty()) {
+                                    SeasonPosters(info.seasons, info.seasonCovers, season, vm::selectSeason)
+                                } else if (seasons.size > 1) {
+                                    ScrollableTabRow(
+                                        selectedTabIndex = index,
+                                        edgePadding = 16.dp,
+                                        modifier = Modifier.padding(top = 16.dp),
+                                    ) {
+                                        seasons.forEach { s ->
+                                            Tab(
+                                                selected = s == season,
+                                                onClick = { vm.selectSeason(s) },
+                                                text = { Text(info.seasons[s] ?: "Season $s") },
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Text(
+                                        info.seasons[seasons.first()] ?: "Episodes",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 4.dp),
+                                    )
+                                }
+                            }
+                            items(seasonEpisodes, key = { "ep-${it.id}" }) { ep ->
+                                val h = history[ContentRepository.episodeKey(ep.id)]
+                                val d = downloads[ContentRepository.episodeKey(ep.id)]
+                                val fileOk = d != null && vm.isDownloadOk(d)
+                                EpisodeRow(
+                                    ep = ep,
+                                    history = h,
+                                    wide = wide,
+                                    downloadStatus = d?.let { downloadStatus(context, it, fileOk) },
+                                    downloadButton = {
+                                        DownloadButton(
+                                            download = d,
+                                            fileOk = fileOk,
+                                            onDownload = { vm.download(ep) },
+                                            onRetry = vm::retryDownload,
+                                            onRemove = vm::removeDownload,
+                                        )
+                                    },
+                                ) {
+                                    context.play(vm.episodePlayRequest(ep, h?.resumePosition() ?: 0L))
+                                }
+                            }
+                        } else if (kind == ContentKind.SERIES && !info.loading && info.stream != null) {
+                            item(key = "no-episodes") {
                                 Text(
-                                    info.seasons[seasons.first()] ?: "Episodes",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 4.dp),
+                                    "No episodes found.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(16.dp),
                                 )
                             }
                         }
-                        items(seasonEpisodes, key = { "ep-${it.id}" }) { ep ->
-                            val h = history[ContentRepository.episodeKey(ep.id)]
-                            val d = downloads[ContentRepository.episodeKey(ep.id)]
-                            val fileOk = d != null && vm.isDownloadOk(d)
-                            EpisodeRow(
-                                ep = ep,
-                                history = h,
-                                wide = wide,
-                                downloadStatus = d?.let { downloadStatus(context, it, fileOk) },
-                                downloadButton = {
-                                    DownloadButton(
-                                        download = d,
-                                        fileOk = fileOk,
-                                        onDownload = { vm.download(ep) },
-                                        onRetry = vm::retryDownload,
-                                        onRemove = vm::removeDownload,
-                                    )
-                                },
-                            ) {
-                                context.play(vm.episodePlayRequest(ep, h?.resumePosition() ?: 0L))
-                            }
-                        }
-                    } else if (kind == ContentKind.SERIES && !info.loading && info.stream != null) {
-                        item(key = "no-episodes") {
-                            Text(
-                                "No episodes found.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(16.dp),
-                            )
-                        }
                     }
                 }
-            }
 
-            TopAppBar(
-                title = {},
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", Modifier.padding(6.dp))
+                TopAppBar(
+                    title = {},
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", Modifier.padding(6.dp))
+                            }
                         }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-            )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                )
+            }
         }
     }
 }
@@ -253,12 +281,7 @@ private fun Header(info: DetailInfo, wide: Boolean) {
     Box(Modifier.fillMaxWidth()) {
         // Backdrop with a scrim fading into the page.
         Box(Modifier.fillMaxWidth().aspectRatio(if (wide) 21f / 9f else 16f / 10f)) {
-            Artwork(
-                url = info.backdrop ?: info.poster,
-                fallbackText = "",
-                shape = RoundedCornerShape(0.dp),
-                modifier = Modifier.fillMaxSize(),
-            )
+            DetailBackdrop(info.backdrops, info.poster, Modifier.fillMaxSize())
             Box(
                 Modifier.fillMaxSize().background(
                     Brush.verticalGradient(0f to surface.copy(alpha = 0.25f), 0.6f to surface.copy(alpha = 0.6f), 1f to surface)
@@ -305,6 +328,46 @@ private fun MetaChips(info: DetailInfo) {
         }
         info.meta.filter { it.isNotBlank() }.forEach { m ->
             AssistChip(onClick = {}, label = { Text(m, maxLines = 1, overflow = TextOverflow.Ellipsis) })
+        }
+    }
+}
+
+/** Season tabs as the seasons' posters, for providers that have them. */
+@Composable
+private fun SeasonPosters(seasons: Map<Int, String>, covers: Map<Int, String>, selected: Int?, onSelect: (Int) -> Unit) {
+    val shape = RoundedCornerShape(10.dp)
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.padding(top = 20.dp, bottom = 4.dp).selectableGroup(),
+    ) {
+        items(seasons.entries.toList(), key = { it.key }) { (number, name) ->
+            val chosen = number == selected
+            Column(
+                Modifier
+                    .width(88.dp)
+                    .clip(shape)
+                    .selectable(selected = chosen, onClick = { onSelect(number) }, role = Role.Tab),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Artwork(
+                    url = covers[number],
+                    fallbackText = name,
+                    shape = shape,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(2f / 3f)
+                        .then(if (chosen) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, shape) else Modifier),
+                )
+                Text(
+                    name,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = if (chosen) FontWeight.SemiBold else null,
+                    color = if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

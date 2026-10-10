@@ -1,5 +1,6 @@
 package app.tellycine.core.xtream
 
+import app.tellycine.core.YouTube
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
 import java.io.Reader
@@ -51,10 +52,6 @@ class XtreamParser {
     fun parseItems(reader: Reader, onItem: (XtreamItem) -> Unit) {
         forEachObject(reader) { obj ->
             val id = obj.str("stream_id") ?: obj.str("series_id") ?: return@forEachObject
-            val backdrop = when (val b = obj["backdrop_path"]) {
-                is List<*> -> b.firstOrNull()?.toString()
-                else -> b?.toString()
-            }?.ifBlank { null }
             onItem(
                 XtreamItem(
                     id = id,
@@ -70,7 +67,7 @@ class XtreamParser {
                     year = obj.str("year") ?: obj.str("releaseDate")?.take(4) ?: obj.str("release_date")?.take(4),
                     genre = obj.str("genre"),
                     catchupDays = if (obj.int("tv_archive") == 1) obj.int("tv_archive_duration") else null,
-                    backdrop = backdrop,
+                    backdrop = obj.backdrops().firstOrNull(),
                 )
             )
         }
@@ -122,13 +119,14 @@ class XtreamParser {
         return XtreamSeriesInfo(
             name = info.str("name"),
             cover = info.str("cover"),
-            backdrop = (info["backdrop_path"] as? List<*>)?.firstOrNull()?.toString()?.ifBlank { null },
+            backdrops = info.backdrops(),
             plot = info.str("plot"),
             cast = info.str("cast"),
             director = info.str("director"),
             genre = info.str("genre"),
             releaseDate = info.str("releaseDate") ?: info.str("release_date"),
             rating = info.double("rating"),
+            trailer = YouTube.trailerUrl(info.str("youtube_trailer") ?: info.str("trailer")),
             seasons = seasons.toSortedMap(),
             episodes = episodes,
         )
@@ -141,7 +139,7 @@ class XtreamParser {
         return XtreamVodInfo(
             name = info.str("name") ?: data.str("name"),
             cover = info.str("movie_image") ?: info.str("cover_big"),
-            backdrop = (info["backdrop_path"] as? List<*>)?.firstOrNull()?.toString()?.ifBlank { null },
+            backdrops = info.backdrops(),
             plot = info.str("plot") ?: info.str("description"),
             cast = info.str("cast") ?: info.str("actors"),
             director = info.str("director"),
@@ -149,6 +147,7 @@ class XtreamParser {
             releaseDate = info.str("releasedate") ?: info.str("release_date"),
             durationSecs = info.int("duration_secs"),
             rating = info.double("rating"),
+            trailer = YouTube.trailerUrl(info.str("youtube_trailer") ?: info.str("trailer")),
             containerExtension = data.str("container_extension"),
         )
     }
@@ -216,6 +215,13 @@ internal fun Map<*, *>.str(key: String): String? {
     val v = this[key] ?: return null
     if (v is Map<*, *> || v is List<*>) return null
     return v.toString().trim().ifEmpty { null }?.takeIf { it != "null" }
+}
+
+/** Every backdrop in `backdrop_path`: usually a list, sometimes a single address. */
+internal fun Map<*, *>.backdrops(): List<String> {
+    val raw = this["backdrop_path"]
+    val all = if (raw is List<*>) raw else listOf(raw)
+    return all.mapNotNull { it?.toString()?.trim()?.takeIf { s -> s.isNotEmpty() && s != "null" } }.distinct()
 }
 
 internal fun Map<*, *>.long(key: String): Long? {
