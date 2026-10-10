@@ -30,7 +30,14 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
         android:largeHeap="true"
+        android:enableOnBackInvokedCallback="false"
         android:theme="@style/Theme.Tellycine">
+        <!--
+            enableOnBackInvokedCallback="false": from API 36, Android 16 stops sending Back as a key
+            press unless an app opts out. The TV interface needs the key itself (holding Back returns
+            the mini player's channel to full screen), so Back keeps working as it does on older
+            Android versions.
+        -->
 
         <meta-data
             android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"

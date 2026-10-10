@@ -20,10 +20,10 @@ if [ ! -x "$SDKMANAGER" ]; then
   rm -rf "$tmp"
 fi
 
-# Matches compileSdk/targetSdk in app/build.gradle.kts.
-if [ ! -d "$SDK/platforms/android-35" ] || [ ! -d "$SDK/build-tools/35.0.0" ] || [ ! -d "$SDK/platform-tools" ]; then
+# Matches compileSdk/targetSdk in app/build.gradle.kts (build-tools: the Android Gradle plugin default).
+if [ ! -d "$SDK/platforms/android-36" ] || [ ! -d "$SDK/build-tools/35.0.0" ] || [ ! -d "$SDK/platform-tools" ]; then
   yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
-  "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" > /dev/null
+  "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;35.0.0" > /dev/null
 fi
 
 echo "export ANDROID_HOME=$SDK" >> "$CLAUDE_ENV_FILE"

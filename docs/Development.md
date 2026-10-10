@@ -18,12 +18,13 @@ Jetpack Compose with Material 3 (including the adaptive navigation suite), Compo
 - **Dependencies:** a small hand-written `AppContainer`, with no DI framework.
 
 ## Building
-Requirements: JDK 17 and the Android SDK (compileSdk 35).
+Requirements: JDK 17 and the Android SDK (compileSdk 36).
 
 ```bash
 ./gradlew :core:test            # parser and helper unit tests
 ./gradlew :app:assembleDebug    # app/build/outputs/apk/debug/
 ./gradlew :app:assembleRelease  # minified; debug-signed unless TELLYCINE_KEYSTORE is set
+./gradlew :app:bundleRelease    # the app bundle (.aab) for Google Play, signed the same way
 ```
 
 ## Screenshots
@@ -35,18 +36,24 @@ The documentation screenshots come from the real UI, rendered with Robolectric a
 
 TV screenshots (`TvScreenshots`, `TvPlayerScreenshots`) drive the TV interface with remote-control key presses at 960×540 dp, the size of a 1080p TV. `TvNavigationTest` checks the remote's navigation.
 
-The **Screenshots** workflow does the same on GitHub Actions (run it from the Actions tab) and commits the images back to the branch.
+The Google Play listing's screenshots and graphics come from the same UI at Play's sizes (`StoreListing.kt`), written to `fastlane/metadata/android/en-GB/images`:
+
+```bash
+./gradlew :app:testDebugUnitTest --tests '*Store*'
+```
+
+The **Screenshots** workflow does both on GitHub Actions (run it from the Actions tab) and commits the images back to the branch.
 
 ## CI and releases
 - **Android CI:** runs on every push and PR. It runs the core tests and builds debug and release APKs.
 - **Release:**
-  - **When it runs:** on pushes to `main`. If `versionName` in `app/build.gradle.kts` hasn't been released yet, it builds, verifies the signature and publishes `v<versionName>` with the APK and a SHA-256 file.
+  - **When it runs:** on pushes to `main`. If `versionName` in `app/build.gradle.kts` hasn't been released yet, it builds, verifies the signatures and publishes `v<versionName>` with the APK, a SHA-256 file and the app bundle for Google Play.
   - **Release notes:** highlights come from `release-notes/v<version>.md`.
   - **To release:** bump `versionName` and `versionCode` in a PR, add the release notes, and merge.
 
 ## Signing
 - **Secrets:** releases are signed with the permanent Tellycine key from the repository secrets `TELLYCINE_KEYSTORE_BASE64`, `TELLYCINE_KEYSTORE_PASSWORD`, `TELLYCINE_KEY_ALIAS` and `TELLYCINE_KEY_PASSWORD`.
-- **Safety check:** the Release workflow refuses to publish if the secrets are missing or the APK's certificate isn't the expected one.
+- **Safety check:** the Release workflow refuses to publish if the secrets are missing or the APK's or app bundle's certificate isn't the expected one.
 - **Keep the keystore backed up.** Losing it means future versions can't update existing installs.
 
 ## Database migrations

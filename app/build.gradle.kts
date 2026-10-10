@@ -9,14 +9,15 @@ plugins {
 
 android {
     namespace = "app.tellycine"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "app.tellycine"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 10
-        versionName = "1.5.0"
+        // Google Play requires API 36 for new apps and updates from 31 August 2026.
+        targetSdk = 36
+        versionCode = 11
+        versionName = "1.6.0"
         vectorDrawables.useSupportLibrary = true
     }
 
