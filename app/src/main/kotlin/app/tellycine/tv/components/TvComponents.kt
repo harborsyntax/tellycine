@@ -45,6 +45,7 @@ import androidx.tv.material3.ListItem
 import androidx.tv.material3.ListItemDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.OutlinedButton
+import androidx.tv.material3.OutlinedIconButton
 import androidx.tv.material3.RadioButton
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
@@ -145,6 +146,14 @@ fun TvActionButton(
         Button(onClick = onClick, modifier = modifier, enabled = enabled, contentPadding = padding, content = content)
     } else {
         OutlinedButton(onClick = onClick, modifier = modifier, enabled = enabled, contentPadding = padding, content = content)
+    }
+}
+
+/** An icon-only version of [TvActionButton], where space is short; [label] is read out and searchable. */
+@Composable
+fun TvIconButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    OutlinedIconButton(onClick = onClick, modifier = modifier) {
+        Icon(icon, label, Modifier.size(20.dp))
     }
 }
 

@@ -72,6 +72,7 @@ import app.tellycine.tv.components.TvCategoryPanel
 import app.tellycine.tv.components.TvClock
 import app.tellycine.tv.components.TvEmptyState
 import app.tellycine.tv.components.TvHeader
+import app.tellycine.tv.components.TvIconButton
 import app.tellycine.tv.components.TvQrDialog
 import app.tellycine.tv.components.TvSpacing
 import app.tellycine.tv.components.okClicks
@@ -86,7 +87,12 @@ import app.tellycine.ui.live.LiveViewModel
 import kotlinx.coroutines.delay
 
 @Composable
-fun TvLiveScreen(session: SessionState, onAddPlaylist: () -> Unit) {
+fun TvLiveScreen(
+    session: SessionState,
+    onAddPlaylist: () -> Unit,
+    /** True while the guide is on screen and wants the full width, without the side menu's rail. */
+    onFullWidth: (Boolean) -> Unit = {},
+) {
     val vm = tellycineViewModel { c, _ -> LiveViewModel(c) }
     val context = LocalContext.current
     val categories by vm.categories.collectAsStateWithLifecycle()
@@ -107,6 +113,10 @@ fun TvLiveScreen(session: SessionState, onAddPlaylist: () -> Unit) {
     val openMini = { m: MiniPlayback -> context.startActivity(m.request.toIntent(context)) }
     // It only plays while the guide is on screen: not in the list, other screens, or behind other apps.
     LaunchedEffect(listView) { if (listView) playback.stopMini() }
+    // The guide takes the side menu rail's width too; Back still opens the menu.
+    val fullWidth = !listView && session.active != null
+    LaunchedEffect(fullWidth) { onFullWidth(fullWidth) }
+    DisposableEffect(Unit) { onDispose { onFullWidth(false) } }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { playback.stopMini() }
     DisposableEffect(playback) { onDispose { playback.stopMini() } }
     var showCategories by remember { mutableStateOf(false) }
@@ -160,23 +170,20 @@ fun TvLiveScreen(session: SessionState, onAddPlaylist: () -> Unit) {
 
     val playRow = { row: ChannelRow -> context.play(vm.playRequest(row)) }
     val headerActions: @Composable () -> Unit = {
-        TvActionButton(
-            categoryName,
-            // The guide's categories are its left-hand column; the list has a panel.
-            onClick = { if (listView) showCategories = true else categoryColumn.open() },
-            icon = Icons.Filled.Category,
-        )
+        // The guide's categories are its left-hand column; the list has a button for its panel.
+        if (listView) TvActionButton(categoryName, onClick = { showCategories = true }, icon = Icons.Filled.Category)
+        // Icons only, leaving the width to the programme details.
         if (!listView) {
-            TvActionButton(
+            TvIconButton(
+                if (compact) Icons.Filled.UnfoldMore else Icons.Filled.UnfoldLess,
                 if (compact) "Expand" else "Compact",
                 onClick = { vm.setTvGuideCompact(!compact) },
-                icon = if (compact) Icons.Filled.UnfoldMore else Icons.Filled.UnfoldLess,
             )
         }
-        TvActionButton(
+        TvIconButton(
+            if (listView) Icons.Outlined.CalendarViewWeek else Icons.AutoMirrored.Filled.ViewList,
             if (listView) "Guide" else "List",
             onClick = { listView = !listView },
-            icon = if (listView) Icons.Outlined.CalendarViewWeek else Icons.AutoMirrored.Filled.ViewList,
         )
     }
 
@@ -228,7 +235,7 @@ fun TvLiveScreen(session: SessionState, onAddPlaylist: () -> Unit) {
             )
         } else {
             // The guide, with its categories as a column beside the channels.
-            Row(body.padding(start = TvSpacing.screenStart, end = TvSpacing.screenEnd, bottom = 12.dp)) {
+            Row(body.padding(start = GuideEdge, end = TvSpacing.screenEnd, bottom = 12.dp)) {
                 TvGuideCategories(
                     state = categoryColumn,
                     options = options,
@@ -240,7 +247,6 @@ fun TvLiveScreen(session: SessionState, onAddPlaylist: () -> Unit) {
                     },
                     onClose = { runCatching { contentFocus.requestFocus() } },
                     modifier = Modifier.padding(end = 8.dp),
-                    fadeTo = MaterialTheme.colorScheme.background,
                 )
                 val lanes = Modifier.weight(1f).fillMaxHeight()
                 placeholder?.invoke(lanes) ?: TvGuideGrid(
@@ -309,6 +315,9 @@ fun TvLiveScreen(session: SessionState, onAddPlaylist: () -> Unit) {
     }
 }
 
+/** With the side menu's rail hidden, the guide keeps the same TV-safe margin on the left as on the right. */
+private val GuideEdge = TvSpacing.screenEnd
+
 /** The top of the guide: what the highlight is on, with the screen's actions and the clock. */
 @Composable
 private fun GuideDetails(
@@ -325,7 +334,7 @@ private fun GuideDetails(
         Modifier
             .fillMaxWidth()
             .height(150.dp)
-            .padding(start = TvSpacing.screenStart, end = TvSpacing.screenEnd, top = TvSpacing.screenTop, bottom = 8.dp),
+            .padding(start = GuideEdge, end = TvSpacing.screenEnd, top = TvSpacing.screenTop, bottom = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         if (mini != null) TvMiniPlayer(mini, onOpen = { onOpenMini(mini) })

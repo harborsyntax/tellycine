@@ -7,6 +7,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -80,7 +81,7 @@ class TvNavigationTest {
         d.launchTv()
 
         d.press(Key.DirectionUp)
-        compose.onNode(hasText("All channels") and hasClickAction() and isButton).assertIsFocused()
+        compose.onNode((hasContentDescription("Compact") or hasContentDescription("List")) and isButton and isFocused()).assertExists()
 
         d.back()
         d.waitForText("Playlists")
