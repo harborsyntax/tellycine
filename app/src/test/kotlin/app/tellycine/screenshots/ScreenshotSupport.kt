@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasClickAction
@@ -54,8 +55,9 @@ class ScreenshotDriver(private val compose: ComposeRule) {
     private var theme by mutableStateOf(ThemeMode.DARK)
     val app: TellycineApp get() = ApplicationProvider.getApplicationContext()
 
-    fun launch() {
-        DemoData.seed(app.container)
+    /** Starts the phone interface on the demo playlist, after [afterSeed] has had a chance to change it. */
+    fun launch(afterSeed: (playlistId: Long) -> Unit = {}) {
+        afterSeed(DemoData.seed(app.container))
         compose.setContent {
             TellycineTheme(themeMode = theme, dynamicColor = false) { TellycineNavHost() }
         }
@@ -63,8 +65,8 @@ class ScreenshotDriver(private val compose: ComposeRule) {
     }
 
     /** Starts the TV interface instead of the phone one. */
-    fun launchTv() {
-        DemoData.seed(app.container)
+    fun launchTv(afterSeed: (playlistId: Long) -> Unit = {}) {
+        afterSeed(DemoData.seed(app.container))
         compose.setContent {
             TellycineTvTheme { TvApp() }
         }
@@ -98,11 +100,14 @@ class ScreenshotDriver(private val compose: ComposeRule) {
         waitForText(expect)
     }
 
-    /** Activates a TV control by its text. TV controls answer the remote, not touch, so this uses the click action. */
+    /**
+     * Activates a TV control by its text, or its label if it's an icon. TV controls answer the
+     * remote, not touch, so this uses the click action.
+     */
     fun tvClick(text: String) {
-        waitForText(text)
-        compose.onAllNodes((hasText(text, substring = true) or hasContentDescription(text, substring = true)) and hasClickAction())
-            .onFirst().performSemanticsAction(SemanticsActions.OnClick)
+        val control = (hasText(text, substring = true) or hasContentDescription(text, substring = true)) and hasClickAction()
+        waitFor(control, "a control labelled \"$text\"")
+        compose.onAllNodes(control).onFirst().performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()
     }
 
@@ -116,16 +121,17 @@ class ScreenshotDriver(private val compose: ComposeRule) {
         compose.waitForIdle()
     }
 
-    fun waitForText(text: String, timeoutMs: Long = 15_000) {
+    // Unmerged: some components (e.g. the extended FAB) don't expose their label when merged.
+    fun waitForText(text: String, timeoutMs: Long = 15_000) =
+        waitFor(hasText(text, substring = true), "\"$text\"", useUnmergedTree = true, timeoutMs = timeoutMs)
+
+    private fun waitFor(matcher: SemanticsMatcher, what: String, useUnmergedTree: Boolean = false, timeoutMs: Long = 15_000) {
         try {
-            compose.waitUntil(timeoutMs) {
-                // Unmerged: some components (e.g. the extended FAB) don't expose their label when merged.
-                compose.onAllNodesWithText(text, substring = true, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
-            }
+            compose.waitUntil(timeoutMs) { compose.onAllNodes(matcher, useUnmergedTree).fetchSemanticsNodes().isNotEmpty() }
         } catch (e: Throwable) {
-            // Include what is on screen, so CI logs show why the text never appeared.
+            // Include what is on screen, so CI logs show why it never appeared.
             val tree = runCatching { compose.onRoot().printToString(maxDepth = 30) }.getOrElse { "<no tree: $it>" }
-            throw AssertionError("Timed out waiting for \"$text\". Screen:\n$tree", e)
+            throw AssertionError("Timed out waiting for $what. Screen:\n$tree", e)
         }
         compose.waitForIdle()
     }

@@ -75,6 +75,27 @@ fun Context.shareUrl(label: String, url: String) {
     startActivity(Intent.createChooser(send, "Share stream URL").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
 
+/** The YouTube app for Android TV, which an ordinary YouTube link may not reach on its own. */
+private const val YOUTUBE_TV = "com.google.android.youtube.tv"
+
+/**
+ * Opens a trailer ([url], a YouTube watch address) in the YouTube app, or failing that a browser.
+ * On a [tv], the TV's YouTube app is asked first.
+ */
+fun Context.openTrailer(url: String, tv: Boolean) {
+    val view = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    val attempts = listOfNotNull(if (tv) Intent(view).setPackage(YOUTUBE_TV) else null, view)
+    for (intent in attempts) {
+        try {
+            startActivity(intent)
+            return
+        } catch (_: ActivityNotFoundException) {
+            // Try the next way, if there is one.
+        }
+    }
+    Toast.makeText(this, "Install YouTube to watch trailers", Toast.LENGTH_LONG).show()
+}
+
 private fun headerPairs(request: PlayRequest): List<Pair<String, String>> = buildList {
     add("User-Agent" to (request.userAgent?.ifBlank { null } ?: DEFAULT_USER_AGENT))
     request.referrer?.ifBlank { null }?.let { add("Referer" to it) }

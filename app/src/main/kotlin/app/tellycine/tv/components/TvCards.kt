@@ -1,5 +1,6 @@
 package app.tellycine.tv.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
@@ -21,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -33,7 +36,6 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
-import androidx.compose.foundation.BorderStroke
 import app.tellycine.tv.TvPalette
 import app.tellycine.ui.components.Artwork
 
@@ -44,7 +46,23 @@ private fun focusBorder() = CardDefaults.border(
     focusedBorder = Border(BorderStroke(3.dp, TvPalette.focus), shape = CardShape),
 )
 
-/** A movie or series poster with its title underneath. */
+/** A chosen card's border: the accent colour, or the focus colour while it's focused. */
+@Composable
+private fun selectedBorder() = CardDefaults.border(
+    border = Border(BorderStroke(3.dp, TvPalette.primary), shape = CardShape),
+    focusedBorder = Border(BorderStroke(3.dp, TvPalette.focus), shape = CardShape),
+)
+
+/** Which playlist something is from, under a card's title. */
+@Composable
+fun TvSourceLabel(name: String, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Icon(Icons.AutoMirrored.Filled.PlaylistPlay, "Playlist", Modifier.size(14.dp), tint = TvPalette.primary)
+        Text(name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** A movie or series poster with its title underneath, and the playlist it's from if [source] is given. */
 @Composable
 fun TvPosterCard(
     title: String,
@@ -54,14 +72,20 @@ fun TvPosterCard(
     meta: String? = null,
     rating: Double? = null,
     onLongClick: (() -> Unit)? = null,
+    source: String? = null,
+    /** Shows the card as the chosen one of a set, such as the season being shown. */
+    selected: Boolean = false,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Card(
             onClick = onClick,
             shape = CardDefaults.shape(CardShape),
-            border = focusBorder(),
+            border = if (selected) selectedBorder() else focusBorder(),
             scale = CardDefaults.scale(focusedScale = 1.06f),
-            modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).semantics { contentDescription = title }.okClicks(onClick, onLongClick),
+            modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).semantics {
+                contentDescription = title
+                if (selected) this.selected = true
+            }.okClicks(onClick, onLongClick),
         ) {
             Box(Modifier.fillMaxSize()) {
                 Artwork(url = poster, fallbackText = title, shape = CardShape, modifier = Modifier.fillMaxSize())
@@ -79,14 +103,21 @@ fun TvPosterCard(
                 }
             }
         }
-        Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            color = if (selected) TvPalette.primary else Color.Unspecified,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         if (!meta.isNullOrBlank()) {
             Text(meta, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
+        source?.let { TvSourceLabel(it) }
     }
 }
 
-/** A channel's logo on a tile with its name underneath. */
+/** A channel's logo on a tile with its name underneath, and the playlist it's from if [source] is given. */
 @Composable
 fun TvChannelTile(
     name: String,
@@ -96,6 +127,7 @@ fun TvChannelTile(
     width: Dp = 168.dp,
     subtitle: String? = null,
     onLongClick: (() -> Unit)? = null,
+    source: String? = null,
 ) {
     Column(modifier.width(width), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Card(
@@ -114,6 +146,7 @@ fun TvChannelTile(
         if (subtitle != null) {
             Text(subtitle, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+        source?.let { TvSourceLabel(it) }
     }
 }
 

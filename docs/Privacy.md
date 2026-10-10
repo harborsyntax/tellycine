@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Last updated: 9 October 2026*
+*Last updated: 10 October 2026*
 
 Tellycine is an IPTV player for Android phones, tablets and TVs. This policy explains what happens to your information when you use it. In short: Tellycine has no accounts, ads, analytics or tracking, and it doesn't send your information to its developer.
 
@@ -20,7 +20,7 @@ They're removed when you delete the playlist or uninstall Tellycine. You can als
 - **Your phone, on your home network:** when you add a playlist to a TV by scanning a QR code, the TV briefly accepts the details from your phone over your local network. Nothing passes through the internet or any other server.
 - **Google Cast:** to find Cast devices and play to them, Tellycine uses Google's Cast software. It sends Google anonymised information about Cast device discovery, Cast sessions, the device and the app, which Google uses to improve casting. See [Google's Cast data disclosure](https://developers.google.com/cast/docs/android_sender/data_disclosure) and [Google's privacy policy](https://policies.google.com/privacy).
 - **Voice search on TV:** speech is handled by your TV's own speech recogniser, not by Tellycine.
-- **Other apps, when you ask:** **Open with…** passes the stream address to the player you choose, and **Share stream URL** passes it to the app you share to. Stream addresses can include your provider login details, so only share them with people you trust.
+- **Other apps, when you ask:** **Open with…** passes the stream address to the player you choose, and **Share stream URL** passes it to the app you share to. Stream addresses can include your provider login details, so only share them with people you trust. **Trailer** opens the trailer's YouTube address in the YouTube app (or your browser), which is covered by [Google's privacy policy](https://policies.google.com/privacy).
 
 ## What Tellycine doesn't do
 - It has no developer servers, and the developer never receives your playlists, logins, history or anything else from the app.

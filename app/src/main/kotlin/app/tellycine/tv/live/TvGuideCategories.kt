@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -18,6 +19,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,7 +33,6 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
@@ -42,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
@@ -64,13 +67,15 @@ class TvGuideCategoriesState {
 }
 
 private val OpenWidth = 280.dp
-private val TuckedWidth = 112.dp
+
+/** Tucked away, the column is a thin edge: little width taken, but clearly something to the left. */
+private val TuckedWidth = 16.dp
 
 /**
- * The guide's categories, as a column to the left of the channels. Tucked away it shows only the
- * start of each name, faded, so it's clear there is more to the left; Left from the channel
- * column opens it on the current category ([TvGuideCategoriesState.open]). OK picks a category
- * and returns to the channels, which [onSelect] changes; Right or Back return without changing.
+ * The guide's categories, as a column to the left of the channels. Tucked away it's a thin edge
+ * with an arrow, so it's clear there is more to the left; Left from the channel column opens it
+ * on the current category ([TvGuideCategoriesState.open]). OK picks a category and returns to
+ * the channels, which [onSelect] changes; Right or Back return without changing.
  */
 @Composable
 fun TvGuideCategories(
@@ -80,11 +85,10 @@ fun TvGuideCategories(
     onSelect: (String) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
-    /** What the tucked column fades into: the colour behind the guide. */
-    fadeTo: Color = Color.Black,
 ) {
     val width by animateDpAsState(if (state.open) OpenWidth else TuckedWidth, label = "categories-width")
-    val alpha by animateFloatAsState(if (state.open) 1f else 0.45f, label = "categories-alpha")
+    // The names fade in as the column opens; the edge fades out.
+    val namesAlpha by animateFloatAsState(if (state.open) 1f else 0f, label = "categories-alpha")
     val listState = rememberLazyListState()
     val selectedIndex = options.indexOfFirst { it.id == selected }.coerceAtLeast(0)
     var hasFocus by remember { mutableStateOf(false) }
@@ -113,7 +117,6 @@ fun TvGuideCategories(
             .width(width)
             .fillMaxHeight()
             .clipToBounds()
-            .graphicsLayer { this.alpha = alpha }
             .onFocusChanged { hasFocus = it.hasFocus }
             // Focus stays in the column at its ends; Right is the way back to the channels.
             .onPreviewKeyEvent { event ->
@@ -126,8 +129,14 @@ fun TvGuideCategories(
                 }
             },
     ) {
-        // Laid out at full width and anchored left, so the tucked column shows the start of each name.
-        Column(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).width(OpenWidth).fillMaxHeight()) {
+        // Laid out at full width and anchored left, so opening reveals the names from the start.
+        Column(
+            Modifier
+                .wrapContentWidth(Alignment.Start, unbounded = true)
+                .width(OpenWidth)
+                .fillMaxHeight()
+                .graphicsLayer { alpha = namesAlpha },
+        ) {
             Text(
                 "Categories",
                 style = MaterialTheme.typography.labelLarge,
@@ -176,15 +185,24 @@ fun TvGuideCategories(
                 }
             }
         }
-        // Tucked away, the names fade out towards the channels.
-        if (!state.open) {
+        // Tucked away: a thin edge beside the channels, with an arrow pointing to the categories.
+        if (namesAlpha < 1f) {
             Box(
                 Modifier
-                    .align(Alignment.CenterEnd)
-                    .width(48.dp)
+                    .padding(top = GuideHeaderHeight)
+                    .width(TuckedWidth)
                     .fillMaxHeight()
-                    .background(Brush.horizontalGradient(listOf(Color.Transparent, fadeTo.copy(alpha = 0.6f)))),
-            )
+                    .graphicsLayer { alpha = 1f - namesAlpha }
+                    .background(TvPalette.surfaceHigh.copy(alpha = 0.7f), RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    "Categories",
+                    Modifier.padding(top = 10.dp).size(16.dp),
+                    tint = TvPalette.onSurfaceVariant,
+                )
+            }
         }
     }
 }

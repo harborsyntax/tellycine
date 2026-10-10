@@ -1,6 +1,8 @@
 package app.tellycine.ui.search
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
@@ -52,6 +55,7 @@ import app.tellycine.AppContainer
 import app.tellycine.core.ContentKind
 import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.StreamEntity
+import app.tellycine.data.db.SyncState
 import app.tellycine.data.repo.CatchupResolver
 import app.tellycine.data.repo.ProgrammeHit
 import app.tellycine.player.PlayRequest
@@ -72,6 +76,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -92,9 +97,27 @@ data class SearchResults(
     val programmes: List<ProgrammeHit> = emptyList(),
     val movies: List<StreamEntity> = emptyList(),
     val series: List<StreamEntity> = emptyList(),
+    /** Playlist names by id, to label where each result is from; empty with only one playlist. */
+    val sources: Map<Long, String> = emptyMap(),
 ) {
     val isEmpty get() = live.isEmpty() && programmes.isEmpty() && movies.isEmpty() && series.isEmpty()
 }
+
+/**
+ * Matches from each playlist ([perPlaylist], the active playlist first) as one list: names that
+ * start with [query] first, then by playlist, each playlist's matches staying in their own order.
+ */
+internal fun rankByName(query: String, perPlaylist: List<List<StreamEntity>>, limit: Int): List<StreamEntity> =
+    perPlaylist.flatten().sortedBy { if (it.name.startsWith(query, ignoreCase = true)) 0 else 1 }.take(limit)
+
+/**
+ * Guide matches from every playlist (the active playlist's first) in the guide's order: on now and
+ * upcoming soonest first, then past ones most recent first.
+ */
+internal fun rankByTime(hits: List<ProgrammeHit>, now: Long, limit: Int): List<ProgrammeHit> =
+    hits.sortedWith(
+        compareBy<ProgrammeHit>({ it.programme.stopMs <= now }, { if (it.programme.stopMs > now) it.programme.startMs else -it.programme.startMs }),
+    ).take(limit)
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 class SearchViewModel(container: AppContainer) : ViewModel() {
@@ -105,13 +128,19 @@ class SearchViewModel(container: AppContainer) : ViewModel() {
     private val _filter = MutableStateFlow(SearchFilter.ALL)
     val filter: StateFlow<SearchFilter> = _filter.asStateFlow()
 
-    val playlist: StateFlow<PlaylistEntity?> = container.playlists.activePlaylist
-        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    /**
+     * Every playlist, the active one first: search looks in all of them. A refresh's progress
+     * messages don't count as a change, so results don't blank while a playlist refreshes.
+     */
+    val playlists: StateFlow<List<PlaylistEntity>> =
+        combine(container.playlists.playlists, container.playlists.activePlaylist) { all, active -> all.sortedBy { it.id != active?.id } }
+            .distinctUntilChangedBy { list -> list.map { it.copy(syncState = SyncState.IDLE, syncMessage = null) } }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    val results: StateFlow<SearchResults> = combine(_query.debounce(250), playlist, _filter) { q, p, f -> Triple(q.trim(), p, f) }
-        .flatMapLatest { (q, p, f) ->
+    val results: StateFlow<SearchResults> = combine(_query.debounce(250), playlists, _filter) { q, ps, f -> Triple(q.trim(), ps, f) }
+        .flatMapLatest { (q, ps, f) ->
             flow {
-                if (p == null || q.length < 2) {
+                if (ps.isEmpty() || q.length < 2) {
                     emit(SearchResults(q))
                     return@flow
                 }
@@ -119,19 +148,29 @@ class SearchViewModel(container: AppContainer) : ViewModel() {
                 val limit = if (f == SearchFilter.ALL) 40 else 300
                 fun wants(kind: SearchFilter) = f == SearchFilter.ALL || f == kind
                 val now = System.currentTimeMillis()
+                // Movies and series only from playlists that have them turned on.
+                suspend fun streams(kind: ContentKind, filter: SearchFilter): List<StreamEntity> {
+                    if (!wants(filter)) return emptyList()
+                    val from = if (kind == ContentKind.LIVE) ps else ps.filter { it.vodEnabled }
+                    return rankByName(q, from.map { content.search(it.id, kind, q, limit) }, limit)
+                }
                 emit(
                     SearchResults(
                         query = q,
-                        live = if (wants(SearchFilter.LIVE)) content.search(p.id, ContentKind.LIVE, q, limit) else emptyList(),
+                        live = streams(ContentKind.LIVE, SearchFilter.LIVE),
                         // Past programmes are only useful when they can still be replayed.
                         programmes = if (wants(SearchFilter.GUIDE)) {
-                            content.searchProgrammes(p.id, q, limit, now)
-                                .filter { it.programme.stopMs > now || CatchupResolver.isReplayable(p, it.channel, it.programme, now) }
+                            val hits = ps.flatMap { p ->
+                                content.searchProgrammes(p.id, q, limit, now)
+                                    .filter { it.programme.stopMs > now || CatchupResolver.isReplayable(p, it.channel, it.programme, now) }
+                            }
+                            rankByTime(hits, now, limit)
                         } else {
                             emptyList()
                         },
-                        movies = if (wants(SearchFilter.MOVIES)) content.search(p.id, ContentKind.MOVIE, q, limit) else emptyList(),
-                        series = if (wants(SearchFilter.SERIES)) content.search(p.id, ContentKind.SERIES, q, limit) else emptyList(),
+                        movies = streams(ContentKind.MOVIE, SearchFilter.MOVIES),
+                        series = streams(ContentKind.SERIES, SearchFilter.SERIES),
+                        sources = if (ps.size > 1) ps.associate { it.id to it.name } else emptyMap(),
                     )
                 )
             }
@@ -146,9 +185,12 @@ class SearchViewModel(container: AppContainer) : ViewModel() {
         _filter.value = filter
     }
 
-    fun channelRequest(s: StreamEntity) = liveRequest(playlist.value, s)
+    /** Each result plays from the playlist it was found in. */
+    private fun playlistOf(id: Long) = playlists.value.firstOrNull { it.id == id }
 
-    fun canReplay(hit: ProgrammeHit) = CatchupResolver.isReplayable(playlist.value, hit.channel, hit.programme)
+    fun channelRequest(s: StreamEntity) = liveRequest(playlistOf(s.playlistId), s)
+
+    fun canReplay(hit: ProgrammeHit) = CatchupResolver.isReplayable(playlistOf(hit.channel.playlistId), hit.channel, hit.programme)
 
     /**
      * Replays a programme that has aired (or is airing, from the start) when the archive allows;
@@ -158,8 +200,9 @@ class SearchViewModel(container: AppContainer) : ViewModel() {
         val p = hit.programme
         val now = System.currentTimeMillis()
         val onNow = p.startMs <= now && p.stopMs > now
-        return (if (!onNow) replayRequest(playlist.value, hit.channel, p) else null)
-            ?: liveRequest(playlist.value, hit.channel, subtitle = if (onNow) p.title else null)
+        val playlist = playlistOf(hit.channel.playlistId)
+        return (if (!onNow) replayRequest(playlist, hit.channel, p) else null)
+            ?: liveRequest(playlist, hit.channel, subtitle = if (onNow) p.title else null)
     }
 }
 
@@ -170,8 +213,8 @@ fun SearchScreen(onBack: () -> Unit, onOpen: (StreamEntity) -> Unit) {
     val query by vm.query.collectAsStateWithLifecycle()
     val results by vm.results.collectAsStateWithLifecycle()
     val filter by vm.filter.collectAsStateWithLifecycle()
-    val activePlaylist by vm.playlist.collectAsStateWithLifecycle()
-    val vodEnabled = activePlaylist?.vodEnabled != false
+    val playlists by vm.playlists.collectAsStateWithLifecycle()
+    val vodEnabled = playlists.isEmpty() || playlists.any { it.vodEnabled }
     val context = LocalContext.current
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
@@ -218,16 +261,16 @@ fun SearchScreen(onBack: () -> Unit, onOpen: (StreamEntity) -> Unit) {
                     Box(Modifier.fillMaxWidth().padding(48.dp), Alignment.Center) { CircularProgressIndicator() }
                 }
                 query.trim().length < 2 -> item(key = "hint") {
-                    EmptyState(Icons.Filled.Search, "Search your playlist", "Type at least two characters.")
+                    EmptyState(Icons.Filled.Search, if (playlists.size > 1) "Search your playlists" else "Search your playlist", "Type at least two characters.")
                 }
                 !results.searching && results.isEmpty -> item(key = "none") {
                     EmptyState(Icons.Filled.Search, "No results", "Nothing matches \"${results.query}\".")
                 }
             }
-            section("Live TV", results.live) { s -> context.play(vm.channelRequest(s)) }
-            programmeSection(results.programmes, vm::canReplay) { hit -> context.play(vm.programmeRequest(hit)) }
-            section("Movies", results.movies, onOpen)
-            section("Series", results.series, onOpen)
+            section("Live TV", results.live, results.sources) { s -> context.play(vm.channelRequest(s)) }
+            programmeSection(results.programmes, results.sources, vm::canReplay) { hit -> context.play(vm.programmeRequest(hit)) }
+            section("Movies", results.movies, results.sources, onOpen)
+            section("Series", results.series, results.sources, onOpen)
         }
     }
 }
@@ -235,11 +278,12 @@ fun SearchScreen(onBack: () -> Unit, onOpen: (StreamEntity) -> Unit) {
 private fun androidx.compose.foundation.lazy.LazyListScope.section(
     title: String,
     list: List<StreamEntity>,
+    sources: Map<Long, String>,
     onClick: (StreamEntity) -> Unit,
 ) {
     if (list.isEmpty()) return
     item(key = "h-$title") { SectionHeader(title) }
-    items(list, key = { "$title-${it.streamId}" }) { s ->
+    items(list, key = { "$title-${it.playlistId}-${it.streamId}" }) { s ->
         ListItem(
             modifier = Modifier.clickable { onClick(s) },
             leadingContent = {
@@ -252,15 +296,34 @@ private fun androidx.compose.foundation.lazy.LazyListScope.section(
                 )
             },
             headlineContent = { Text(s.name, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-            supportingContent = listOfNotNull(s.year, s.genre).joinToString(" · ").takeIf { it.isNotBlank() }?.let { meta ->
-                @Composable { Text(meta, style = MaterialTheme.typography.bodySmall) }
-            },
+            supportingContent = supporting(listOfNotNull(s.year, s.genre).joinToString(" · ").takeIf { it.isNotBlank() }, sources[s.playlistId]),
         )
+    }
+}
+
+/** A result's second line: [text], if any, and the playlist it's from when there's more than one. */
+private fun supporting(text: String?, source: String?): (@Composable () -> Unit)? {
+    if (text == null && source == null) return null
+    return {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            text?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            source?.let { SourceLabel(it) }
+        }
+    }
+}
+
+/** Which playlist a result is from. */
+@Composable
+private fun SourceLabel(name: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Icon(Icons.AutoMirrored.Filled.PlaylistPlay, "Playlist", Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+        Text(name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
 private fun androidx.compose.foundation.lazy.LazyListScope.programmeSection(
     hits: List<ProgrammeHit>,
+    sources: Map<Long, String>,
     canReplay: (ProgrammeHit) -> Boolean,
     onClick: (ProgrammeHit) -> Unit,
 ) {
@@ -290,7 +353,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.programmeSection(
             headlineContent = {
                 Text(p.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = if (onNow) FontWeight.SemiBold else null)
             },
-            supportingContent = { Text(hit.channel.name, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            supportingContent = supporting(hit.channel.name, sources[hit.channel.playlistId]),
             trailingContent = if (replay || onNow) {
                 { Icon(if (replay) Icons.Filled.Replay else Icons.Filled.PlayArrow, if (replay) "Watch again" else "Watch live") }
             } else {

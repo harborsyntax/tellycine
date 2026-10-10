@@ -38,6 +38,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -203,6 +204,10 @@ private fun TvHome(navigator: TvNavigator) {
         }
     }
 
+    // The guide uses the rail's width too: the rail is hidden (but still there for Back) while it shows.
+    var fullWidth by remember { mutableStateOf(false) }
+    val hideRail = fullWidth && tab == TvTab.LIVE
+
     // Back from a screen opens the menu; Back again (from the menu) leaves the app.
     BackHandler(enabled = drawerState.currentValue == DrawerValue.Closed) {
         runCatching { itemFocus.getValue(tab).requestFocus() }
@@ -215,6 +220,7 @@ private fun TvHome(navigator: TvNavigator) {
             Column(
                 Modifier
                     .fillMaxHeight()
+                    .graphicsLayer { alpha = if (hideRail && !open) 0f else 1f }
                     .background(if (open) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.background)
                     .padding(horizontal = 12.dp, vertical = 24.dp)
                     .selectableGroup()
@@ -244,7 +250,10 @@ private fun TvHome(navigator: TvNavigator) {
                         } else {
                             null
                         },
-                        modifier = Modifier.focusRequester(itemFocus.getValue(t)),
+                        modifier = Modifier
+                            .focusRequester(itemFocus.getValue(t))
+                            // Right goes back to the screen, which may start under the menu (the guide does).
+                            .focusProperties { right = contentFocus },
                     ) {
                         Text(t.label, maxLines = 1)
                     }
@@ -255,13 +264,18 @@ private fun TvHome(navigator: TvNavigator) {
         Box(
             Modifier
                 .fillMaxSize()
-                .padding(start = RailWidth)
+                .padding(start = if (hideRail) 0.dp else RailWidth)
                 .focusRequester(contentFocus)
                 .focusRestorer()
                 .focusGroup(),
         ) {
             stateHolder.SaveableStateProvider(tab.name) {
-                TvTabContent(tab, session, navigator, onSelectPlaylist = home::select, onOpenTab = { tab = it; focusContent++ })
+                TvTabContent(
+                    tab, session, navigator,
+                    onSelectPlaylist = home::select,
+                    onOpenTab = { tab = it; focusContent++ },
+                    onFullWidth = { fullWidth = it },
+                )
             }
         }
     }
@@ -274,10 +288,11 @@ private fun TvTabContent(
     navigator: TvNavigator,
     onSelectPlaylist: (Long) -> Unit,
     onOpenTab: (TvTab) -> Unit,
+    onFullWidth: (Boolean) -> Unit,
 ) {
     when (tab) {
         TvTab.SEARCH -> TvSearchScreen(onOpen = navigator::openDetail)
-        TvTab.LIVE -> TvLiveScreen(session, onAddPlaylist = { onOpenTab(TvTab.PLAYLISTS) })
+        TvTab.LIVE -> TvLiveScreen(session, onAddPlaylist = { onOpenTab(TvTab.PLAYLISTS) }, onFullWidth = onFullWidth)
         TvTab.MOVIES -> TvVodScreen(ContentKind.MOVIE, session, onOpen = navigator::openDetail)
         TvTab.SERIES -> TvVodScreen(ContentKind.SERIES, session, onOpen = navigator::openDetail)
         TvTab.LIBRARY -> TvLibraryScreen(

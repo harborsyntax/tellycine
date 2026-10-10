@@ -58,13 +58,16 @@ data class XtreamEpisode(
 data class XtreamSeriesInfo(
     val name: String?,
     val cover: String?,
-    val backdrop: String?,
+    /** Every backdrop the panel lists, best first. */
+    val backdrops: List<String>,
     val plot: String?,
     val cast: String?,
     val director: String?,
     val genre: String?,
     val releaseDate: String?,
     val rating: Double?,
+    /** The trailer's YouTube address, if the panel gives one. */
+    val trailer: String?,
     /** Season number to its display name/cover, if the panel provides one. */
     val seasons: Map<Int, XtreamSeason>,
     val episodes: List<XtreamEpisode>,
@@ -79,7 +82,8 @@ data class XtreamSeason(
 data class XtreamVodInfo(
     val name: String?,
     val cover: String?,
-    val backdrop: String?,
+    /** Every backdrop the panel lists, best first. */
+    val backdrops: List<String>,
     val plot: String?,
     val cast: String?,
     val director: String?,
@@ -87,5 +91,7 @@ data class XtreamVodInfo(
     val releaseDate: String?,
     val durationSecs: Int?,
     val rating: Double?,
+    /** The trailer's YouTube address, if the panel gives one. */
+    val trailer: String?,
     val containerExtension: String?,
 )

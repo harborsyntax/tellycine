@@ -51,7 +51,8 @@ class TvScreenshots {
         d.back()
 
         d.tvClick("List")
-        d.waitForText("Guide")
+        // The list's header names the playlist.
+        d.waitForText("Demo IPTV")
         d.shot("tv-channel-list")
         d.tvClick("Guide")
 

@@ -1,0 +1,4 @@
+• Movie and series pages: full-screen backdrops that take turns, colours from the artwork, season posters and trailers in YouTube
+• Search looks in all your playlists and shows where each result is from
+• The TV guide uses the whole screen
+• Fixed long programmes leaving gaps in the guide
