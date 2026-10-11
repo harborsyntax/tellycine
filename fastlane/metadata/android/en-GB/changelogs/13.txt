@@ -1,0 +1,3 @@
+• With more than one playlist, Live TV, Movies and Series can show All playlists or just one
+• Categories with the same name are combined, and each item shows the playlist it's from
+• Movie and series pages and channel details say which playlist they're from
