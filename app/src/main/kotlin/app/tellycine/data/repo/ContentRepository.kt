@@ -14,9 +14,11 @@ import app.tellycine.data.db.HistoryEntity
 import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.db.TellycineDatabase
+import app.tellycine.data.settings.CategorySort
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import java.text.Collator
 
 /** Pseudo category ids understood by the paging queries. */
 object Categories {
@@ -36,6 +38,15 @@ object Categories {
 
     /** The [nameKey] of a merged category's [id], or null for any other id. */
     fun nameKeyOf(id: String): String? = id.takeIf { it.startsWith(NAMED) }?.removePrefix(NAMED)
+
+    /** [categories] in the [sort] order: as given (the provider's), or by name. */
+    fun sorted(categories: List<CategoryEntity>, sort: CategorySort): List<CategoryEntity> = when (sort) {
+        CategorySort.PROVIDER -> categories
+        CategorySort.NAME -> {
+            val collator = Collator.getInstance()
+            categories.sortedWith { a, b -> collator.compare(a.name.trim(), b.name.trim()) }
+        }
+    }
 
     /**
      * Several playlists' [categories] as one list: categories with the same name ([nameKey]) become one,
@@ -78,6 +89,9 @@ class ContentRepository(db: TellycineDatabase) {
 
     fun categories(playlistId: Long, kind: ContentKind): Flow<List<CategoryEntity>> =
         dao.observeCategories(playlistId, kind)
+
+    suspend fun category(playlistId: Long, kind: ContentKind, categoryId: String): CategoryEntity? =
+        dao.getCategory(playlistId, kind, categoryId)
 
     /** The categories of one or more playlists; several playlists' are merged by name ([Categories.merge]). */
     fun categories(playlistIds: List<Long>, kind: ContentKind): Flow<List<CategoryEntity>> = when (playlistIds.size) {
@@ -128,6 +142,17 @@ class ContentRepository(db: TellycineDatabase) {
                 else -> dao.pagedChannelsIn(playlistIds, now())
             }.also(onSource)
         }.flow
+    }
+
+    /** Where [channel] comes in [channels] of [playlistIds] and [categoryId]: how many channels are before it. */
+    suspend fun channelPosition(playlistIds: List<Long>, categoryId: String, channel: StreamEntity): Int {
+        val nameKey = Categories.nameKeyOf(categoryId)
+        return when {
+            categoryId == Categories.FAVORITES -> dao.favoriteChannelsBefore(playlistIds, channel.playlistId, channel.streamId)
+            nameKey != null -> dao.channelsBeforeInNamedCategory(playlistIds, nameKey, channel.playlistId, channel.sortOrder)
+            categoryId == Categories.ALL -> dao.channelsBefore(playlistIds, channel.playlistId, channel.sortOrder)
+            else -> dao.channelsBeforeInCategory(channel.playlistId, categoryId, channel.sortOrder)
+        }
     }
 
     fun items(playlistId: Long, kind: ContentKind, categoryId: String): Flow<PagingData<StreamEntity>> =

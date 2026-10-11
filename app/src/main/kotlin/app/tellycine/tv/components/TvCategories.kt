@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,12 +29,15 @@ import androidx.tv.material3.ListItem
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import app.tellycine.data.repo.PlaylistFilter
+import app.tellycine.data.settings.CategorySort
+import app.tellycine.tv.live.next
 import app.tellycine.ui.components.CategoryOption
 import app.tellycine.ui.components.formatCount
 
 /**
  * Side panel listing a playlist's categories. Opens on the current one; long lists get a filter.
- * With more than one playlist, the [playlists] to show come first.
+ * With more than one playlist, the [playlists] to show come first. Given a [sort], the categories
+ * start with a Sort button, which switches between the provider's order and A–Z ([onSortChange]).
  */
 @Composable
 fun TvCategoryPanel(
@@ -44,6 +48,8 @@ fun TvCategoryPanel(
     onDismiss: () -> Unit,
     playlists: PlaylistFilter? = null,
     onSelectPlaylists: (Long) -> Unit = {},
+    sort: CategorySort? = null,
+    onSortChange: (CategorySort) -> Unit = {},
 ) {
     var filter by remember { mutableStateOf("") }
     var editing by remember { mutableStateOf(false) }
@@ -53,8 +59,9 @@ fun TvCategoryPanel(
     // Focus starts on the current category, or the first one when it is filtered out.
     val focusId = visible.firstOrNull { it.id == selected }?.id ?: visible.firstOrNull()?.id
     val startIndex = visible.indexOfFirst { it.id == focusId }.coerceAtLeast(0)
-    // Rows above the categories: the playlists with their two headings, and the filter.
-    val lead = (if (playlists != null) playlists.options.size + 2 else 0) + (if (options.size > 12) 1 else 0)
+    // Rows above the categories: the playlists with their two headings, Sort and the filter.
+    val lead = (if (playlists != null) playlists.options.size + 2 else 0) + (if (sort != null) 1 else 0) +
+        (if (options.size > 12) 1 else 0)
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = (lead + startIndex - 3).coerceAtLeast(0))
     val focus = remember { FocusRequester() }
     var focusOnTarget by remember { mutableStateOf(false) }
@@ -75,6 +82,18 @@ fun TvCategoryPanel(
                     )
                 }
                 item(key = "categories-heading") { PanelHeading("Categories", Modifier.padding(top = 12.dp)) }
+            }
+            if (sort != null) {
+                item(key = "sort") {
+                    ListItem(
+                        selected = false,
+                        onClick = { onSortChange(sort.next()) },
+                        headlineContent = { Text("Sort") },
+                        leadingContent = { Icon(Icons.AutoMirrored.Filled.Sort, null) },
+                        trailingContent = { Text(sort.label, style = MaterialTheme.typography.labelMedium) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
             if (options.size > 12) {
                 item(key = "filter") {
@@ -99,8 +118,9 @@ fun TvCategoryPanel(
         }
     }
     // The panel's window can move focus to its first row (a playlist) as it opens, after the
-    // request; so for its first few frames, focus goes back to the current category.
-    LaunchedEffect(visible) {
+    // request; so for its first few frames, focus goes back to the current category. Not when
+    // the categories are only sorted again, which leaves focus on Sort.
+    LaunchedEffect(filter, options.isEmpty()) {
         repeat(12) {
             withFrameNanos { }
             if (!focusOnTarget) runCatching { focus.requestFocus() }

@@ -16,8 +16,8 @@ android {
         minSdk = 26
         // Google Play requires API 36 for new apps and updates from 31 August 2026.
         targetSdk = 36
-        versionCode = 13
-        versionName = "1.8.0"
+        versionCode = 14
+        versionName = "1.9.0"
         vectorDrawables.useSupportLibrary = true
     }
 

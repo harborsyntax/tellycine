@@ -18,6 +18,7 @@ import app.tellycine.data.db.PlaylistType
 import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.repo.ContentRepository
+import app.tellycine.data.settings.CategorySort
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 
@@ -104,6 +105,7 @@ object DemoData {
         container.settings.setActivePlaylist(pid)
         // Settings outlive a test, so each section starts on the active playlist again.
         container.settings.clearSectionPlaylists()
+        container.settings.setLiveCategorySort(CategorySort.PROVIDER)
         container.settings.setLibraryGroupByCategory(groupLibrary)
         val dao = db.content()
 

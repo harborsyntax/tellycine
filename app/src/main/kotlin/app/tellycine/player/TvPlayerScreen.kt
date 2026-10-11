@@ -370,7 +370,6 @@ fun TvPlayerScreen(
         if (overlay == TvOverlay.GUIDE && request != null) {
             TvPlayerGuide(
                 request = request,
-                playerChannels = channels,
                 onPlay = {
                     onPlay(it)
                     overlay = TvOverlay.INFO

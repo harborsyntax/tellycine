@@ -140,6 +140,9 @@ interface ContentDao {
     )
     fun observeCategories(playlistId: Long, kind: ContentKind): Flow<List<CategoryEntity>>
 
+    @Query("SELECT * FROM categories WHERE playlistId = :playlistId AND kind = :kind AND categoryId = :categoryId")
+    suspend fun getCategory(playlistId: Long, kind: ContentKind, categoryId: String): CategoryEntity?
+
     /** The categories of several playlists, for browsing them together; merged by name afterwards. */
     @Query(
         """SELECT * FROM categories c WHERE c.playlistId IN (:playlistIds) AND c.kind = :kind
@@ -241,6 +244,34 @@ interface ContentDao {
            ORDER BY f.addedAt DESC"""
     )
     fun pagedFavoriteChannelsIn(playlistIds: List<Long>, now: Long): PagingSource<Int, ChannelRow>
+
+    // How many channels come before one (of [playlistId], at [sortOrder]) in the lists above: where it is in them.
+
+    @Query(
+        """SELECT COUNT(*) FROM streams s WHERE s.playlistId IN (:playlistIds) AND s.kind = 'LIVE' AND """ + VISIBLE + """
+           AND (s.playlistId < :playlistId OR (s.playlistId = :playlistId AND s.sortOrder < :sortOrder))"""
+    )
+    suspend fun channelsBefore(playlistIds: List<Long>, playlistId: Long, sortOrder: Int): Int
+
+    @Query(
+        """SELECT COUNT(*) FROM streams s WHERE s.playlistId = :playlistId AND s.kind = 'LIVE' AND s.categoryId = :categoryId
+           AND s.sortOrder < :sortOrder"""
+    )
+    suspend fun channelsBeforeInCategory(playlistId: Long, categoryId: String, sortOrder: Int): Int
+
+    @Query(
+        "SELECT COUNT(*) " + FROM_NAMED_CATEGORY + """ AND c.kind = 'LIVE' AND """ + VISIBLE + """
+           AND (s.playlistId < :playlistId OR (s.playlistId = :playlistId AND s.sortOrder < :sortOrder))"""
+    )
+    suspend fun channelsBeforeInNamedCategory(playlistIds: List<Long>, nameKey: String, playlistId: Long, sortOrder: Int): Int
+
+    @Query(
+        """SELECT COUNT(*) FROM streams s INNER JOIN favorites f
+             ON f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId
+           WHERE s.playlistId IN (:playlistIds) AND s.kind = 'LIVE' AND """ + VISIBLE + """
+           AND f.addedAt > (SELECT addedAt FROM favorites WHERE playlistId = :playlistId AND kind = 'LIVE' AND streamId = :streamId)"""
+    )
+    suspend fun favoriteChannelsBefore(playlistIds: List<Long>, playlistId: Long, streamId: String): Int
 
     /** Channels of one category (or all), used by the player to zap between channels. */
     @Query(

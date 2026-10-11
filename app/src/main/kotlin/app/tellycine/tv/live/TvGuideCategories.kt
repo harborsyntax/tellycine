@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,6 +41,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +53,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import app.tellycine.data.repo.PlaylistFilter
+import app.tellycine.data.settings.CategorySort
 import app.tellycine.tv.TvPalette
 import app.tellycine.ui.components.CategoryOption
 import app.tellycine.ui.components.formatCount
@@ -80,6 +83,8 @@ private val TuckedWidth = 16.dp
  * on the current category ([TvGuideCategoriesState.open]). OK picks a category and returns to
  * the channels, which [onSelect] changes; Right or Back return without changing. With more than
  * one playlist, the [playlists] to show come first, and picking one also returns to the channels.
+ * Given a [sort], the categories start with a Sort button, which switches between the provider's
+ * order and A–Z ([onSortChange]) and leaves the column open.
  */
 @Composable
 fun TvGuideCategories(
@@ -91,17 +96,20 @@ fun TvGuideCategories(
     modifier: Modifier = Modifier,
     playlists: PlaylistFilter? = null,
     onSelectPlaylists: (Long) -> Unit = {},
+    sort: CategorySort? = null,
+    onSortChange: (CategorySort) -> Unit = {},
 ) {
     val width by animateDpAsState(if (state.open) OpenWidth else TuckedWidth, label = "categories-width")
     // The names fade in as the column opens; the edge fades out.
     val namesAlpha by animateFloatAsState(if (state.open) 1f else 0f, label = "categories-alpha")
     val listState = rememberLazyListState()
-    // Focusable rows are numbered playlists first, then categories; the list also has a heading
-    // between them, which [listIndex] allows for.
+    // Focusable rows are numbered playlists first, then the Sort button and the categories; the
+    // list also has a heading between them, which [listIndex] allows for.
     val playlistCount = playlists?.options?.size ?: 0
+    val firstCategory = playlistCount + if (sort != null) 1 else 0
     val listIndex = { row: Int -> if (playlists != null && row >= playlistCount) row + 1 else row }
-    val selectedIndex = playlistCount + options.indexOfFirst { it.id == selected }.coerceAtLeast(0)
-    val lastIndex = playlistCount + options.lastIndex
+    val selectedIndex = firstCategory + options.indexOfFirst { it.id == selected }.coerceAtLeast(0)
+    val lastIndex = firstCategory + options.lastIndex
     var hasFocus by remember { mutableStateOf(false) }
     var focusedIndex by remember { mutableStateOf(-1) }
 
@@ -165,8 +173,18 @@ fun TvGuideCategories(
                     }
                     item(key = "categories-heading") { ColumnHeading("Categories", Modifier.padding(top = 8.dp)) }
                 }
+                if (sort != null) {
+                    item(key = "sort") {
+                        SortRow(
+                            sort = sort,
+                            enabled = state.open,
+                            onClick = { onSortChange(sort.next()) },
+                            modifier = Modifier.onFocusChanged { if (it.isFocused) focusedIndex = playlistCount },
+                        )
+                    }
+                }
                 itemsIndexed(options, key = { _, o -> o.id }) { i, option ->
-                    val index = playlistCount + i
+                    val index = firstCategory + i
                     ColumnRow(
                         name = option.name,
                         count = option.count,
@@ -210,6 +228,43 @@ private fun ColumnHeading(text: String, modifier: Modifier = Modifier) {
         color = TvPalette.onSurfaceVariant,
         modifier = modifier.padding(start = 12.dp, top = 6.dp, bottom = 4.dp),
     )
+}
+
+/** The other order, for a button that switches between the two. */
+fun CategorySort.next(): CategorySort = if (this == CategorySort.NAME) CategorySort.PROVIDER else CategorySort.NAME
+
+/** The Sort button at the top of the categories: the order they're in, and OK for the other one. */
+@Composable
+private fun SortRow(sort: CategorySort, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.Transparent,
+            contentColor = TvPalette.onSurface,
+            focusedContainerColor = TvPalette.focus,
+            focusedContentColor = TvPalette.onFocus,
+            disabledContainerColor = Color.Transparent,
+            disabledContentColor = TvPalette.onSurface,
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        modifier = modifier.fillMaxWidth().semantics { contentDescription = "Sort: ${sort.label}" },
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.AutoMirrored.Filled.Sort, null, Modifier.size(18.dp))
+            Text(
+                "Sort",
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                modifier = Modifier.padding(start = 10.dp).weight(1f),
+            )
+            Text(sort.label, style = MaterialTheme.typography.labelMedium, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
+        }
+    }
 }
 
 /** A playlist or category in the column, marked when it's the one showing. */

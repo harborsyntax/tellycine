@@ -18,6 +18,7 @@ import app.tellycine.data.repo.Categories
 import app.tellycine.data.repo.CatchupResolver
 import app.tellycine.data.repo.PlaylistFilter
 import app.tellycine.data.repo.PlaylistScope
+import app.tellycine.data.settings.CategorySort
 import app.tellycine.data.sync.PlaylistSyncer
 import app.tellycine.player.PlayRequest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -78,8 +79,20 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
     private val _selected = MutableStateFlow(Categories.ALL)
     val selectedCategory: StateFlow<String> = _selected.asStateFlow()
 
+    /** The order categories are listed in: the provider's, or A–Z. */
+    val categorySort: StateFlow<CategorySort> = container.settings.settings.map { it.liveCategorySort }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, CategorySort.PROVIDER)
+
+    fun setCategorySort(sort: CategorySort) {
+        viewModelScope.launch { container.settings.setLiveCategorySort(sort) }
+    }
+
+    /** The categories of the playlists [ids] (merged when there are several), in [categorySort]'s order. */
+    fun categoriesOf(ids: List<Long>): Flow<List<CategoryEntity>> =
+        combine(content.categories(ids, ContentKind.LIVE), categorySort) { list, sort -> Categories.sorted(list, sort) }
+
     val categories: StateFlow<List<CategoryEntity>> = scopeIds
-        .flatMapLatest { ids -> content.categories(ids, ContentKind.LIVE) }
+        .flatMapLatest { ids -> categoriesOf(ids) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     @Volatile
@@ -283,11 +296,33 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
     fun hasCatchup(row: ChannelRow) = CatchupResolver.supports(playlistOf(row), row.stream)
 
     /**
-     * Plays [row], noting the category it was picked from for changing channel in the player. The
-     * player stays in the channel's own playlist, so a merged category becomes the channel's own.
+     * Plays [row], noting the category it was picked from ([categoryId], the one selected unless
+     * given) for changing channel in the player. The player stays in the channel's own playlist, so
+     * a merged category becomes the channel's own.
      */
-    fun playRequest(row: ChannelRow): PlayRequest {
-        val category = _selected.value.takeIf { Categories.nameKeyOf(it) == null } ?: row.stream.categoryId
+    fun playRequest(row: ChannelRow, categoryId: String = _selected.value): PlayRequest {
+        val category = categoryId.takeIf { Categories.nameKeyOf(it) == null } ?: row.stream.categoryId
         return liveRequest(playlistOf(row), row.stream, subtitle = row.nowTitle, categoryId = category)
     }
+
+    /**
+     * Where the guide over the player opens on [request]'s channel, among the playlists [ids]: its
+     * category as listed for them (merged by name for several playlists), and its row there. When
+     * the channel isn't in those playlists, all their channels from the top.
+     */
+    suspend fun guideStart(request: PlayRequest, ids: List<Long>): GuideStart {
+        if (request.playlistId !in ids) return GuideStart(Categories.ALL, null)
+        val own = request.categoryId ?: Categories.ALL
+        val category = if (ids.size > 1 && own != Categories.ALL && own != Categories.FAVORITES) {
+            content.category(request.playlistId, ContentKind.LIVE, own)?.let { Categories.named(Categories.nameKey(it.name)) } ?: Categories.ALL
+        } else {
+            own
+        }
+        val stream = content.getStream(request.playlistId, ContentKind.LIVE, request.streamId)
+        val row = stream?.let { content.channelPosition(ids, category, it) }
+        return GuideStart(category, row)
+    }
 }
+
+/** Where a guide opens: a [category], and the [row] of the channel to start on (null for the top). */
+data class GuideStart(val category: String, val row: Int?)
