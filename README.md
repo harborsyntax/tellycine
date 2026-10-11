@@ -10,7 +10,7 @@
 </h1>
 
 <p align="center">
-  An IPTV player for Android phones, tablets and TVs, built with Jetpack Compose and Material 3.
+  An IPTV player for Android phones, tablets and TVs, built with a Material 3 UI.
   <br><br>
   <a href="https://github.com/harborsyntax/tellycine/releases/latest"><b>Download the latest APK</b></a>
   &nbsp;·&nbsp;
