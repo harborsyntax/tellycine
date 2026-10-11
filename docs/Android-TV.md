@@ -29,6 +29,7 @@ Updates install the same way, over the existing app.
 - The **side menu** (Search, Live TV, Movies, Series, Library, Playlists, Settings) is on the left. Press **Back** from any screen to open it, and **Back** again to leave Tellycine.
 - **OK** chooses. **Hold OK** for more options: a channel's schedule and actions, removing a Library item, or deleting a download or recording.
 - Everything works with just the arrows, OK and Back, so any remote will do. Number and channel buttons are used when your remote has them.
+- In long lists (the guide, channels, categories, movies and series), **hold Up or Down** to scroll: it starts one row at a time and speeds up the longer you hold. Held, it stops at the top or bottom of the list; press again to move on from there.
 
 <img src="images/screens/tv-menu.png" width="640" alt="The side menu">
 
@@ -37,7 +38,7 @@ Live TV opens on the **guide**: channels down the side and time across the top. 
 
 | Press | To |
 | --- | --- |
-| Up / Down | Move between channels. **CH+ / CH−** move a page at a time. |
+| Up / Down | Move between channels; hold to speed up. **CH+ / CH−** move a page at a time. |
 | Right / Left | Move through programmes. Left goes back in time, for catch-up. Keep pressing Left to reach the channel itself. |
 | Left (on a channel) | Open the **categories**, tucked away as a thin edge (with a ‹) to the left of the channels. Up/Down choose one and OK shows its channels; Right or Back return without changing. With more than one playlist, the playlists come first: **All playlists** or one of them. The **Sort** button at the top of the categories puts them in the provider's order (**Provider order**) or alphabetically (**A–Z**): press OK to switch. |
 | OK | Watch what's on now, replay a past programme, or see the schedule for an upcoming one. |

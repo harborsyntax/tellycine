@@ -1,11 +1,14 @@
 package app.tellycine.ui.detail
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
@@ -23,6 +26,7 @@ import androidx.tv.material3.SurfaceDefaults
 import app.tellycine.TellycineApp
 import app.tellycine.core.ContentKind
 import app.tellycine.data.settings.ThemeMode
+import app.tellycine.screenshots.ScreenshotDriver
 import app.tellycine.tv.TellycineTvTheme
 import app.tellycine.tv.detail.TvDetailScreen
 import app.tellycine.ui.theme.TellycineTheme
@@ -31,6 +35,7 @@ import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -144,4 +149,31 @@ class TvDetailArtworkTest {
         compose.onNode(page).performScrollToNode(hasText("Undertow", substring = true))
         compose.onNode(hasContentDescription("Season 2") and hasClickAction()).assertIsSelected()
     }
+
+    @Test
+    fun aSeriesPageKeepsItsTitleOnScreenOnATv() {
+        // A TV (unlike these tests' usual device) scrolls lists to keep the focused item a third of
+        // the way down, which could push the title off the top when Play was focused.
+        shadowOf(app.packageManager).setSystemFeature(PackageManager.FEATURE_LEANBACK, true)
+        show(ContentKind.SERIES, "s1")
+        compose.waitForText("Play S1 E1")
+        compose.waitForIdle()
+        assertTitleOnScreen()
+
+        // Down to the episodes and back up to Play: the page returns to its top.
+        val d = ScreenshotDriver(compose)
+        val atTop = titleTop()
+        d.press(Key.DirectionDown, 3)
+        compose.onNode(hasText("Slack Water", substring = true) and hasClickAction()).assertIsFocused()
+        assertTrue("title at ${titleTop()}, from $atTop", titleTop() < atTop)
+        d.press(Key.DirectionUp, 3)
+        compose.onNode(hasText("Play S1 E1") and hasClickAction()).assertIsFocused()
+        assertTitleOnScreen()
+    }
+
+    /** Where the title is, or far above the screen once it has scrolled away (and left the list). */
+    private fun titleTop() = compose.onAllNodes(hasText("Tidewater") and SemanticsMatcher.keyIsDefined(SemanticsProperties.Text))
+        .fetchSemanticsNodes().firstOrNull()?.boundsInRoot?.top ?: Float.NEGATIVE_INFINITY
+
+    private fun assertTitleOnScreen() = assertTrue("title at ${titleTop()}", titleTop() >= 0f)
 }

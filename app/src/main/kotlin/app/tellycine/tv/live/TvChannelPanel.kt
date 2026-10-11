@@ -58,6 +58,7 @@ import app.tellycine.tv.components.TvActionButton
 import app.tellycine.tv.components.TvDialog
 import app.tellycine.tv.components.TvSidePanel
 import app.tellycine.tv.components.TvSourceLabel
+import app.tellycine.tv.components.fasterWhenHeld
 import app.tellycine.ui.components.Artwork
 import app.tellycine.ui.components.formatDay
 import app.tellycine.ui.components.formatTime
@@ -189,7 +190,12 @@ fun TvChannelPanel(
                 val listState = rememberLazyListState(
                     initialFirstVisibleItemIndex = (programmes.indexOfFirst { it.stopMs > now } - 1).coerceAtLeast(0),
                 )
-                LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                LazyColumn(
+                    state = listState,
+                    contentPadding = PaddingValues(bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.fasterWhenHeld(listState),
+                ) {
                     items(programmes, key = { it.id }) { p ->
                         val live = p.startMs <= now && p.stopMs > now
                         val past = p.stopMs <= now

@@ -1,0 +1,2 @@
+• On TV, hold Up or Down to scroll long lists faster the longer you hold
+• Fixed the top of a series page being cut off on TV

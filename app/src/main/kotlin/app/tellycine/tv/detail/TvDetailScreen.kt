@@ -7,7 +7,9 @@ import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +40,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Theaters
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -76,6 +79,7 @@ import app.tellycine.player.play
 import app.tellycine.tv.TvArtworkTint
 import app.tellycine.tv.TvPalette
 import app.tellycine.tv.components.RequestFocusOnStart
+import app.tellycine.tv.components.TopFirstScrolling
 import app.tellycine.tv.components.TvActionButton
 import app.tellycine.tv.components.TvConfirmDialog
 import app.tellycine.tv.components.TvDialog
@@ -97,8 +101,11 @@ import app.tellycine.ui.detail.EpisodeUi
 import app.tellycine.ui.downloads.downloadStatus
 import app.tellycine.ui.downloads.fraction
 
+/** The list item with the details and buttons at the top of the page. */
+private const val TOP = "top"
+
 /** A movie or series: artwork, details, play/resume, favourite, download, and a series' episodes. */
-@OptIn(ExperimentalTvMaterial3Api::class)
+@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun TvDetailScreen(kind: ContentKind, playlistId: Long, streamId: String) {
     val vm = tellycineViewModel(key = "detail-$kind-$playlistId-$streamId") { c, _ ->
@@ -121,8 +128,9 @@ fun TvDetailScreen(kind: ContentKind, playlistId: Long, streamId: String) {
     val colour = rememberArtworkColour(info.backdrops.firstOrNull() ?: info.poster)
     val tint = remember(colour) { colour?.let { artworkTint(it, dark = true) } }
     val list = rememberLazyListState()
-    // The artwork dims once the details scroll away, so the episodes are easy to read.
-    val scrolled by remember { derivedStateOf { list.firstVisibleItemIndex > 0 } }
+    // The artwork dims once the page scrolls down to the seasons and episodes, so they're easy to
+    // read. (Focus on the details or buttons always brings the page back to its top.)
+    val scrolled by remember { derivedStateOf { list.firstVisibleItemIndex > 0 || list.firstVisibleItemScrollOffset > 0 } }
     val dim by animateFloatAsState(if (scrolled) 1f else 0f, label = "dim")
     // With a backdrop filling the screen, the poster isn't needed as well. (It fades away if the
     // details bring a backdrop the playlist didn't have.)
@@ -149,131 +157,135 @@ fun TvDetailScreen(kind: ContentKind, playlistId: Long, streamId: String) {
             Box(Modifier.fillMaxSize().graphicsLayer { alpha = dim }.background(background.copy(alpha = 0.8f)))
 
             val seasonEpisodes = remember(info.episodes, season) { info.episodes.filter { it.season == season } }
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                state = list,
-                contentPadding = PaddingValues(start = 56.dp, end = TvSpacing.screenEnd, top = 40.dp, bottom = 40.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                item(key = "header") {
-                    Header(info, showPoster)
-                }
-                item(key = "actions") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
-                        when (kind) {
-                            ContentKind.MOVIE -> {
-                                val h = history[ContentRepository.movieKey(streamId)]
-                                val resume = h?.resumePosition() ?: 0L
+            val tvScrolling = LocalBringIntoViewSpec.current
+            val scrolling = remember(list, tvScrolling) { TopFirstScrolling(list, TOP, tvScrolling) }
+            CompositionLocalProvider(LocalBringIntoViewSpec provides scrolling) {
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    state = list,
+                    contentPadding = PaddingValues(start = 56.dp, end = TvSpacing.screenEnd, top = 40.dp, bottom = 40.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    // The details, buttons and status are one item, so the page can go back to its top
+                    // whenever anything in it is focused.
+                    item(key = TOP) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Header(info, showPoster)
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
+                                when (kind) {
+                                    ContentKind.MOVIE -> {
+                                        val h = history[ContentRepository.movieKey(streamId)]
+                                        val resume = h?.resumePosition() ?: 0L
+                                        TvActionButton(
+                                            if (resume > 0) "Resume" else "Play",
+                                            onClick = { vm.moviePlayRequest(resume)?.let(context::play) },
+                                            icon = Icons.Filled.PlayArrow,
+                                            primary = true,
+                                            enabled = info.stream != null,
+                                            accent = accent,
+                                            modifier = Modifier.focusRequester(play),
+                                        )
+                                        if (resume > 0) {
+                                            TvActionButton("From the beginning", onClick = { vm.moviePlayRequest(0)?.let(context::play) }, icon = Icons.Filled.Replay)
+                                        }
+                                    }
+                                    else -> {
+                                        val n = next
+                                        if (n != null) {
+                                            val (ep, h) = n
+                                            val resume = h?.resumePosition() ?: 0L
+                                            TvActionButton(
+                                                "${if (resume > 0) "Resume" else "Play"} S${ep.season} E${ep.number}",
+                                                onClick = { context.play(vm.episodePlayRequest(ep, resume)) },
+                                                icon = Icons.Filled.PlayArrow,
+                                                primary = true,
+                                                accent = accent,
+                                                modifier = Modifier.focusRequester(play),
+                                            )
+                                        }
+                                    }
+                                }
                                 TvActionButton(
-                                    if (resume > 0) "Resume" else "Play",
-                                    onClick = { vm.moviePlayRequest(resume)?.let(context::play) },
-                                    icon = Icons.Filled.PlayArrow,
-                                    primary = true,
-                                    enabled = info.stream != null,
-                                    accent = accent,
-                                    modifier = Modifier.focusRequester(play),
+                                    if (favorite) "Favourite" else "Add to favourites",
+                                    onClick = vm::toggleFavorite,
+                                    icon = if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                    modifier = if (kind == ContentKind.SERIES && next == null) Modifier.focusRequester(play) else Modifier,
                                 )
-                                if (resume > 0) {
-                                    TvActionButton("From the beginning", onClick = { vm.moviePlayRequest(0)?.let(context::play) }, icon = Icons.Filled.Replay)
+                                info.trailer?.let { trailer ->
+                                    TvActionButton("Trailer", onClick = { context.openTrailer(trailer, tv = true) }, icon = Icons.Filled.Theaters)
                                 }
-                            }
-                            else -> {
-                                val n = next
-                                if (n != null) {
-                                    val (ep, h) = n
-                                    val resume = h?.resumePosition() ?: 0L
-                                    TvActionButton(
-                                        "${if (resume > 0) "Resume" else "Play"} S${ep.season} E${ep.number}",
-                                        onClick = { context.play(vm.episodePlayRequest(ep, resume)) },
-                                        icon = Icons.Filled.PlayArrow,
-                                        primary = true,
-                                        accent = accent,
-                                        modifier = Modifier.focusRequester(play),
+                                val stream = info.stream
+                                if (kind == ContentKind.MOVIE && stream != null && DownloadRepository.isDownloadable(stream.url)) {
+                                    val d = downloads[ContentRepository.movieKey(streamId)]
+                                    DownloadButton(
+                                        download = d,
+                                        fileOk = d?.let(vm::isDownloadOk) ?: false,
+                                        onDownload = { vm.download() },
+                                        onRetry = vm::retryDownload,
+                                        onRemove = { confirmRemove = it },
                                     )
                                 }
                             }
+                            val d = if (kind == ContentKind.MOVIE) downloads[ContentRepository.movieKey(streamId)] else null
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                if (d != null) {
+                                    Text(downloadStatus(context, d, vm.isDownloadOk(d)), style = MaterialTheme.typography.bodyMedium, color = TvPalette.primary)
+                                }
+                                if (info.loading) LinearProgressIndicator(Modifier.widthIn(max = 480.dp).fillMaxWidth())
+                                info.error?.let {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Filled.ErrorOutline, null, tint = MaterialTheme.colorScheme.error)
+                                        Text(it, color = MaterialTheme.colorScheme.error)
+                                    }
+                                }
+                            }
                         }
-                        TvActionButton(
-                            if (favorite) "Favourite" else "Add to favourites",
-                            onClick = vm::toggleFavorite,
-                            icon = if (favorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                            modifier = if (kind == ContentKind.SERIES && next == null) Modifier.focusRequester(play) else Modifier,
+                    }
+                    if (info.seasons.size > 1) {
+                        item(key = "seasons") {
+                            if (info.seasonCovers.isNotEmpty()) {
+                                // The seasons' posters, when the provider has them.
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(18.dp),
+                                    contentPadding = PaddingValues(vertical = 10.dp),
+                                    modifier = Modifier.focusRestorer().padding(top = 8.dp),
+                                ) {
+                                    items(info.seasons.entries.toList(), key = { it.key }) { (number, name) ->
+                                        TvPosterCard(
+                                            title = name,
+                                            poster = info.seasonCovers[number],
+                                            onClick = { vm.selectSeason(number) },
+                                            selected = number == season,
+                                            modifier = Modifier.width(104.dp),
+                                        )
+                                    }
+                                }
+                            } else {
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.focusRestorer().padding(top = 8.dp)) {
+                                    items(info.seasons.entries.toList(), key = { it.key }) { (number, name) ->
+                                        FilterChip(selected = number == season, onClick = { vm.selectSeason(number) }) { Text(name) }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (kind == ContentKind.SERIES && !info.loading && info.episodes.isEmpty()) {
+                        item(key = "no-episodes") {
+                            Text("No episodes found.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    items(seasonEpisodes, key = { "ep-${it.id}" }) { ep ->
+                        val key = ContentRepository.episodeKey(ep.id)
+                        val h = history[key]
+                        val d = downloads[key]
+                        EpisodeRow(
+                            episode = ep,
+                            history = h,
+                            downloadText = d?.let { downloadStatus(context, it, vm.isDownloadOk(it)) },
+                            onPlay = { context.play(vm.episodePlayRequest(ep, h?.resumePosition() ?: 0L)) },
+                            onMenu = { episodeMenu = ep },
                         )
-                        info.trailer?.let { trailer ->
-                            TvActionButton("Trailer", onClick = { context.openTrailer(trailer, tv = true) }, icon = Icons.Filled.Theaters)
-                        }
-                        val stream = info.stream
-                        if (kind == ContentKind.MOVIE && stream != null && DownloadRepository.isDownloadable(stream.url)) {
-                            val d = downloads[ContentRepository.movieKey(streamId)]
-                            DownloadButton(
-                                download = d,
-                                fileOk = d?.let(vm::isDownloadOk) ?: false,
-                                onDownload = { vm.download() },
-                                onRetry = vm::retryDownload,
-                                onRemove = { confirmRemove = it },
-                            )
-                        }
                     }
-                }
-                item(key = "status") {
-                    val d = if (kind == ContentKind.MOVIE) downloads[ContentRepository.movieKey(streamId)] else null
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        if (d != null) {
-                            Text(downloadStatus(context, d, vm.isDownloadOk(d)), style = MaterialTheme.typography.bodyMedium, color = TvPalette.primary)
-                        }
-                        if (info.loading) LinearProgressIndicator(Modifier.widthIn(max = 480.dp).fillMaxWidth())
-                        info.error?.let {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.ErrorOutline, null, tint = MaterialTheme.colorScheme.error)
-                                Text(it, color = MaterialTheme.colorScheme.error)
-                            }
-                        }
-                    }
-                }
-                if (info.seasons.size > 1) {
-                    item(key = "seasons") {
-                        if (info.seasonCovers.isNotEmpty()) {
-                            // The seasons' posters, when the provider has them.
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(18.dp),
-                                contentPadding = PaddingValues(vertical = 10.dp),
-                                modifier = Modifier.focusRestorer().padding(top = 8.dp),
-                            ) {
-                                items(info.seasons.entries.toList(), key = { it.key }) { (number, name) ->
-                                    TvPosterCard(
-                                        title = name,
-                                        poster = info.seasonCovers[number],
-                                        onClick = { vm.selectSeason(number) },
-                                        selected = number == season,
-                                        modifier = Modifier.width(104.dp),
-                                    )
-                                }
-                            }
-                        } else {
-                            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.focusRestorer().padding(top = 8.dp)) {
-                                items(info.seasons.entries.toList(), key = { it.key }) { (number, name) ->
-                                    FilterChip(selected = number == season, onClick = { vm.selectSeason(number) }) { Text(name) }
-                                }
-                            }
-                        }
-                    }
-                }
-                if (kind == ContentKind.SERIES && !info.loading && info.episodes.isEmpty()) {
-                    item(key = "no-episodes") {
-                        Text("No episodes found.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                items(seasonEpisodes, key = { "ep-${it.id}" }) { ep ->
-                    val key = ContentRepository.episodeKey(ep.id)
-                    val h = history[key]
-                    val d = downloads[key]
-                    EpisodeRow(
-                        episode = ep,
-                        history = h,
-                        downloadText = d?.let { downloadStatus(context, it, vm.isDownloadOk(it)) },
-                        onPlay = { context.play(vm.episodePlayRequest(ep, h?.resumePosition() ?: 0L)) },
-                        onMenu = { episodeMenu = ep },
-                    )
                 }
             }
         }

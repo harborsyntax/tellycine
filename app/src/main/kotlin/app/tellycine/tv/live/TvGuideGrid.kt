@@ -78,6 +78,7 @@ import androidx.tv.material3.Text
 import app.tellycine.data.db.ChannelRow
 import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.tv.TvPalette
+import app.tellycine.tv.components.heldKeySteps
 import app.tellycine.ui.components.Artwork
 import app.tellycine.ui.components.formatTime
 import app.tellycine.ui.live.GuideWindow
@@ -201,11 +202,12 @@ fun TvGuideGrid(
 
         fun currentRow() = channels.itemCount.takeIf { it > 0 }?.let { channels.peek(state.row.coerceIn(0, it - 1)) }
 
-        fun moveVertical(delta: Int): Boolean {
+        fun moveVertical(delta: Int, held: Boolean = false): Boolean {
             val count = channels.itemCount
             if (count == 0) return false
             val target = (state.row + delta).coerceIn(0, count - 1)
-            if (target == state.row) return delta > 0 // At the top, let focus move up to the header.
+            // At the top, a fresh press lets focus move up to the header.
+            if (target == state.row) return delta > 0 || held
             state.row = target
             return true
         }
@@ -290,8 +292,9 @@ fun TvGuideGrid(
                             if (!down) currentRow()?.let(onOptions)
                             true
                         }
-                        KEYCODE_DPAD_UP -> if (down) moveVertical(-1) else false
-                        KEYCODE_DPAD_DOWN -> if (down) moveVertical(1) else false
+                        // Held, they move faster and faster, and stop at the first channel.
+                        KEYCODE_DPAD_UP -> if (down) moveVertical(-heldKeySteps(native), held = native.repeatCount > 0) else false
+                        KEYCODE_DPAD_DOWN -> if (down) moveVertical(heldKeySteps(native), held = native.repeatCount > 0) else false
                         KEYCODE_DPAD_LEFT -> if (down) moveLeft() else false
                         KEYCODE_DPAD_RIGHT -> if (down) moveRight() else false
                         KEYCODE_CHANNEL_UP, KEYCODE_PAGE_UP -> {

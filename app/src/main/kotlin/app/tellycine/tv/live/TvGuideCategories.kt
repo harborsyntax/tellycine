@@ -55,6 +55,7 @@ import androidx.tv.material3.Text
 import app.tellycine.data.repo.PlaylistFilter
 import app.tellycine.data.settings.CategorySort
 import app.tellycine.tv.TvPalette
+import app.tellycine.tv.components.fasterWhenHeld
 import app.tellycine.ui.components.CategoryOption
 import app.tellycine.ui.components.formatCount
 import kotlinx.coroutines.flow.first
@@ -159,7 +160,7 @@ fun TvGuideCategories(
         ) {
             // As tall as the guide's row of times, so the first category lines up with the first channel.
             ColumnHeading(if (playlists != null) "Playlists" else "Categories", Modifier.height(GuideHeaderHeight))
-            LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.fasterWhenHeld(listState)) {
                 if (playlists != null) {
                     itemsIndexed(playlists.options, key = { _, o -> "playlist-${o.id}" }) { index, option ->
                         ColumnRow(

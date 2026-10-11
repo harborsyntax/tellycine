@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
@@ -77,6 +78,7 @@ import app.tellycine.tv.components.TvQrDialog
 import app.tellycine.tv.components.TvSourceLabel
 import app.tellycine.tv.components.TvSpacing
 import app.tellycine.tv.components.okClicks
+import app.tellycine.tv.components.fasterWhenHeld
 import app.tellycine.ui.components.Artwork
 import app.tellycine.ui.components.categoryOptions
 import app.tellycine.ui.components.formatDay
@@ -436,9 +438,12 @@ private fun TvChannelList(
     onLeftEdge: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val listState = rememberLazyListState()
     LazyColumn(
-        modifier
+        state = listState,
+        modifier = modifier
             .focusRestorer()
+            .fasterWhenHeld(listState)
             // Left opens the categories; Back opens the side menu.
             .onPreviewKeyEvent { event ->
                 if (event.nativeKeyEvent.keyCode == KEYCODE_DPAD_LEFT) {
