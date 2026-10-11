@@ -1,0 +1,3 @@
+• The guide opens faster with large or combined playlists
+• Channel lists keep what's on now up to date without reloading
+• Playlist refreshes at start-up wait until the first screen has opened

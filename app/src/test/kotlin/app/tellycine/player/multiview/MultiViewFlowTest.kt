@@ -51,7 +51,8 @@ class MultiViewFlowTest {
             // allows two connections, so there's room for one more.
             waitForText("OK: add to multi-view")
             waitForText("Room for 1 more")
-            // Down to the next channel, OK adds it and closes the guide.
+            // Once the guide's channels are listed, Down to the next one: OK adds it and closes the guide.
+            waitForText("Global Report")
             press(Key.DirectionDown)
             press(Key.DirectionCenter)
             compose.waitUntil(10_000) { compose.onAllNodesWithText("OK: add to multi-view").fetchSemanticsNodes().isEmpty() }

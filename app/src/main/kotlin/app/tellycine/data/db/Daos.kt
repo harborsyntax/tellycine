@@ -25,6 +25,12 @@ private const val NOW_PLAYING =
        (SELECT p.stopMs FROM programmes p WHERE p.playlistId = s.playlistId AND p.channelId = s.epgChannelId
          AND p.startMs <= :now AND p.stopMs > :now ORDER BY p.startMs DESC LIMIT 1) AS nowStop"""
 
+/** Left empty in pages of channels, for [ContentDao.nowPlaying] to fill in. */
+private const val NO_NOW_PLAYING = "NULL AS nowTitle, NULL AS nowStart, NULL AS nowStop"
+
+private const val IS_FAVORITE =
+    "EXISTS(SELECT 1 FROM favorites f WHERE f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId) AS isFavorite"
+
 /**
  * Streams (aliased `s`) in the categories (aliased `c`) whose name gives `:nameKey` (see
  * [app.tellycine.data.repo.Categories.nameKey]), of any of `:playlistIds`: how a category merged across
@@ -171,79 +177,64 @@ interface ContentDao {
 
     // ---- Live channels ----
 
+    // The pages of channels leave what's on now empty: Room counts a list by running its whole query,
+    // which with the programme lookups cost far more than the page itself. [nowPlaying] fills them in
+    // for each page.
+
     @Query(
-        """SELECT s.*,
-             (SELECT p.title FROM programmes p WHERE p.playlistId = s.playlistId AND p.channelId = s.epgChannelId
-                AND p.startMs <= :now AND p.stopMs > :now ORDER BY p.startMs DESC LIMIT 1) AS nowTitle,
-             (SELECT p.startMs FROM programmes p WHERE p.playlistId = s.playlistId AND p.channelId = s.epgChannelId
-                AND p.startMs <= :now AND p.stopMs > :now ORDER BY p.startMs DESC LIMIT 1) AS nowStart,
-             (SELECT p.stopMs FROM programmes p WHERE p.playlistId = s.playlistId AND p.channelId = s.epgChannelId
-                AND p.startMs <= :now AND p.stopMs > :now ORDER BY p.startMs DESC LIMIT 1) AS nowStop,
-             EXISTS(SELECT 1 FROM favorites f WHERE f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId) AS isFavorite
+        "SELECT s.*, " + NO_NOW_PLAYING + ", " + IS_FAVORITE + """
            FROM streams s
            WHERE s.playlistId = :playlistId AND s.kind = 'LIVE' AND """ + VISIBLE + """
            ORDER BY s.sortOrder"""
     )
-    fun pagedChannels(playlistId: Long, now: Long): PagingSource<Int, ChannelRow>
+    fun pagedChannels(playlistId: Long): PagingSource<Int, ChannelRow>
 
     @Query(
-        """SELECT s.*,
-             (SELECT p.title FROM programmes p WHERE p.playlistId = s.playlistId AND p.channelId = s.epgChannelId
-                AND p.startMs <= :now AND p.stopMs > :now ORDER BY p.startMs DESC LIMIT 1) AS nowTitle,
-             (SELECT p.startMs FROM programmes p WHERE p.playlistId = s.playlistId AND p.channelId = s.epgChannelId
-                AND p.startMs <= :now AND p.stopMs > :now ORDER BY p.startMs DESC LIMIT 1) AS nowStart,
-             (SELECT p.stopMs FROM programmes p WHERE p.playlistId = s.playlistId AND p.channelId = s.epgChannelId
-                AND p.startMs <= :now AND p.stopMs > :now ORDER BY p.startMs DESC LIMIT 1) AS nowStop,
-             EXISTS(SELECT 1 FROM favorites f WHERE f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId) AS isFavorite
+        "SELECT s.*, " + NO_NOW_PLAYING + ", " + IS_FAVORITE + """
            FROM streams s
            WHERE s.playlistId = :playlistId AND s.kind = 'LIVE' AND s.categoryId = :categoryId
            ORDER BY s.sortOrder"""
     )
-    fun pagedChannelsInCategory(playlistId: Long, categoryId: String, now: Long): PagingSource<Int, ChannelRow>
+    fun pagedChannelsInCategory(playlistId: Long, categoryId: String): PagingSource<Int, ChannelRow>
 
     @Query(
-        """SELECT s.*,
-             (SELECT p.title FROM programmes p WHERE p.playlistId = s.playlistId AND p.channelId = s.epgChannelId
-                AND p.startMs <= :now AND p.stopMs > :now ORDER BY p.startMs DESC LIMIT 1) AS nowTitle,
-             (SELECT p.startMs FROM programmes p WHERE p.playlistId = s.playlistId AND p.channelId = s.epgChannelId
-                AND p.startMs <= :now AND p.stopMs > :now ORDER BY p.startMs DESC LIMIT 1) AS nowStart,
-             (SELECT p.stopMs FROM programmes p WHERE p.playlistId = s.playlistId AND p.channelId = s.epgChannelId
-                AND p.startMs <= :now AND p.stopMs > :now ORDER BY p.startMs DESC LIMIT 1) AS nowStop,
-             1 AS isFavorite
+        "SELECT s.*, " + NO_NOW_PLAYING + """, 1 AS isFavorite
            FROM streams s INNER JOIN favorites f
              ON f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId
            WHERE s.playlistId = :playlistId AND s.kind = 'LIVE' AND """ + VISIBLE + """
            ORDER BY f.addedAt DESC"""
     )
-    fun pagedFavoriteChannels(playlistId: Long, now: Long): PagingSource<Int, ChannelRow>
+    fun pagedFavoriteChannels(playlistId: Long): PagingSource<Int, ChannelRow>
 
     // Several playlists together: each playlist's channels in turn, in the order they were added.
 
     @Query(
-        "SELECT s.*, " + NOW_PLAYING + """,
-             EXISTS(SELECT 1 FROM favorites f WHERE f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId) AS isFavorite
+        "SELECT s.*, " + NO_NOW_PLAYING + ", " + IS_FAVORITE + """
            FROM streams s
            WHERE s.playlistId IN (:playlistIds) AND s.kind = 'LIVE' AND """ + VISIBLE + """
            ORDER BY s.playlistId, s.sortOrder"""
     )
-    fun pagedChannelsIn(playlistIds: List<Long>, now: Long): PagingSource<Int, ChannelRow>
+    fun pagedChannelsIn(playlistIds: List<Long>): PagingSource<Int, ChannelRow>
 
     @Query(
-        "SELECT s.*, " + NOW_PLAYING + """,
-             EXISTS(SELECT 1 FROM favorites f WHERE f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId) AS isFavorite
+        "SELECT s.*, " + NO_NOW_PLAYING + ", " + IS_FAVORITE + """
            """ + FROM_NAMED_CATEGORY + """ AND c.kind = 'LIVE' AND """ + VISIBLE + """
            ORDER BY s.playlistId, s.sortOrder"""
     )
-    fun pagedChannelsInNamedCategory(playlistIds: List<Long>, nameKey: String, now: Long): PagingSource<Int, ChannelRow>
+    fun pagedChannelsInNamedCategory(playlistIds: List<Long>, nameKey: String): PagingSource<Int, ChannelRow>
 
     @Query(
-        "SELECT s.*, " + NOW_PLAYING + """, 1 AS isFavorite
+        "SELECT s.*, " + NO_NOW_PLAYING + """, 1 AS isFavorite
            FROM streams s INNER JOIN favorites f
              ON f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId
            WHERE s.playlistId IN (:playlistIds) AND s.kind = 'LIVE' AND """ + VISIBLE + """
            ORDER BY f.addedAt DESC"""
     )
-    fun pagedFavoriteChannelsIn(playlistIds: List<Long>, now: Long): PagingSource<Int, ChannelRow>
+    fun pagedFavoriteChannelsIn(playlistIds: List<Long>): PagingSource<Int, ChannelRow>
+
+    /** What's on now ([now]) on some of a playlist's channels: the rows of a page, or one row on screen. */
+    @Query("SELECT s.streamId AS streamId, " + NOW_PLAYING + " FROM streams s WHERE s.playlistId = :playlistId AND s.kind = 'LIVE' AND s.streamId IN (:streamIds)")
+    suspend fun nowPlaying(playlistId: Long, streamIds: List<String>, now: Long): List<NowPlaying>
 
     // How many channels come before one (of [playlistId], at [sortOrder]) in the lists above: where it is in them.
 

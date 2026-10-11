@@ -184,6 +184,14 @@ data class ChannelRow(
     val isFavorite: Boolean,
 )
 
+/** What's on now on a channel ([streamId]): nothing, when its guide has nothing at this time. */
+data class NowPlaying(
+    val streamId: String,
+    val nowTitle: String?,
+    val nowStart: Long?,
+    val nowStop: Long?,
+)
+
 data class CatchupWindow(val epgChannelId: String, val days: Int)
 
 /** A category the user unticked; kept separately so it survives playlist refreshes. */

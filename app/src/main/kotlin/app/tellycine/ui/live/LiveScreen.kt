@@ -73,8 +73,6 @@ import androidx.compose.ui.platform.LocalContext
 import android.content.res.Configuration
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.outlined.CalendarViewWeek
-import androidx.compose.runtime.produceState
-import kotlinx.coroutines.delay
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -164,12 +162,7 @@ fun LiveScreen(
                         val days by vm.guideDays.collectAsStateWithLifecycle()
                         val version by vm.guideVersion.collectAsStateWithLifecycle()
                         val recordings by vm.recordings.collectAsStateWithLifecycle()
-                        val now by produceState(System.currentTimeMillis()) {
-                            while (true) {
-                                delay(60_000 - System.currentTimeMillis() % 60_000)
-                                value = System.currentTimeMillis()
-                            }
-                        }
+                        val now = rememberMinuteClock()
                         // Fixed while the screen is open, so the grid doesn't jump as the clock moves.
                         val window = remember(days, version) { GuideWindow.around(System.currentTimeMillis(), days) }
                         GuideGrid(
@@ -194,20 +187,25 @@ fun LiveScreen(
                             modifier = modifier,
                         )
                     }
-                    else -> LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-                        items(channels.itemCount, key = channels.itemKey { "${it.stream.playlistId}:${it.stream.kind}:${it.stream.streamId}" }) { index ->
-                            val row = channels[index]
-                            if (row == null) {
-                                ChannelPlaceholder()
-                            } else {
-                                ChannelItem(
-                                    row = row,
-                                    onClick = { context.play(vm.playRequest(row)) },
-                                    onLongClick = { vm.showSchedule(row) },
-                                    onToggleFavorite = { vm.toggleFavorite(row) },
-                                    hasCatchup = vm.hasCatchup(row),
-                                    source = if (scope.combined) vm.playlistOf(row)?.name else null,
-                                )
+                    else -> {
+                        val now = rememberMinuteClock()
+                        LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+                            items(channels.itemCount, key = channels.itemKey { "${it.stream.playlistId}:${it.stream.kind}:${it.stream.streamId}" }) { index ->
+                                val row = channels[index]
+                                if (row == null) {
+                                    ChannelPlaceholder()
+                                } else {
+                                    ChannelItem(
+                                        row = row,
+                                        onClick = { context.play(vm.playRequest(row)) },
+                                        onLongClick = { vm.showSchedule(row) },
+                                        onToggleFavorite = { vm.toggleFavorite(row) },
+                                        hasCatchup = vm.hasCatchup(row),
+                                        source = if (scope.combined) vm.playlistOf(row)?.name else null,
+                                        playing = rememberNowPlaying(row, now, vm::nowPlaying),
+                                        now = now,
+                                    )
+                                }
                             }
                         }
                     }

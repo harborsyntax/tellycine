@@ -26,6 +26,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.tellycine.data.db.ChannelRow
+import app.tellycine.data.db.NowPlaying
 import app.tellycine.ui.components.Artwork
 import app.tellycine.ui.components.SourceLabel
 
@@ -40,6 +41,9 @@ fun ChannelItem(
     hasCatchup: Boolean = false,
     /** The playlist the channel is from, when the list mixes playlists. */
     source: String? = null,
+    /** What's on now, at [now] (see [rememberNowPlaying]). */
+    playing: NowPlaying? = null,
+    now: Long = System.currentTimeMillis(),
 ) {
     val s = row.stream
     ListItem(
@@ -71,15 +75,15 @@ fun ChannelItem(
                 }
             }
         },
-        supportingContent = if (row.nowTitle != null || source != null) {
+        supportingContent = if (playing?.nowTitle != null || source != null) {
             {
                 Column {
-                    row.nowTitle?.let { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    playing?.nowTitle?.let { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     source?.let { SourceLabel(it, Modifier.padding(top = 2.dp)) }
-                    val start = row.nowStart
-                    val stop = row.nowStop
+                    val start = playing?.nowStart
+                    val stop = playing?.nowStop
                     if (start != null && stop != null && stop > start) {
-                        val progress = ((System.currentTimeMillis() - start).toFloat() / (stop - start)).coerceIn(0f, 1f)
+                        val progress = ((now - start).toFloat() / (stop - start)).coerceIn(0f, 1f)
                         LinearProgressIndicator(
                             progress = { progress },
                             modifier = Modifier.fillMaxWidth().padding(top = 6.dp).height(3.dp),

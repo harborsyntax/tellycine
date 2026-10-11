@@ -12,6 +12,7 @@ import app.tellycine.core.dispatcharr.DispatcharrSource
 import app.tellycine.core.dispatcharr.DvrRecording
 import app.tellycine.data.db.CategoryEntity
 import app.tellycine.data.db.ChannelRow
+import app.tellycine.data.db.NowPlaying
 import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.data.repo.Categories
@@ -22,7 +23,6 @@ import app.tellycine.data.settings.CategorySort
 import app.tellycine.data.sync.PlaylistSyncer
 import app.tellycine.player.PlayRequest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -116,15 +117,16 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
                 last = ids
             }
         }
-        // Refresh "now playing" as programmes change.
+        // A new guide brings new "now playing" for every channel. (As time passes, rows on screen
+        // look up their next programme themselves: see rememberNowPlaying.)
         viewModelScope.launch {
-            while (true) {
-                val now = System.currentTimeMillis()
-                delay(60_000 - now % 60_000 + 500)
-                currentSource?.invalidate()
-            }
+            container.playlists.playlists.map { list -> list.map { it.id to it.epgSyncedAt } }.distinctUntilChanged().drop(1)
+                .collect { currentSource?.invalidate() }
         }
     }
+
+    /** What's on [row]'s channel now, once the programme it was loaded with has ended. */
+    suspend fun nowPlaying(row: ChannelRow): NowPlaying? = content.nowPlaying(row, System.currentTimeMillis())
 
     fun selectCategory(id: String) {
         _selected.value = id
@@ -302,7 +304,9 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
      */
     fun playRequest(row: ChannelRow, categoryId: String = _selected.value): PlayRequest {
         val category = categoryId.takeIf { Categories.nameKeyOf(it) == null } ?: row.stream.categoryId
-        return liveRequest(playlistOf(row), row.stream, subtitle = row.nowTitle, categoryId = category)
+        // The row may have been loaded a while ago, so not a programme that has since ended.
+        val subtitle = row.nowTitle?.takeIf { (row.nowStop ?: 0) > System.currentTimeMillis() }
+        return liveRequest(playlistOf(row), row.stream, subtitle = subtitle, categoryId = category)
     }
 
     /**

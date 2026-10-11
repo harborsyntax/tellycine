@@ -62,6 +62,7 @@ import androidx.tv.material3.Text
 import app.tellycine.container
 import app.tellycine.core.ContentKind
 import app.tellycine.data.db.ChannelRow
+import app.tellycine.data.db.NowPlaying
 import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.data.repo.Categories
 import app.tellycine.player.MiniPlayback
@@ -87,6 +88,8 @@ import app.tellycine.ui.components.tellycineViewModel
 import app.tellycine.ui.home.SessionState
 import app.tellycine.ui.live.GuideWindow
 import app.tellycine.ui.live.LiveViewModel
+import app.tellycine.ui.live.rememberMinuteClock
+import app.tellycine.ui.live.rememberNowPlaying
 import kotlinx.coroutines.delay
 
 @Composable
@@ -241,6 +244,7 @@ fun TvLiveScreen(
                 onPlay = playRow,
                 onOptions = vm::showSchedule,
                 onLeftEdge = { showCategories = true },
+                nowPlaying = vm::nowPlaying,
                 modifier = body.focusRequester(contentFocus),
             )
         } else {
@@ -436,9 +440,12 @@ private fun TvChannelList(
     onPlay: (ChannelRow) -> Unit,
     onOptions: (ChannelRow) -> Unit,
     onLeftEdge: () -> Unit,
+    /** What's on a channel now, once the programme it was loaded with has ended. */
+    nowPlaying: suspend (ChannelRow) -> NowPlaying?,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
+    val now = rememberMinuteClock()
     LazyColumn(
         state = listState,
         modifier = modifier
@@ -475,11 +482,14 @@ private fun TvChannelList(
                     },
                     supportingContent = run {
                         val source = sourceOf(row)
-                        if (row.nowTitle == null && source == null) return@run null
+                        val playing = rememberNowPlaying(row, now, nowPlaying)
+                        if (playing?.nowTitle == null && source == null) return@run null
                         {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                row.nowTitle?.let { title ->
-                                    val time = if (row.nowStart != null && row.nowStop != null) "${formatTime(row.nowStart)} – ${formatTime(row.nowStop)}  ·  " else ""
+                                playing?.nowTitle?.let { title ->
+                                    val start = playing.nowStart
+                                    val stop = playing.nowStop
+                                    val time = if (start != null && stop != null) "${formatTime(start)} – ${formatTime(stop)}  ·  " else ""
                                     Text("$time$title", maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                                 }
                                 source?.let { TvSourceLabel(it) }
