@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.tellycine.data.db.ChannelRow
 import app.tellycine.ui.components.Artwork
+import app.tellycine.ui.components.SourceLabel
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -37,6 +38,8 @@ fun ChannelItem(
     onToggleFavorite: () -> Unit,
     modifier: Modifier = Modifier,
     hasCatchup: Boolean = false,
+    /** The playlist the channel is from, when the list mixes playlists. */
+    source: String? = null,
 ) {
     val s = row.stream
     ListItem(
@@ -68,11 +71,11 @@ fun ChannelItem(
                 }
             }
         },
-        supportingContent = if (row.nowTitle != null) {
+        supportingContent = if (row.nowTitle != null || source != null) {
             {
-                val title = row.nowTitle.orEmpty()
                 Column {
-                    Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    row.nowTitle?.let { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    source?.let { SourceLabel(it, Modifier.padding(top = 2.dp)) }
                     val start = row.nowStart
                     val stop = row.nowStop
                     if (start != null && stop != null && stop > start) {

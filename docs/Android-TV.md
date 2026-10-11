@@ -39,12 +39,12 @@ Live TV opens on the **guide**: channels down the side and time across the top. 
 | --- | --- |
 | Up / Down | Move between channels. **CH+ / CH−** move a page at a time. |
 | Right / Left | Move through programmes. Left goes back in time, for catch-up. Keep pressing Left to reach the channel itself. |
-| Left (on a channel) | Open the **categories**, tucked away as a thin edge (with a ‹) to the left of the channels. Up/Down choose one and OK shows its channels; Right or Back return without changing. |
+| Left (on a channel) | Open the **categories**, tucked away as a thin edge (with a ‹) to the left of the channels. Up/Down choose one and OK shows its channels; Right or Back return without changing. With more than one playlist, the playlists come first: **All playlists** or one of them. |
 | OK | Watch what's on now, replay a past programme, or see the schedule for an upcoming one. |
 | Hold OK (or Menu) | The channel's **options and schedule**: watch live, watch from the start, favourite, open in another app, show the stream URL, and replay or record programmes. |
 | Up (from the first channel) | Reach the **Compact** and **List** buttons, at the top right. |
 
-The top of the screen describes the highlighted programme. The two buttons at the top right are icons: **Compact** shrinks the rows to fit more channels on screen, and **Expand** makes them bigger again; **List** switches to a plain channel list with what's on now, and **Guide** switches back. In the list, the categories have a button of their own.
+The top of the screen describes the highlighted programme, and with more than one playlist, which playlist the channel is from. The two buttons at the top right are icons: **Compact** shrinks the rows to fit more channels on screen, and **Expand** makes them bigger again; **List** switches to a plain channel list with what's on now, and **Guide** switches back. In the list, the categories have a button of their own.
 
 When you go back to the guide from a live channel, it keeps playing in a **mini player** in the top corner. Press OK on the mini player, or **hold Back** anywhere in the guide, to return to it full screen. It stops when you leave the guide.
 
@@ -68,7 +68,7 @@ Stream URLs are shown as a **QR code**: scan it with your phone to open or copy 
 
 The controls include **Channels**, the **channel you were watching before** (one press to flip back), **favourite**, **TV guide**, **audio & subtitles**, **aspect ratio**, **Open with…**, **picture-in-picture** (on TVs that support it) and **Stats for nerds**.
 
-- **TV guide** shows the guide over the lower part of the picture, so the channel keeps playing while you look. It opens on the channel you're watching, in its category. The categories are tucked away as a thin edge on the left: press **Left** from the channel names to open them, and OK on a category to show its channels (Right or Back returns without changing). OK on a programme on now changes channel; OK on a past one replays it, where the provider offers catch-up. Back closes it.
+- **TV guide** shows the guide over the lower part of the picture, so the channel keeps playing while you look. It opens on the channel you're watching, in its category in its own playlist. The categories are tucked away as a thin edge on the left: press **Left** from the channel names to open them, and OK on a category to show its channels (Right or Back returns without changing). OK on a programme on now changes channel; OK on a past one replays it, where the provider offers catch-up. Back closes it.
 - **Stats for nerds** shows the stream's formats, HDR and colour information, decoders, download rate, buffer, dropped frames and the TV's display mode, updated every second. Press it again to hide them.
 
 ## Multi-view
@@ -84,7 +84,7 @@ Watch up to four live channels at once.
 In multi-view, Dolby sound is decoded by the TV box rather than passed to your TV or receiver, so several channels can play at once. How many channels play smoothly depends on your device: older or lower-powered boxes may struggle with four HD channels.
 
 ## Movies, series and the Library
-- **Movies** and **Series** are poster grids. Press **Left** from the first column for the categories.
+- **Movies** and **Series** are poster grids. Press **Left** from the first column for the categories, with the playlists to show above them when you have more than one: **All playlists** or one of them, chosen separately for Live TV, Movies and Series. See [Switching playlists](Managing-Playlists.md#switching-playlists).
 - A title's page fills the screen with its backdrop, or a blurred copy of its poster, and takes its colours from the artwork (except with the High contrast theme). It has **Play** or **Resume**, **From the beginning**, **Add to favourites**, **Trailer** (when the provider has one; it opens in the YouTube app) and **Download**. For series, choose a season (shown as posters when the provider has them), then an episode; hold OK on an episode to download it or play it from the beginning.
 - **Library** has rows for continue watching, recently watched channels and favourites, with **Clear all** and **Sort**. Hold OK on an item to remove it.
 

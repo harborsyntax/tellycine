@@ -87,6 +87,7 @@ import app.tellycine.player.play
 import app.tellycine.ui.components.CategoryChips
 import app.tellycine.ui.components.CategoryPane
 import app.tellycine.ui.components.EmptyState
+import app.tellycine.ui.components.SourceLabel
 import app.tellycine.ui.components.categoryOptions
 import app.tellycine.ui.components.formatDay
 import app.tellycine.ui.components.formatTime
@@ -107,9 +108,11 @@ fun LiveScreen(
     val selected by vm.selectedCategory.collectAsStateWithLifecycle()
     val schedule by vm.schedule.collectAsStateWithLifecycle()
     val channels = vm.channels.collectAsLazyPagingItems()
-    val options = remember(categories, session.active?.liveCount) {
+    val scope by vm.scope.collectAsStateWithLifecycle()
+    val playlistFilter by vm.playlistFilter.collectAsStateWithLifecycle()
+    val options = remember(categories, scope) {
         // Count only what's visible once categories are known (hidden ones are excluded).
-        categoryOptions(ContentKind.LIVE, categories, if (categories.isEmpty()) session.active?.liveCount else categories.sumOf { it.itemCount })
+        categoryOptions(ContentKind.LIVE, categories, if (categories.isEmpty()) scope.playlists.sumOf { it.liveCount } else categories.sumOf { it.itemCount })
     }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     // The grid guide is offered in landscape, where there's room for a timeline.
@@ -119,7 +122,14 @@ fun LiveScreen(
 
     Scaffold(
         topBar = {
-            PlaylistTopBar(session, onSelectPlaylist, onSearch, scrollBehavior) {
+            PlaylistTopBar(
+                session,
+                onSelectPlaylist = onSelectPlaylist,
+                onSearch = onSearch,
+                scrollBehavior = scrollBehavior,
+                // With more than one playlist, the choice is beside the categories instead.
+                showPlaylist = playlistFilter == null,
+            ) {
                 if (landscape && session.active != null) {
                     IconButton(onClick = { vm.setGuideGrid(!gridChosen) }) {
                         if (gridChosen) Icon(Icons.AutoMirrored.Filled.ViewList, "List view")
@@ -146,7 +156,8 @@ fun LiveScreen(
                     channels.itemCount == 0 -> EmptyState(
                         Icons.Filled.LiveTv,
                         if (session.activeProgress != null) "Loading channels…" else "No channels",
-                        session.activeProgress?.message ?: "This playlist has no live channels in this category.",
+                        session.activeProgress?.message
+                            ?: if (scope.combined) "These playlists have no live channels in this category." else "This playlist has no live channels in this category.",
                         modifier,
                     )
                     grid -> {
@@ -184,7 +195,7 @@ fun LiveScreen(
                         )
                     }
                     else -> LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-                        items(channels.itemCount, key = channels.itemKey { "${it.stream.kind}:${it.stream.streamId}" }) { index ->
+                        items(channels.itemCount, key = channels.itemKey { "${it.stream.playlistId}:${it.stream.kind}:${it.stream.streamId}" }) { index ->
                             val row = channels[index]
                             if (row == null) {
                                 ChannelPlaceholder()
@@ -195,6 +206,7 @@ fun LiveScreen(
                                     onLongClick = { vm.showSchedule(row) },
                                     onToggleFavorite = { vm.toggleFavorite(row) },
                                     hasCatchup = vm.hasCatchup(row),
+                                    source = if (scope.combined) vm.playlistOf(row)?.name else null,
                                 )
                             }
                         }
@@ -206,13 +218,13 @@ fun LiveScreen(
                 EmptyState(Icons.Filled.LiveTv, "No playlist yet", "Add an M3U playlist or Xtream Codes account from the Playlists tab.")
             } else if (twoPane && !grid) {
                 Row(Modifier.fillMaxSize()) {
-                    CategoryPane(options, selected, vm::selectCategory)
+                    CategoryPane(options, selected, vm::selectCategory, playlistFilter, vm::selectPlaylists)
                     VerticalDivider()
                     list(Modifier.weight(1f))
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
-                    CategoryChips(options, selected, vm::selectCategory, Modifier.padding(bottom = 4.dp))
+                    CategoryChips(options, selected, vm::selectCategory, Modifier.padding(bottom = 4.dp), playlistFilter, vm::selectPlaylists)
                     list(Modifier.weight(1f))
                 }
             }
@@ -220,6 +232,7 @@ fun LiveScreen(
     }
 
     val recordings by vm.recordings.collectAsStateWithLifecycle()
+    val showSource by vm.showSource.collectAsStateWithLifecycle()
     LaunchedEffect(vm) {
         vm.events.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
     }
@@ -256,7 +269,8 @@ fun LiveScreen(
             recordingFor = { if (canRecord) vm.recordingFor(state.channel, it, recordings) else null },
             canRecord = canRecord,
             onToggleRecording = { vm.toggleRecording(state.channel, it) },
-            isDispatcharr = vm.isDispatcharr(),
+            isDispatcharr = vm.isDispatcharr(state.channel),
+            source = if (showSource) vm.playlistOf(state.channel)?.name else null,
             onOpenExternally = {
                 context.openExternally(vm.playRequest(state.channel), chooser = true)
                 vm.dismissSchedule()
@@ -287,6 +301,8 @@ private fun ScheduleSheet(
     canRecord: Boolean,
     onToggleRecording: (ProgrammeEntity) -> Unit,
     isDispatcharr: Boolean,
+    /** The playlist the channel is from, when there's more than one. */
+    source: String?,
     onOpenExternally: () -> Unit,
     onShareUrl: () -> Unit,
     onShareSourceUrl: () -> Unit,
@@ -299,6 +315,7 @@ private fun ScheduleSheet(
         val current = state.programmes?.firstOrNull { it.startMs <= now && it.stopMs > now }
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
             Text(state.channel.stream.name, style = MaterialTheme.typography.headlineSmall)
+            source?.let { SourceLabel(it, Modifier.padding(top = 2.dp)) }
             if (state.catchup) {
                 Text(
                     "Catch-up available for ${state.channel.stream.catchupDays} day${if (state.channel.stream.catchupDays == 1) "" else "s"}",

@@ -16,6 +16,26 @@ import kotlinx.coroutines.flow.Flow
 private const val VISIBLE =
     "NOT EXISTS (SELECT 1 FROM hidden_categories h WHERE h.playlistId = s.playlistId AND h.kind = s.kind AND h.categoryId = s.categoryId)"
 
+/** What's on now on a channel (aliased `s`), and whether it's a favourite, as [ChannelRow] wants them. */
+private const val NOW_PLAYING =
+    """(SELECT p.title FROM programmes p WHERE p.playlistId = s.playlistId AND p.channelId = s.epgChannelId
+         AND p.startMs <= :now AND p.stopMs > :now ORDER BY p.startMs DESC LIMIT 1) AS nowTitle,
+       (SELECT p.startMs FROM programmes p WHERE p.playlistId = s.playlistId AND p.channelId = s.epgChannelId
+         AND p.startMs <= :now AND p.stopMs > :now ORDER BY p.startMs DESC LIMIT 1) AS nowStart,
+       (SELECT p.stopMs FROM programmes p WHERE p.playlistId = s.playlistId AND p.channelId = s.epgChannelId
+         AND p.startMs <= :now AND p.stopMs > :now ORDER BY p.startMs DESC LIMIT 1) AS nowStop"""
+
+/**
+ * Streams (aliased `s`) in the categories (aliased `c`) whose name gives `:nameKey` (see
+ * [app.tellycine.data.repo.Categories.nameKey]), of any of `:playlistIds`: how a category merged across
+ * playlists finds its streams. CROSS JOIN makes the database start from the few matching categories
+ * rather than check every stream's category.
+ */
+private const val FROM_NAMED_CATEGORY =
+    """FROM categories c CROSS JOIN streams s
+         ON s.playlistId = c.playlistId AND s.kind = c.kind AND s.categoryId = c.categoryId
+       WHERE c.playlistId IN (:playlistIds) AND LOWER(TRIM(c.name)) = :nameKey"""
+
 @Dao
 interface PlaylistDao {
     @Query("SELECT * FROM playlists ORDER BY createdAt")
@@ -120,6 +140,15 @@ interface ContentDao {
     )
     fun observeCategories(playlistId: Long, kind: ContentKind): Flow<List<CategoryEntity>>
 
+    /** The categories of several playlists, for browsing them together; merged by name afterwards. */
+    @Query(
+        """SELECT * FROM categories c WHERE c.playlistId IN (:playlistIds) AND c.kind = :kind
+           AND NOT EXISTS (SELECT 1 FROM hidden_categories h
+                           WHERE h.playlistId = c.playlistId AND h.kind = c.kind AND h.categoryId = c.categoryId)
+           ORDER BY c.playlistId, c.sortOrder"""
+    )
+    fun observeCategoriesIn(playlistIds: List<Long>, kind: ContentKind): Flow<List<CategoryEntity>>
+
     /** Every category with its visibility, for the playlist's category filter. */
     @Query(
         """SELECT c.*, EXISTS (SELECT 1 FROM hidden_categories h
@@ -185,6 +214,34 @@ interface ContentDao {
     )
     fun pagedFavoriteChannels(playlistId: Long, now: Long): PagingSource<Int, ChannelRow>
 
+    // Several playlists together: each playlist's channels in turn, in the order they were added.
+
+    @Query(
+        "SELECT s.*, " + NOW_PLAYING + """,
+             EXISTS(SELECT 1 FROM favorites f WHERE f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId) AS isFavorite
+           FROM streams s
+           WHERE s.playlistId IN (:playlistIds) AND s.kind = 'LIVE' AND """ + VISIBLE + """
+           ORDER BY s.playlistId, s.sortOrder"""
+    )
+    fun pagedChannelsIn(playlistIds: List<Long>, now: Long): PagingSource<Int, ChannelRow>
+
+    @Query(
+        "SELECT s.*, " + NOW_PLAYING + """,
+             EXISTS(SELECT 1 FROM favorites f WHERE f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId) AS isFavorite
+           """ + FROM_NAMED_CATEGORY + """ AND c.kind = 'LIVE' AND """ + VISIBLE + """
+           ORDER BY s.playlistId, s.sortOrder"""
+    )
+    fun pagedChannelsInNamedCategory(playlistIds: List<Long>, nameKey: String, now: Long): PagingSource<Int, ChannelRow>
+
+    @Query(
+        "SELECT s.*, " + NOW_PLAYING + """, 1 AS isFavorite
+           FROM streams s INNER JOIN favorites f
+             ON f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId
+           WHERE s.playlistId IN (:playlistIds) AND s.kind = 'LIVE' AND """ + VISIBLE + """
+           ORDER BY f.addedAt DESC"""
+    )
+    fun pagedFavoriteChannelsIn(playlistIds: List<Long>, now: Long): PagingSource<Int, ChannelRow>
+
     /** Channels of one category (or all), used by the player to zap between channels. */
     @Query(
         """SELECT * FROM streams s WHERE s.playlistId = :playlistId AND s.kind = 'LIVE'
@@ -206,6 +263,21 @@ interface ContentDao {
            WHERE s.playlistId = :playlistId AND s.kind = :kind AND """ + VISIBLE + """ ORDER BY f.addedAt DESC"""
     )
     fun pagedFavoriteItems(playlistId: Long, kind: ContentKind): PagingSource<Int, StreamEntity>
+
+    @Query("SELECT * FROM streams s WHERE s.playlistId IN (:playlistIds) AND s.kind = :kind AND " + VISIBLE + " ORDER BY s.playlistId, s.sortOrder")
+    fun pagedItemsIn(playlistIds: List<Long>, kind: ContentKind): PagingSource<Int, StreamEntity>
+
+    @Query(
+        "SELECT s.* " + FROM_NAMED_CATEGORY + " AND c.kind = :kind AND " + VISIBLE + " ORDER BY s.playlistId, s.sortOrder"
+    )
+    fun pagedItemsInNamedCategory(playlistIds: List<Long>, kind: ContentKind, nameKey: String): PagingSource<Int, StreamEntity>
+
+    @Query(
+        """SELECT s.* FROM streams s INNER JOIN favorites f
+             ON f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId
+           WHERE s.playlistId IN (:playlistIds) AND s.kind = :kind AND """ + VISIBLE + """ ORDER BY f.addedAt DESC"""
+    )
+    fun pagedFavoriteItemsIn(playlistIds: List<Long>, kind: ContentKind): PagingSource<Int, StreamEntity>
 
     @Query(
         """SELECT s.* FROM streams s INNER JOIN favorites f

@@ -15,11 +15,49 @@ import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.db.TellycineDatabase
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 /** Pseudo category ids understood by the paging queries. */
 object Categories {
     const val ALL = "__all__"
     const val FAVORITES = "__favorites__"
+    private const val NAMED = "__name__:"
+
+    /**
+     * The key categories are merged by across playlists: the name without surrounding spaces, in
+     * lower case. Only A–Z are lowered, exactly as the database's LOWER and TRIM do.
+     */
+    fun nameKey(name: String): String =
+        buildString { name.trim(' ').forEach { append(if (it in 'A'..'Z') it + ('a' - 'A') else it) } }
+
+    /** The id of the category merging every playlist's categories with [key] ([nameKey]). */
+    fun named(key: String) = NAMED + key
+
+    /** The [nameKey] of a merged category's [id], or null for any other id. */
+    fun nameKeyOf(id: String): String? = id.takeIf { it.startsWith(NAMED) }?.removePrefix(NAMED)
+
+    /**
+     * Several playlists' [categories] as one list: categories with the same name ([nameKey]) become one,
+     * where the first of them was, with their counts added up. [playlistIds] gives the playlists' order.
+     */
+    fun merge(categories: List<CategoryEntity>, playlistIds: List<Long>): List<CategoryEntity> {
+        val order = playlistIds.withIndex().associate { (i, id) -> id to i }
+        return categories
+            .sortedWith(compareBy<CategoryEntity>({ order[it.playlistId] ?: Int.MAX_VALUE }, { it.sortOrder }))
+            .groupBy { nameKey(it.name) }
+            .entries.mapIndexed { i, (key, group) ->
+                val first = group.first()
+                CategoryEntity(
+                    playlistId = 0,
+                    kind = first.kind,
+                    categoryId = named(key),
+                    name = first.name.trim(),
+                    sortOrder = i,
+                    itemCount = group.sumOf { it.itemCount },
+                )
+            }
+    }
 }
 
 /** A guide programme found by search, with the channel it airs on. */
@@ -40,6 +78,13 @@ class ContentRepository(db: TellycineDatabase) {
 
     fun categories(playlistId: Long, kind: ContentKind): Flow<List<CategoryEntity>> =
         dao.observeCategories(playlistId, kind)
+
+    /** The categories of one or more playlists; several playlists' are merged by name ([Categories.merge]). */
+    fun categories(playlistIds: List<Long>, kind: ContentKind): Flow<List<CategoryEntity>> = when (playlistIds.size) {
+        0 -> flowOf(emptyList())
+        1 -> dao.observeCategories(playlistIds[0], kind)
+        else -> dao.observeCategoriesIn(playlistIds, kind).map { Categories.merge(it, playlistIds) }
+    }
 
     fun categoryVisibility(playlistId: Long, kind: ContentKind): Flow<List<CategoryVisibility>> =
         dao.observeCategoryVisibility(playlistId, kind)
@@ -67,6 +112,24 @@ class ContentRepository(db: TellycineDatabase) {
             }.also(onSource)
         }.flow
 
+    /**
+     * Live channels of one or more playlists. Several playlists' channels come one playlist after
+     * another, and their categories are merged ones ([Categories.named]).
+     */
+    fun channels(playlistIds: List<Long>, categoryId: String, now: () -> Long, onSource: (PagingSource<*, *>) -> Unit = {}): Flow<PagingData<ChannelRow>> {
+        // A merged category goes on working while the section switches to a single playlist.
+        if (playlistIds.size == 1 && Categories.nameKeyOf(categoryId) == null) return channels(playlistIds[0], categoryId, now, onSource)
+        if (playlistIds.isEmpty()) return flowOf(PagingData.empty())
+        return Pager(pagingConfig) {
+            val nameKey = Categories.nameKeyOf(categoryId)
+            when {
+                categoryId == Categories.FAVORITES -> dao.pagedFavoriteChannelsIn(playlistIds, now())
+                nameKey != null -> dao.pagedChannelsInNamedCategory(playlistIds, nameKey, now())
+                else -> dao.pagedChannelsIn(playlistIds, now())
+            }.also(onSource)
+        }.flow
+    }
+
     fun items(playlistId: Long, kind: ContentKind, categoryId: String): Flow<PagingData<StreamEntity>> =
         Pager(pagingConfig) {
             when (categoryId) {
@@ -75,6 +138,20 @@ class ContentRepository(db: TellycineDatabase) {
                 else -> dao.pagedItemsInCategory(playlistId, kind, categoryId)
             }
         }.flow
+
+    /** Movies or series of one or more playlists, as [channels] does for live channels. */
+    fun items(playlistIds: List<Long>, kind: ContentKind, categoryId: String): Flow<PagingData<StreamEntity>> {
+        if (playlistIds.size == 1 && Categories.nameKeyOf(categoryId) == null) return items(playlistIds[0], kind, categoryId)
+        if (playlistIds.isEmpty()) return flowOf(PagingData.empty())
+        return Pager(pagingConfig) {
+            val nameKey = Categories.nameKeyOf(categoryId)
+            when {
+                categoryId == Categories.FAVORITES -> dao.pagedFavoriteItemsIn(playlistIds, kind)
+                nameKey != null -> dao.pagedItemsInNamedCategory(playlistIds, kind, nameKey)
+                else -> dao.pagedItemsIn(playlistIds, kind)
+            }
+        }.flow
+    }
 
     suspend fun channelList(playlistId: Long, categoryId: String?): List<StreamEntity> =
         dao.channelList(playlistId, categoryId?.takeUnless { it == Categories.ALL || it == Categories.FAVORITES })

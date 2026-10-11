@@ -8,6 +8,7 @@
 ## Browsing channels
 - **Each row** shows the channel's logo, name, the programme on now and how far through it is.
 - **Categories:** on phones they're the chips above the list; tap **☰** to search the full category list. On tablets and in landscape on larger screens, they're in a side pane.
+- **Playlists:** with more than one playlist, the button before the categories chooses **All playlists** or one of them. Together, categories with the same name become one, and each channel shows the playlist it's from. See [Switching playlists](Managing-Playlists.md#switching-playlists).
 
   <img src="images/screens/tablet-live-tv.png" width="600" alt="Tablet layout">
 - **All channels** shows everything, and **Favourites** shows your favourite channels.

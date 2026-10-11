@@ -1,9 +1,11 @@
 package app.tellycine.data.repo
 
 import android.content.Context
+import app.tellycine.core.ContentKind
 import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.PlaylistType
 import app.tellycine.data.db.TellycineDatabase
+import app.tellycine.data.settings.AppSettings
 import app.tellycine.data.settings.SettingsRepository
 import app.tellycine.data.sync.SyncManager
 import androidx.room.withTransaction
@@ -27,9 +29,23 @@ class PlaylistRepository(
             list.firstOrNull { it.id == prefs.activePlaylistId } ?: list.firstOrNull()
         }.distinctUntilChanged()
 
+    /** The playlists the [kind] section shows: its own choice, or the active playlist. */
+    fun scope(kind: ContentKind): Flow<PlaylistScope> =
+        combine(playlists, settings.settings) { list, prefs ->
+            val active = list.firstOrNull { it.id == prefs.activePlaylistId } ?: list.firstOrNull()
+            PlaylistScope.of(list, active, prefs.sectionPlaylists[kind])
+        }.distinctUntilChanged()
+
+    /** Shows [id] in the [kind] section, or every playlist with [AppSettings.ALL_PLAYLISTS]. */
+    suspend fun setSectionPlaylists(kind: ContentKind, id: Long) = settings.setSectionPlaylists(kind, id)
+
     suspend fun get(id: Long) = dao.get(id)
 
-    suspend fun setActive(id: Long) = settings.setActivePlaylist(id)
+    /** Uses [id] everywhere: as the active playlist, and in each section, whatever it showed before. */
+    suspend fun setActive(id: Long) {
+        settings.setActivePlaylist(id)
+        settings.clearSectionPlaylists()
+    }
 
     /** Saves a new or edited playlist and starts a refresh. */
     suspend fun save(playlist: PlaylistEntity): Long {

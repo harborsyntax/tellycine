@@ -36,7 +36,8 @@ import app.tellycine.ui.components.TellycineLogo
 
 /**
  * Top app bar for the main tabs: the Tellycine logo over the active playlist's name, which doubles
- * as a playlist switcher when more than one playlist exists. The tab itself is named by the
+ * as a playlist switcher when more than one playlist exists. Tabs that choose their own playlists
+ * beside their categories leave the name out ([showPlaylist]). The tab itself is named by the
  * navigation bar. A thin progress bar shows background refreshes.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,6 +47,7 @@ fun PlaylistTopBar(
     onSelectPlaylist: (Long) -> Unit,
     onSearch: (() -> Unit)?,
     scrollBehavior: TopAppBarScrollBehavior? = null,
+    showPlaylist: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     Column {
@@ -54,7 +56,7 @@ fun PlaylistTopBar(
                 Column {
                     TellycineLogo(height = 26.dp)
                     val active = session.active
-                    if (active != null) {
+                    if (active != null && showPlaylist) {
                         var open by remember { mutableStateOf(false) }
                         val switchable = session.playlists.size > 1
                         Row(

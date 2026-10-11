@@ -11,7 +11,13 @@ Each playlist card shows:
 - the maximum number of connections, when the provider reports it or you've entered it. See [Maximum connections](Adding-Playlists.md#maximum-connections).
 
 ## Switching playlists
-With more than one playlist, tap the playlist name under the Tellycine logo on the Live TV, Movies, Series or Library tab to switch. You can also tap **Use this playlist** on a card. Each tab shows the active playlist.
+With more than one playlist, **Live TV**, **Movies** and **Series** each choose their own: the playlists button at the top of the categories (on TV, the top of the categories column or panel) offers **All playlists** and each playlist.
+- **All playlists** shows them together. Categories with the same name, such as News in two playlists, become one. Each channel, movie or series says which playlist it's from, and plays from it.
+- **A playlist** shows just that one.
+
+**Use this playlist** on a card makes it the active playlist: the one the Library shows, and the one Live TV, Movies and Series all go back to showing. On a phone, the Library tab also switches it with the playlist name under the Tellycine logo.
+
+A movie or series page, and a channel's details, say which playlist it's from whenever you have more than one.
 
 ## Refreshing
 - **Refresh** reloads the playlist and its TV guide. **Stop** cancels a refresh in progress.

@@ -10,6 +10,7 @@
 - **Layout:** the **Movies** and **Series** tabs show poster grids by category, the same way as [Live TV](Live-TV.md). On tablets, categories are in a side pane.
 - **Posters** show the title, year, genre and rating.
 - **Hidden tabs:** if a playlist has [movies & series turned off](Managing-Playlists.md), these tabs are hidden.
+- **Playlists:** with more than one playlist, the button before the categories chooses **All playlists** or one of them, separately for Movies and for Series. Together, each poster shows the playlist it's from, and a title's page always says which playlist it's from. See [Switching playlists](Managing-Playlists.md#switching-playlists).
 
 <img src="images/screens/tablet-movies.png" width="600" alt="Tablet movies">
 

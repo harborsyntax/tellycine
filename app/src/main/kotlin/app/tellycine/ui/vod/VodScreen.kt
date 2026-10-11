@@ -60,7 +60,9 @@ fun VodScreen(
     val categories by vm.categories.collectAsStateWithLifecycle()
     val selected by vm.selectedCategory.collectAsStateWithLifecycle()
     val pagingItems = vm.items.collectAsLazyPagingItems()
-    val total = if (kind == ContentKind.MOVIE) session.active?.movieCount else session.active?.seriesCount
+    val scope by vm.scope.collectAsStateWithLifecycle()
+    val playlistFilter by vm.playlistFilter.collectAsStateWithLifecycle()
+    val total = scope.playlists.sumOf { if (kind == ContentKind.MOVIE) it.movieCount else it.seriesCount }
     val options = remember(categories, total) {
         categoryOptions(kind, categories, if (categories.isEmpty()) total else categories.sumOf { it.itemCount })
     }
@@ -69,7 +71,16 @@ fun VodScreen(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     Scaffold(
-        topBar = { PlaylistTopBar(session, onSelectPlaylist, onSearch, scrollBehavior) },
+        topBar = {
+            PlaylistTopBar(
+                session,
+                onSelectPlaylist = onSelectPlaylist,
+                onSearch = onSearch,
+                scrollBehavior = scrollBehavior,
+                // With more than one playlist, the choice is beside the categories instead.
+                showPlaylist = playlistFilter == null,
+            )
+        },
         contentWindowInsets = WindowInsets(0),
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { padding ->
@@ -88,7 +99,8 @@ fun VodScreen(
                     pagingItems.itemCount == 0 -> EmptyState(
                         icon,
                         if (session.activeProgress != null) "Loading…" else "Nothing here",
-                        session.activeProgress?.message ?: "This playlist has no ${title.lowercase()} in this category.",
+                        session.activeProgress?.message
+                            ?: "${if (scope.combined) "These playlists have" else "This playlist has"} no ${title.lowercase()} in this category.",
                         modifier,
                     )
                     else -> LazyVerticalGrid(
@@ -98,7 +110,7 @@ fun VodScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = modifier.fillMaxSize(),
                     ) {
-                        items(pagingItems.itemCount, key = pagingItems.itemKey { it.streamId }) { index ->
+                        items(pagingItems.itemCount, key = pagingItems.itemKey { "${it.playlistId}:${it.streamId}" }) { index ->
                             val item = pagingItems[index]
                             if (item == null) {
                                 PosterPlaceholder()
@@ -109,6 +121,7 @@ fun VodScreen(
                                     meta = listOfNotNull(item.year, item.genre?.substringBefore(',')).joinToString(" · "),
                                     rating = item.rating,
                                     onClick = { onOpen(item) },
+                                    source = vm.sourceOf(item),
                                 )
                             }
                         }
@@ -120,13 +133,13 @@ fun VodScreen(
                 EmptyState(icon, "No playlist yet", "Add an M3U playlist or Xtream Codes account from the Playlists tab.")
             } else if (twoPane) {
                 Row(Modifier.fillMaxSize()) {
-                    CategoryPane(options, selected, vm::selectCategory)
+                    CategoryPane(options, selected, vm::selectCategory, playlistFilter, vm::selectPlaylists)
                     VerticalDivider()
                     grid(Modifier.weight(1f))
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
-                    CategoryChips(options, selected, vm::selectCategory, Modifier.padding(bottom = 4.dp))
+                    CategoryChips(options, selected, vm::selectCategory, Modifier.padding(bottom = 4.dp), playlistFilter, vm::selectPlaylists)
                     grid(Modifier.weight(1f))
                 }
             }
