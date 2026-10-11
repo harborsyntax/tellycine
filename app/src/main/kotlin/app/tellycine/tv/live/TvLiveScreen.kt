@@ -104,6 +104,7 @@ fun TvLiveScreen(
     val scope by vm.scope.collectAsStateWithLifecycle()
     val playlistFilter by vm.playlistFilter.collectAsStateWithLifecycle()
     val showSource by vm.showSource.collectAsStateWithLifecycle()
+    val sort by vm.categorySort.collectAsStateWithLifecycle()
     val options = remember(categories, scope) {
         categoryOptions(ContentKind.LIVE, categories, if (categories.isEmpty()) scope.playlists.sumOf { it.liveCount } else categories.sumOf { it.itemCount })
     }
@@ -260,6 +261,8 @@ fun TvLiveScreen(
                         categoryColumn.open = false
                         runCatching { contentFocus.requestFocus() }
                     },
+                    sort = sort,
+                    onSortChange = vm::setCategorySort,
                 )
                 val lanes = Modifier.weight(1f).fillMaxHeight()
                 placeholder?.invoke(lanes) ?: TvGuideGrid(
@@ -309,6 +312,8 @@ fun TvLiveScreen(
                 vm.selectPlaylists(it)
                 showCategories = false
             },
+            sort = sort,
+            onSortChange = vm::setCategorySort,
         )
     }
 

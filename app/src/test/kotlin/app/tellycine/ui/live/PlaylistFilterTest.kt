@@ -102,7 +102,8 @@ class TvPlaylistFilterTest {
         d.press(Key.DirectionLeft)
         compose.onNode(hasText("All channels") and isFocused()).assertExists()
         compose.onNode(hasText("Demo IPTV") and selected).assertExists()
-        d.press(Key.DirectionUp, 3)
+        // Past the Sort button at the top of the categories.
+        d.press(Key.DirectionUp, 4)
         compose.onNode(hasText("All playlists") and isFocused()).assertExists()
         d.press(Key.DirectionCenter)
 

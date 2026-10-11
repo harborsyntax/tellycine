@@ -26,6 +26,12 @@ enum class TvTheme(val label: String, val description: String) {
 /** Ordering for the Library's favourites and history rows. */
 enum class LibrarySort { RECENT, NAME_ASC, NAME_DESC, PLAYLIST_ORDER }
 
+/** Ordering for Live TV's categories: as the provider lists them, or by name. */
+enum class CategorySort(val label: String) {
+    PROVIDER("Provider order"),
+    NAME("A–Z"),
+}
+
 data class AppSettings(
     val activePlaylistId: Long? = null,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -57,6 +63,8 @@ data class AppSettings(
      * null to follow the active playlist.
      */
     val sectionPlaylists: Map<ContentKind, Long> = emptyMap(),
+    /** The order of Live TV's categories. */
+    val liveCategorySort: CategorySort = CategorySort.PROVIDER,
 ) {
     companion object {
         /** A section showing every playlist together. */
@@ -86,6 +94,7 @@ class SettingsRepository(private val context: Context) {
         val tvTheme = stringPreferencesKey("tv_theme")
         val multiViewLayout = stringPreferencesKey("multi_view_layout")
         val sectionPlaylists = ContentKind.entries.associateWith { longPreferencesKey("playlists_${it.name.lowercase()}") }
+        val liveCategorySort = stringPreferencesKey("live_category_sort")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -107,6 +116,7 @@ class SettingsRepository(private val context: Context) {
             tvTheme = p[Keys.tvTheme]?.let { runCatching { TvTheme.valueOf(it) }.getOrNull() } ?: TvTheme.WARM,
             multiViewLayout = p[Keys.multiViewLayout],
             sectionPlaylists = Keys.sectionPlaylists.mapNotNull { (kind, key) -> p[key]?.let { kind to it } }.toMap(),
+            liveCategorySort = p[Keys.liveCategorySort]?.let { runCatching { CategorySort.valueOf(it) }.getOrNull() } ?: CategorySort.PROVIDER,
         )
     }
 
@@ -140,4 +150,5 @@ class SettingsRepository(private val context: Context) {
     suspend fun setTvGuideCompact(enabled: Boolean) = context.dataStore.edit { it[Keys.tvGuideCompact] = enabled }
     suspend fun setTvTheme(theme: TvTheme) = context.dataStore.edit { it[Keys.tvTheme] = theme.name }
     suspend fun setMultiViewLayout(name: String) = context.dataStore.edit { it[Keys.multiViewLayout] = name }
+    suspend fun setLiveCategorySort(sort: CategorySort) = context.dataStore.edit { it[Keys.liveCategorySort] = sort.name }
 }

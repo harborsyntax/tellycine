@@ -15,8 +15,11 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.tellycine.TellycineApp
+import app.tellycine.data.settings.CategorySort
 import app.tellycine.player.PlayerActivity
 import app.tellycine.screenshots.ScreenshotDriver
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Rule
@@ -73,6 +76,29 @@ class TvNavigationTest {
         val started = shadowOf(ApplicationProvider.getApplicationContext<TellycineApp>()).nextStartedActivity
         assertNotNull(started)
         assertEquals("https://example.com/live/2.m3u8", started.getStringExtra("url"))
+    }
+
+    @Test
+    fun theSortButtonAtTheTopOfTheCategoriesPutsThemInOrder() {
+        val d = ScreenshotDriver(compose)
+        d.launchTv()
+
+        // Up from All channels: the Sort button, in the provider's order.
+        d.pressUntil(Key.DirectionLeft, "Press OK to watch")
+        d.press(Key.DirectionLeft)
+        d.press(Key.DirectionUp)
+        compose.onNode(hasContentDescription("Sort: Provider order") and isFocused()).assertExists()
+        d.press(Key.DirectionDown, 3)
+        compose.onNode(hasText("News") and isFocused() and !isButton).assertExists()
+
+        // OK switches to A–Z, keeping the column open: Documentaries comes first now.
+        d.press(Key.DirectionUp, 3)
+        d.press(Key.DirectionCenter)
+        // Once the choice is saved.
+        compose.waitUntil(5_000) { compose.onAllNodes(hasContentDescription("Sort: A–Z") and isFocused()).fetchSemanticsNodes().isNotEmpty() }
+        d.press(Key.DirectionDown, 3)
+        compose.onNode(hasText("Documentaries") and isFocused() and !isButton).assertExists()
+        assertEquals(CategorySort.NAME, runBlocking { d.app.container.settings.settings.first().liveCategorySort })
     }
 
     @Test

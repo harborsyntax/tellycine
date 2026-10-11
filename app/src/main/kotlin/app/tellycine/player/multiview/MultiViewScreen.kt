@@ -128,7 +128,6 @@ fun MultiViewScreen(
             if (near != null) {
                 TvPlayerGuide(
                     request = near,
-                    playerChannels = emptyList(),
                     onPlay = actions::pick,
                     hint = if (picker.replacing != null) "OK: show instead of ${picker.replacing.request.title}" else "OK: add to multi-view",
                     modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(GuideShare),

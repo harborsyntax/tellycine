@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.tellycine.TellycineApp
 import app.tellycine.core.ContentKind
 import app.tellycine.data.settings.AppSettings
+import app.tellycine.data.settings.CategorySort
 import app.tellycine.screenshots.DemoData
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -50,6 +51,36 @@ class CombinedPlaylistsTest {
         val dramas = page(dao.pagedItemsInNamedCategory(ids, ContentKind.MOVIE, "drama")).map { it.name }
         assertTrue(dramas.containsAll(listOf("Midnight Harbor", "Northern Lights", "Quiet Tide")))
         assertEquals("Quiet Tide", dramas.last())
+    }
+
+    @Test
+    fun aChannelsPlaceInEachListMatchesThePages() = runBlocking {
+        val content = container.content
+        val channel = content.getStream(second, ContentKind.LIVE, "ch0")!!
+        content.toggleFavorite(second, ContentKind.LIVE, "ch0")
+        for (category in listOf(Categories.ALL, Categories.named("news"), Categories.FAVORITES)) {
+            val source = when (category) {
+                Categories.ALL -> dao.pagedChannelsIn(ids, now)
+                Categories.FAVORITES -> dao.pagedFavoriteChannelsIn(ids, now)
+                else -> dao.pagedChannelsInNamedCategory(ids, "news", now)
+            }
+            val expected = page(source).indexOfFirst { it.stream.playlistId == second && it.stream.streamId == "ch0" }
+            assertEquals(category, expected, content.channelPosition(ids, category, channel))
+        }
+        // One playlist, in one of its own categories.
+        val football = content.getStream(second, ContentKind.LIVE, "ch1")!!
+        assertEquals(0, content.channelPosition(listOf(second), "8", football))
+        assertEquals(1, content.channelPosition(listOf(second), Categories.ALL, football))
+    }
+
+    @Test
+    fun categoriesSortByNameOrStayInTheProvidersOrder() = runBlocking {
+        val merged = container.content.categories(ids, ContentKind.LIVE).first()
+        assertEquals(listOf("News", "Sport", "Entertainment", "Kids", "Documentaries", "Music", "Football"), Categories.sorted(merged, CategorySort.PROVIDER).map { it.name })
+        assertEquals(listOf("Documentaries", "Entertainment", "Football", "Kids", "Music", "News", "Sport"), Categories.sorted(merged, CategorySort.NAME).map { it.name })
+        // Names are compared without their surrounding spaces.
+        val own = container.content.categories(second, ContentKind.LIVE).first()
+        assertEquals(listOf("Football", " news "), Categories.sorted(own, CategorySort.NAME).map { it.name })
     }
 
     @Test
