@@ -46,6 +46,7 @@ import app.tellycine.tv.components.TvEmptyState
 import app.tellycine.tv.components.TvHeader
 import app.tellycine.tv.components.TvPosterCard
 import app.tellycine.tv.components.TvSpacing
+import app.tellycine.tv.components.fasterWhenHeld
 import app.tellycine.ui.components.categoryOptions
 import app.tellycine.ui.components.tellycineViewModel
 import app.tellycine.ui.home.SessionState
@@ -121,6 +122,7 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
                 verticalArrangement = Arrangement.spacedBy(20.dp),
                 modifier = body
                     .focusRestorer()
+                    .fasterWhenHeld(gridState)
                     // Left from the first column opens the categories; Back opens the menu.
                     .focusProperties {
                         onExit = {

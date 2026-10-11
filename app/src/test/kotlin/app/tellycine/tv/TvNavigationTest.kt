@@ -1,10 +1,13 @@
 package app.tellycine.tv
 
+import android.view.KeyEvent.KEYCODE_DPAD_DOWN
+import android.view.KeyEvent.KEYCODE_DPAD_UP
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
@@ -18,6 +21,7 @@ import app.tellycine.TellycineApp
 import app.tellycine.data.settings.CategorySort
 import app.tellycine.player.PlayerActivity
 import app.tellycine.screenshots.ScreenshotDriver
+import app.tellycine.tv.components.hold
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -99,6 +103,27 @@ class TvNavigationTest {
         d.press(Key.DirectionDown, 3)
         compose.onNode(hasText("Documentaries") and isFocused() and !isButton).assertExists()
         assertEquals(CategorySort.NAME, runBlocking { d.app.container.settings.settings.first().liveCategorySort })
+    }
+
+    @Test
+    fun holdingDownMovesFasterTheLongerItsHeld() {
+        val d = ScreenshotDriver(compose)
+        d.launchTv()
+
+        // The top of the screen names the highlighted channel as well as its row.
+        fun highlighted(name: String) = compose.onAllNodesWithText(name, useUnmergedTree = true).fetchSemanticsNodes().size == 2
+        d.waitForText("Global Report")
+        compose.hold(KEYCODE_DPAD_DOWN, 800)
+        compose.waitUntil(5_000) { highlighted("Global Report") }
+        // Held for a few seconds, a repeat moves eight channels.
+        compose.hold(KEYCODE_DPAD_DOWN, 6_000)
+        compose.waitUntil(5_000) { highlighted("Discovery Lane") }
+        // It stops at the last channel, and back at the first rather than going on to the header.
+        compose.hold(KEYCODE_DPAD_DOWN, 6_000)
+        compose.waitUntil(5_000) { highlighted("Groove FM TV") }
+        repeat(2) { compose.hold(KEYCODE_DPAD_UP, 6_000) }
+        compose.waitUntil(5_000) { highlighted("Metro News 24") }
+        compose.onAllNodes((hasContentDescription("Compact") or hasContentDescription("List")) and isFocused()).assertCountEquals(0)
     }
 
     @Test

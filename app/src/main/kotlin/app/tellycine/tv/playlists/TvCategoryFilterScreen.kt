@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.FilterList
@@ -40,6 +41,7 @@ import app.tellycine.tv.components.TvEmptyState
 import app.tellycine.tv.components.TvHeader
 import app.tellycine.tv.components.TvSpacing
 import app.tellycine.tv.components.TvTextInputDialog
+import app.tellycine.tv.components.fasterWhenHeld
 import app.tellycine.ui.components.formatCount
 import app.tellycine.ui.components.tellycineViewModel
 import app.tellycine.ui.playlists.CategoryFilterViewModel
@@ -96,8 +98,10 @@ fun TvCategoryFilterScreen(playlistId: Long) {
             return@Column
         }
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            val listState = rememberLazyListState()
             LazyColumn(
-                Modifier.widthIn(max = 820.dp).fillMaxWidth(),
+                Modifier.widthIn(max = 820.dp).fillMaxWidth().fasterWhenHeld(listState),
+                state = listState,
                 contentPadding = PaddingValues(start = TvSpacing.screenStart, end = TvSpacing.screenEnd, bottom = TvSpacing.screenBottom),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {

@@ -69,7 +69,12 @@ fun TvCategoryPanel(
 
     TvSidePanel(onDismiss = onDismiss, width = 440.dp) {
         Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(bottom = 12.dp))
-        LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(2.dp), contentPadding = PaddingValues(bottom = 16.dp)) {
+        LazyColumn(
+            state = listState,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            contentPadding = PaddingValues(bottom = 16.dp),
+            modifier = Modifier.fasterWhenHeld(listState),
+        ) {
             if (playlists != null) {
                 item(key = "playlists-heading") { PanelHeading("Playlists") }
                 items(playlists.options, key = { "playlist-${it.id}" }) { option ->

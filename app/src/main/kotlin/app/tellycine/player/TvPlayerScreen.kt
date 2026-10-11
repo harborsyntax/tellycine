@@ -101,6 +101,7 @@ import app.tellycine.tv.components.RequestFocusOnStart
 import app.tellycine.tv.components.TvClock
 import app.tellycine.tv.components.TvDialog
 import app.tellycine.tv.components.ignoreStrayOkRelease
+import app.tellycine.tv.components.fasterWhenHeld
 import app.tellycine.ui.components.Artwork
 import app.tellycine.ui.components.formatTime
 import kotlinx.coroutines.delay
@@ -634,7 +635,7 @@ private fun ChannelPanel(
     ) {
         Column(Modifier.padding(start = 40.dp, end = 16.dp, top = 28.dp)) {
             Text("Channels", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(start = 12.dp, bottom = 8.dp))
-            LazyColumn(state = state, contentPadding = PaddingValues(bottom = 24.dp)) {
+            LazyColumn(state = state, contentPadding = PaddingValues(bottom = 24.dp), modifier = Modifier.fasterWhenHeld(state)) {
                 itemsIndexed(channels, key = { _, s -> s.streamId }) { index, s ->
                     ListItem(
                         selected = s.streamId == currentId,
