@@ -1,6 +1,7 @@
 package app.tellycine.data.settings
 
 import android.content.Context
+import app.tellycine.core.ContentKind
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -51,7 +52,17 @@ data class AppSettings(
     val tvTheme: TvTheme = TvTheme.WARM,
     /** TV: the multi-view layout used last (a MultiViewLayout name). */
     val multiViewLayout: String? = null,
-)
+    /**
+     * The playlists Live TV, Movies and Series each show: a playlist's id, [ALL_PLAYLISTS], or
+     * null to follow the active playlist.
+     */
+    val sectionPlaylists: Map<ContentKind, Long> = emptyMap(),
+) {
+    companion object {
+        /** A section showing every playlist together. */
+        const val ALL_PLAYLISTS = -1L
+    }
+}
 
 private val Context.dataStore by preferencesDataStore("settings")
 
@@ -74,6 +85,7 @@ class SettingsRepository(private val context: Context) {
         val tvGuideCompact = booleanPreferencesKey("tv_guide_compact")
         val tvTheme = stringPreferencesKey("tv_theme")
         val multiViewLayout = stringPreferencesKey("multi_view_layout")
+        val sectionPlaylists = ContentKind.entries.associateWith { longPreferencesKey("playlists_${it.name.lowercase()}") }
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -94,6 +106,7 @@ class SettingsRepository(private val context: Context) {
             tvGuideCompact = p[Keys.tvGuideCompact] ?: false,
             tvTheme = p[Keys.tvTheme]?.let { runCatching { TvTheme.valueOf(it) }.getOrNull() } ?: TvTheme.WARM,
             multiViewLayout = p[Keys.multiViewLayout],
+            sectionPlaylists = Keys.sectionPlaylists.mapNotNull { (kind, key) -> p[key]?.let { kind to it } }.toMap(),
         )
     }
 
@@ -102,6 +115,15 @@ class SettingsRepository(private val context: Context) {
     suspend fun setActivePlaylist(id: Long?) = context.dataStore.edit {
         if (id == null) it.remove(Keys.activePlaylist) else it[Keys.activePlaylist] = id
     }
+
+    /** Which playlists the [kind] section shows: an id, [AppSettings.ALL_PLAYLISTS], or null to follow the active one. */
+    suspend fun setSectionPlaylists(kind: ContentKind, id: Long?) = context.dataStore.edit {
+        val key = Keys.sectionPlaylists.getValue(kind)
+        if (id == null) it.remove(key) else it[key] = id
+    }
+
+    /** Every section follows the active playlist again. */
+    suspend fun clearSectionPlaylists() = context.dataStore.edit { prefs -> Keys.sectionPlaylists.values.forEach { prefs.remove(it) } }
 
     suspend fun setThemeMode(mode: ThemeMode) = context.dataStore.edit { it[Keys.theme] = mode.name }
     suspend fun setDynamicColor(enabled: Boolean) = context.dataStore.edit { it[Keys.dynamicColor] = enabled }

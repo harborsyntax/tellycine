@@ -74,6 +74,7 @@ import app.tellycine.tv.components.TvEmptyState
 import app.tellycine.tv.components.TvHeader
 import app.tellycine.tv.components.TvIconButton
 import app.tellycine.tv.components.TvQrDialog
+import app.tellycine.tv.components.TvSourceLabel
 import app.tellycine.tv.components.TvSpacing
 import app.tellycine.tv.components.okClicks
 import app.tellycine.ui.components.Artwork
@@ -100,8 +101,11 @@ fun TvLiveScreen(
     val schedule by vm.schedule.collectAsStateWithLifecycle()
     val recordings by vm.recordings.collectAsStateWithLifecycle()
     val channels = vm.channels.collectAsLazyPagingItems()
-    val options = remember(categories, session.active?.liveCount) {
-        categoryOptions(ContentKind.LIVE, categories, if (categories.isEmpty()) session.active?.liveCount else categories.sumOf { it.itemCount })
+    val scope by vm.scope.collectAsStateWithLifecycle()
+    val playlistFilter by vm.playlistFilter.collectAsStateWithLifecycle()
+    val showSource by vm.showSource.collectAsStateWithLifecycle()
+    val options = remember(categories, scope) {
+        categoryOptions(ContentKind.LIVE, categories, if (categories.isEmpty()) scope.playlists.sumOf { it.liveCount } else categories.sumOf { it.itemCount })
     }
     val categoryName = options.firstOrNull { it.id == selected }?.name ?: "All channels"
     // The guide is the TV's main view; the plain list is one press away.
@@ -189,7 +193,7 @@ fun TvLiveScreen(
 
     Column(Modifier.fillMaxSize()) {
         if (listView) {
-            TvHeader("Live TV", subtitle = session.active.name, actions = { headerActions() })
+            TvHeader("Live TV", subtitle = scope.label, actions = { headerActions() })
         } else {
             val focusedRow = channels.itemCount.takeIf { it > 0 }?.let { channels.peek(guide.row.coerceIn(0, it - 1)) }
             GuideDetails(
@@ -197,6 +201,7 @@ fun TvLiveScreen(
                 onOpenMini = openMini,
                 row = focusedRow,
                 programme = guide.focusedProgramme(focusedRow),
+                source = focusedRow?.takeIf { showSource }?.let { vm.playlistOf(it)?.name },
                 now = now,
                 canReplay = { r, p -> vm.canReplay(r, p) },
                 isRecording = { r, p -> vm.canRecord(r) && vm.recordingFor(r, p, recordings) != null },
@@ -219,7 +224,8 @@ fun TvLiveScreen(
                 TvEmptyState(
                     Icons.Filled.LiveTv,
                     if (session.activeProgress != null) "Loading channels…" else "No channels",
-                    session.activeProgress?.message ?: "This playlist has no live channels in this category.",
+                    session.activeProgress?.message
+                        ?: if (scope.combined) "These playlists have no live channels in this category." else "This playlist has no live channels in this category.",
                     m,
                 )
             }
@@ -228,6 +234,7 @@ fun TvLiveScreen(
         if (listView) {
             placeholder?.invoke(body) ?: TvChannelList(
                 channels = channels,
+                sourceOf = { row -> if (scope.combined) vm.playlistOf(row)?.name else null },
                 onPlay = playRow,
                 onOptions = vm::showSchedule,
                 onLeftEdge = { showCategories = true },
@@ -247,6 +254,12 @@ fun TvLiveScreen(
                     },
                     onClose = { runCatching { contentFocus.requestFocus() } },
                     modifier = Modifier.padding(end = 8.dp),
+                    playlists = playlistFilter,
+                    onSelectPlaylists = {
+                        vm.selectPlaylists(it)
+                        categoryColumn.open = false
+                        runCatching { contentFocus.requestFocus() }
+                    },
                 )
                 val lanes = Modifier.weight(1f).fillMaxHeight()
                 placeholder?.invoke(lanes) ?: TvGuideGrid(
@@ -291,6 +304,11 @@ fun TvLiveScreen(
                 showCategories = false
             },
             onDismiss = { showCategories = false },
+            playlists = playlistFilter,
+            onSelectPlaylists = {
+                vm.selectPlaylists(it)
+                showCategories = false
+            },
         )
     }
 
@@ -325,6 +343,8 @@ private fun GuideDetails(
     onOpenMini: (MiniPlayback) -> Unit,
     row: ChannelRow?,
     programme: ProgrammeEntity?,
+    /** The playlist the channel is from, when there's more than one. */
+    source: String?,
     now: Long,
     canReplay: (ChannelRow, ProgrammeEntity) -> Boolean,
     isRecording: (ChannelRow, ProgrammeEntity) -> Boolean,
@@ -340,13 +360,17 @@ private fun GuideDetails(
         if (mini != null) TvMiniPlayer(mini, onOpen = { onOpenMini(mini) })
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             if (row != null) {
-                Text(
-                    row.stream.name,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = TvPalette.primary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        row.stream.name,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = TvPalette.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    source?.let { TvSourceLabel(it) }
+                }
                 Text(
                     programme?.title ?: row.nowTitle ?: row.stream.name,
                     style = MaterialTheme.typography.headlineSmall,
@@ -400,6 +424,8 @@ private fun GuideDetails(
 @Composable
 private fun TvChannelList(
     channels: LazyPagingItems<ChannelRow>,
+    /** The playlist a channel is from, when the list mixes playlists. */
+    sourceOf: (ChannelRow) -> String?,
     onPlay: (ChannelRow) -> Unit,
     onOptions: (ChannelRow) -> Unit,
     onLeftEdge: () -> Unit,
@@ -420,7 +446,7 @@ private fun TvChannelList(
         contentPadding = PaddingValues(start = TvSpacing.screenStart, end = TvSpacing.screenEnd, top = 4.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        items(channels.itemCount, key = channels.itemKey { "${it.stream.kind}:${it.stream.streamId}" }) { index ->
+        items(channels.itemCount, key = channels.itemKey { "${it.stream.playlistId}:${it.stream.kind}:${it.stream.streamId}" }) { index ->
             val row = channels[index]
             if (row == null) {
                 Box(Modifier.fillMaxWidth().height(64.dp))
@@ -437,10 +463,17 @@ private fun TvChannelList(
                             overflow = TextOverflow.Ellipsis,
                         )
                     },
-                    supportingContent = row.nowTitle?.let { title ->
+                    supportingContent = run {
+                        val source = sourceOf(row)
+                        if (row.nowTitle == null && source == null) return@run null
                         {
-                            val time = if (row.nowStart != null && row.nowStop != null) "${formatTime(row.nowStart)} – ${formatTime(row.nowStop)}  ·  " else ""
-                            Text("$time$title", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                row.nowTitle?.let { title ->
+                                    val time = if (row.nowStart != null && row.nowStop != null) "${formatTime(row.nowStart)} – ${formatTime(row.nowStop)}  ·  " else ""
+                                    Text("$time$title", maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                }
+                                source?.let { TvSourceLabel(it) }
+                            }
                         }
                     },
                     leadingContent = {

@@ -130,7 +130,7 @@ fun GuideGrid(
                     scope.launch { scrollState.animateScrollBy(offset - nowOffset()) }
                 }
                 LazyColumn(Modifier.fillMaxWidth().weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
-                    items(channels.itemCount, key = channels.itemKey { "${it.stream.kind}:${it.stream.streamId}" }) { index ->
+                    items(channels.itemCount, key = channels.itemKey { "${it.stream.playlistId}:${it.stream.kind}:${it.stream.streamId}" }) { index ->
                         val row = channels[index]
                         if (row == null) {
                             Box(Modifier.fillMaxWidth().height(ROW_HEIGHT))

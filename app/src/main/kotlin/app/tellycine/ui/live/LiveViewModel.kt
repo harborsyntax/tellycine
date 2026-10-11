@@ -16,6 +16,8 @@ import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.data.repo.Categories
 import app.tellycine.data.repo.CatchupResolver
+import app.tellycine.data.repo.PlaylistFilter
+import app.tellycine.data.repo.PlaylistScope
 import app.tellycine.data.sync.PlaylistSyncer
 import app.tellycine.player.PlayRequest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -31,7 +33,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -49,24 +50,44 @@ private const val DAY = 24 * 60 * 60 * 1000L
 class LiveViewModel(private val container: AppContainer) : ViewModel() {
     private val content = container.content
 
-    private val playlist: StateFlow<PlaylistEntity?> = container.playlists.activePlaylist
+    /** Every playlist, for the details of whichever one a channel is from. */
+    private val allPlaylists: StateFlow<List<PlaylistEntity>> = container.playlists.playlists
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** The playlists Live TV shows: the one chosen, or all of them together. */
+    val scope: StateFlow<PlaylistScope> = container.playlists.scope(ContentKind.LIVE)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, PlaylistScope.EMPTY)
+    private val scopeIds = scope.map { it.ids }.distinctUntilChanged()
+
+    /** "All playlists" and each playlist, to choose from; null with only one playlist. */
+    val playlistFilter: StateFlow<PlaylistFilter?> = combine(allPlaylists, scope) { all, s -> PlaylistFilter.of(all, s) }
+        .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
-    private val playlistId = playlist.map { it?.id }.distinctUntilChanged()
+
+    /** Whether there's more than one playlist, so details say which one a channel is from. */
+    val showSource: StateFlow<Boolean> = allPlaylists.map { it.size > 1 }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    fun selectPlaylists(id: Long) {
+        viewModelScope.launch { container.playlists.setSectionPlaylists(ContentKind.LIVE, id) }
+    }
+
+    /** The playlist [row] is from. */
+    fun playlistOf(row: ChannelRow): PlaylistEntity? = allPlaylists.value.firstOrNull { it.id == row.stream.playlistId }
 
     private val _selected = MutableStateFlow(Categories.ALL)
     val selectedCategory: StateFlow<String> = _selected.asStateFlow()
 
-    val categories: StateFlow<List<CategoryEntity>> = playlistId
-        .flatMapLatest { id -> if (id == null) flowOf(emptyList()) else content.categories(id, ContentKind.LIVE) }
+    val categories: StateFlow<List<CategoryEntity>> = scopeIds
+        .flatMapLatest { ids -> content.categories(ids, ContentKind.LIVE) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     @Volatile
     private var currentSource: PagingSource<*, *>? = null
 
-    val channels: Flow<PagingData<ChannelRow>> = combine(playlistId, _selected) { id, cat -> id to cat }
-        .flatMapLatest { (id, cat) ->
-            if (id == null) flowOf(PagingData.empty())
-            else content.channels(id, cat, now = { System.currentTimeMillis() }, onSource = { currentSource = it })
+    val channels: Flow<PagingData<ChannelRow>> = combine(scopeIds, _selected) { ids, cat -> ids to cat }
+        .flatMapLatest { (ids, cat) ->
+            content.channels(ids, cat, now = { System.currentTimeMillis() }, onSource = { currentSource = it })
         }
         .cachedIn(viewModelScope)
 
@@ -76,10 +97,10 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
     init {
         // Reset the category when switching playlists.
         viewModelScope.launch {
-            var last: Long? = null
-            playlistId.collect { id ->
-                if (last != null && id != last) _selected.value = Categories.ALL
-                last = id
+            var last: List<Long>? = null
+            scopeIds.collect { ids ->
+                if (last != null && ids != last) _selected.value = Categories.ALL
+                last = ids
             }
         }
         // Refresh "now playing" as programmes change.
@@ -103,8 +124,8 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun showSchedule(row: ChannelRow) {
-        refreshRecordings()
-        val catchup = CatchupResolver.supports(playlist.value, row.stream)
+        refreshRecordings(row)
+        val catchup = CatchupResolver.supports(playlistOf(row), row.stream)
         _schedule.value = ScheduleState(row, catchup = catchup)
         val channelId = row.stream.epgChannelId ?: run {
             _schedule.value = ScheduleState(row, emptyList(), catchup)
@@ -131,9 +152,9 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
     val guideDays: StateFlow<Int> = container.settings.settings.map { it.epgDays }
         .stateIn(viewModelScope, SharingStarted.Eagerly, 3)
 
-    /** Changes whenever the guide is re-imported, so the grid reloads its rows. */
-    val guideVersion: StateFlow<Long?> = playlist.map { it?.epgSyncedAt }.distinctUntilChanged()
-        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    /** Changes whenever a guide is re-imported, so the grid reloads its rows. */
+    val guideVersion: StateFlow<List<Long?>> = allPlaylists.map { list -> list.map { it.epgSyncedAt } }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     fun setGuideGrid(enabled: Boolean) {
         viewModelScope.launch { container.settings.setLiveGuideGrid(enabled) }
@@ -152,7 +173,7 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
 
     /** A channel's programmes between [fromMs] and [toMs], for one row of the grid. */
     suspend fun guideProgrammes(row: ChannelRow, fromMs: Long, toMs: Long): List<ProgrammeEntity> {
-        val p = playlist.value ?: return emptyList()
+        val p = playlistOf(row) ?: return emptyList()
         val channelId = row.stream.epgChannelId ?: return emptyList()
         val key = "${p.id}:${p.epgSyncedAt}:$channelId:$fromMs:$toMs"
         guideCache.get(key)?.let { return it }
@@ -161,20 +182,20 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
 
     // ---- Dispatcharr DVR ----
 
-    /** Recordings of the active playlist, so the guide can show what is already scheduled. */
-    val recordings: StateFlow<List<DvrRecording>> = combine(playlist, container.dvr.state) { p, state ->
-        p?.let { state[it.id]?.recordings }.orEmpty()
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /** Each playlist's recordings, by its id, so the guide can show what is already scheduled. */
+    val recordings: StateFlow<Map<Long, List<DvrRecording>>> = container.dvr.state
+        .map { state -> state.mapValues { (_, dvr) -> dvr.recordings } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     private val _events = MutableSharedFlow<String>(extraBufferCapacity = 4)
     /** One-off messages for the UI (recording scheduled, errors…). */
     val events: SharedFlow<String> = _events.asSharedFlow()
 
-    fun canRecord(row: ChannelRow): Boolean = playlist.value?.hasDvr == true && row.stream.streamId.toLongOrNull() != null
+    fun canRecord(row: ChannelRow): Boolean = playlistOf(row)?.hasDvr == true && row.stream.streamId.toLongOrNull() != null
 
-    fun recordingFor(row: ChannelRow, programme: ProgrammeEntity, recordings: List<DvrRecording>): DvrRecording? {
+    fun recordingFor(row: ChannelRow, programme: ProgrammeEntity, recordings: Map<Long, List<DvrRecording>>): DvrRecording? {
         val channelId = row.stream.streamId.toLongOrNull() ?: return null
-        return recordings.firstOrNull {
+        return recordings[row.stream.playlistId].orEmpty().firstOrNull {
             it.channelId == channelId && it.startMs < programme.stopMs && it.endMs > programme.startMs &&
                 minOf(it.endMs, programme.stopMs) - maxOf(it.startMs, programme.startMs) >= (programme.stopMs - programme.startMs) / 2
         }
@@ -182,7 +203,7 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
 
     /** Schedules [programme], or cancels it if it is already scheduled. */
     fun toggleRecording(row: ChannelRow, programme: ProgrammeEntity) {
-        val p = playlist.value ?: return
+        val p = playlistOf(row) ?: return
         val channelId = row.stream.streamId.toLongOrNull() ?: return
         val existing = recordingFor(row, programme, recordings.value)
         viewModelScope.launch {
@@ -202,16 +223,16 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    private fun refreshRecordings() {
-        val p = playlist.value?.takeIf { it.hasDvr } ?: return
+    private fun refreshRecordings(row: ChannelRow) {
+        val p = playlistOf(row)?.takeIf { it.hasDvr } ?: return
         val loadedAt = container.dvr.state.value[p.id]?.loadedAt ?: 0
         if (System.currentTimeMillis() - loadedAt > 60_000) viewModelScope.launch { container.dvr.refresh(p) }
     }
 
     // ---- Share / external player ----
 
-    /** True for Dispatcharr playlists, which offer both the Dispatcharr and the upstream source URL. */
-    fun isDispatcharr() = playlist.value?.isDispatcharr == true
+    /** True for channels of Dispatcharr playlists, which offer both the Dispatcharr and the upstream source URL. */
+    fun isDispatcharr(row: ChannelRow) = playlistOf(row)?.isDispatcharr == true
 
     private val _sources = MutableStateFlow<List<DispatcharrSource>?>(null)
     /** Upstream sources to pick from when a Dispatcharr channel has several. */
@@ -223,7 +244,7 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
 
     /** Looks up the provider stream(s) behind a Dispatcharr channel and shares one. */
     fun shareSourceUrl(row: ChannelRow) {
-        val p = playlist.value ?: return
+        val p = playlistOf(row) ?: return
         val channelId = row.stream.streamId.toLongOrNull() ?: return
         if (!p.hasDvr) {
             _events.tryEmit("Connect your Dispatcharr login in the playlist settings to share source URLs.")
@@ -249,18 +270,24 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     fun canReplay(row: ChannelRow, programme: ProgrammeEntity): Boolean =
-        CatchupResolver.isReplayable(playlist.value, row.stream, programme)
+        CatchupResolver.isReplayable(playlistOf(row), row.stream, programme)
 
     /** Play request for a past (or in-progress, from the start) programme, or null if unavailable. */
     fun replayRequest(row: ChannelRow, programme: ProgrammeEntity): PlayRequest? =
-        replayRequest(playlist.value, row.stream, programme)
+        replayRequest(playlistOf(row), row.stream, programme)
 
     fun dismissSchedule() {
         _schedule.value = null
     }
 
-    fun hasCatchup(row: ChannelRow) = CatchupResolver.supports(playlist.value, row.stream)
+    fun hasCatchup(row: ChannelRow) = CatchupResolver.supports(playlistOf(row), row.stream)
 
-    fun playRequest(row: ChannelRow): PlayRequest =
-        liveRequest(playlist.value, row.stream, subtitle = row.nowTitle, categoryId = _selected.value)
+    /**
+     * Plays [row], noting the category it was picked from for changing channel in the player. The
+     * player stays in the channel's own playlist, so a merged category becomes the channel's own.
+     */
+    fun playRequest(row: ChannelRow): PlayRequest {
+        val category = _selected.value.takeIf { Categories.nameKeyOf(it) == null } ?: row.stream.categoryId
+        return liveRequest(playlistOf(row), row.stream, subtitle = row.nowTitle, categoryId = category)
+    }
 }

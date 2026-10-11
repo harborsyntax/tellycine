@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -61,6 +62,8 @@ data class DetailInfo(
     val seasonCovers: Map<Int, String> = emptyMap(),
     /** The trailer's YouTube address. */
     val trailer: String? = null,
+    /** The playlist the title is from, when there's more than one. */
+    val source: String? = null,
     val episodes: List<EpisodeUi> = emptyList(),
     val error: String? = null,
 )
@@ -132,10 +135,12 @@ class DetailViewModel(
                 _info.value = DetailInfo(loading = false, error = "This title is no longer in the playlist.")
                 return@launch
             }
+            val several = container.playlists.playlists.first().size > 1
             var info = DetailInfo(
                 loading = true,
                 stream = stream,
                 playlist = playlist,
+                source = playlist.name.takeIf { several },
                 title = stream.name,
                 poster = stream.logo,
                 backdrops = listOfNotNull(stream.backdrop),

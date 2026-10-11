@@ -80,6 +80,7 @@ import app.tellycine.tv.components.TvActionButton
 import app.tellycine.tv.components.TvConfirmDialog
 import app.tellycine.tv.components.TvDialog
 import app.tellycine.tv.components.TvPosterCard
+import app.tellycine.tv.components.TvSourceLabel
 import app.tellycine.tv.components.TvSpacing
 import app.tellycine.tv.components.okClicks
 import app.tellycine.ui.components.Artwork
@@ -389,6 +390,7 @@ private fun Header(info: DetailInfo, showPoster: Boolean) {
                 if (info.meta.isNotEmpty()) {
                     Text(info.meta.joinToString("  ·  "), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                info.source?.let { TvSourceLabel(it) }
             }
             info.plot?.let {
                 Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 5, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = textWidth))

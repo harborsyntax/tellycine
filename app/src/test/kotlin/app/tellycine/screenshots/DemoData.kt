@@ -102,6 +102,8 @@ object DemoData {
         )
         container.settings.setRefreshOnLaunch(false)
         container.settings.setActivePlaylist(pid)
+        // Settings outlive a test, so each section starts on the active playlist again.
+        container.settings.clearSectionPlaylists()
         container.settings.setLibraryGroupByCategory(groupLibrary)
         val dao = db.content()
 

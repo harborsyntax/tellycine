@@ -1,5 +1,17 @@
 package app.tellycine.ui.components
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import app.tellycine.data.repo.PlaylistFilter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -45,6 +57,43 @@ import app.tellycine.data.repo.Categories
 
 data class CategoryOption(val id: String, val name: String, val count: Int?)
 
+/** Which playlist something is from. */
+@Composable
+fun SourceLabel(name: String, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Icon(Icons.AutoMirrored.Filled.PlaylistPlay, "Playlist", Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+        Text(name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** The playlists a section shows, as a chip opening a menu: "All playlists", then each playlist. */
+@Composable
+fun PlaylistFilterChip(filter: PlaylistFilter, onSelect: (Long) -> Unit, modifier: Modifier = Modifier) {
+    var open by remember { mutableStateOf(false) }
+    val current = filter.options.firstOrNull { it.id == filter.selected }?.name.orEmpty()
+    Box(modifier) {
+        AssistChip(
+            onClick = { open = true },
+            label = { Text(current, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 160.dp)) },
+            leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistPlay, null, Modifier.size(18.dp)) },
+            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, null, Modifier.size(18.dp)) },
+            modifier = Modifier.semantics { contentDescription = "Playlists: $current" },
+        )
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            filter.options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.name) },
+                    trailingIcon = { if (option.id == filter.selected) Icon(Icons.Filled.Check, "Selected") },
+                    onClick = {
+                        open = false
+                        onSelect(option.id)
+                    },
+                )
+            }
+        }
+    }
+}
+
 fun categoryOptions(kind: ContentKind, categories: List<CategoryEntity>, total: Int?): List<CategoryOption> {
     val allLabel = when (kind) {
         ContentKind.LIVE -> "All channels"
@@ -66,6 +115,9 @@ fun CategoryChips(
     selected: String,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
+    /** The playlists shown, to choose from first; null with only one playlist. */
+    playlists: PlaylistFilter? = null,
+    onSelectPlaylists: (Long) -> Unit = {},
 ) {
     var showSheet by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
@@ -74,7 +126,8 @@ fun CategoryChips(
         if (index >= 0) listState.animateScrollToItem(index)
     }
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        FilledTonalIconButton(onClick = { showSheet = true }, modifier = Modifier.padding(start = 12.dp)) {
+        if (playlists != null) PlaylistFilterChip(playlists, onSelectPlaylists, Modifier.padding(start = 12.dp))
+        FilledTonalIconButton(onClick = { showSheet = true }, modifier = Modifier.padding(start = if (playlists != null) 8.dp else 12.dp)) {
             Icon(Icons.AutoMirrored.Filled.List, "All categories")
         }
         LazyRow(
@@ -104,6 +157,11 @@ fun CategoryChips(
                     showSheet = false
                 },
                 modifier = Modifier.fillMaxWidth().height(560.dp),
+                playlists = playlists,
+                onSelectPlaylists = {
+                    onSelectPlaylists(it)
+                    showSheet = false
+                },
             )
         }
     }
@@ -116,12 +174,16 @@ fun CategoryList(
     selected: String,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
+    /** The playlists shown, to choose from at the top; null with only one playlist. */
+    playlists: PlaylistFilter? = null,
+    onSelectPlaylists: (Long) -> Unit = {},
 ) {
     var filter by rememberSaveable { mutableStateOf("") }
     val visible = remember(options, filter) {
         if (filter.isBlank()) options else options.filter { it.name.contains(filter.trim(), ignoreCase = true) }
     }
     Column(modifier) {
+        if (playlists != null) PlaylistFilterChip(playlists, onSelectPlaylists, Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
         if (options.size > 12) {
             OutlinedTextField(
                 value = filter,
@@ -159,6 +221,8 @@ fun CategoryPane(
     options: List<CategoryOption>,
     selected: String,
     onSelect: (String) -> Unit,
+    playlists: PlaylistFilter? = null,
+    onSelectPlaylists: (Long) -> Unit = {},
 ) {
-    CategoryList(options, selected, onSelect, Modifier.width(300.dp).fillMaxHeight())
+    CategoryList(options, selected, onSelect, Modifier.width(300.dp).fillMaxHeight(), playlists, onSelectPlaylists)
 }

@@ -40,6 +40,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,6 +50,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import app.tellycine.data.repo.PlaylistFilter
 import app.tellycine.tv.TvPalette
 import app.tellycine.ui.components.CategoryOption
 import app.tellycine.ui.components.formatCount
@@ -75,7 +78,8 @@ private val TuckedWidth = 16.dp
  * The guide's categories, as a column to the left of the channels. Tucked away it's a thin edge
  * with an arrow, so it's clear there is more to the left; Left from the channel column opens it
  * on the current category ([TvGuideCategoriesState.open]). OK picks a category and returns to
- * the channels, which [onSelect] changes; Right or Back return without changing.
+ * the channels, which [onSelect] changes; Right or Back return without changing. With more than
+ * one playlist, the [playlists] to show come first, and picking one also returns to the channels.
  */
 @Composable
 fun TvGuideCategories(
@@ -85,22 +89,30 @@ fun TvGuideCategories(
     onSelect: (String) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    playlists: PlaylistFilter? = null,
+    onSelectPlaylists: (Long) -> Unit = {},
 ) {
     val width by animateDpAsState(if (state.open) OpenWidth else TuckedWidth, label = "categories-width")
     // The names fade in as the column opens; the edge fades out.
     val namesAlpha by animateFloatAsState(if (state.open) 1f else 0f, label = "categories-alpha")
     val listState = rememberLazyListState()
-    val selectedIndex = options.indexOfFirst { it.id == selected }.coerceAtLeast(0)
+    // Focusable rows are numbered playlists first, then categories; the list also has a heading
+    // between them, which [listIndex] allows for.
+    val playlistCount = playlists?.options?.size ?: 0
+    val listIndex = { row: Int -> if (playlists != null && row >= playlistCount) row + 1 else row }
+    val selectedIndex = playlistCount + options.indexOfFirst { it.id == selected }.coerceAtLeast(0)
+    val lastIndex = playlistCount + options.lastIndex
     var hasFocus by remember { mutableStateOf(false) }
     var focusedIndex by remember { mutableStateOf(-1) }
 
     // Opening scrolls to the current category and focuses it.
     LaunchedEffect(state.open) {
         if (!state.open) return@LaunchedEffect
-        if (listState.layoutInfo.visibleItemsInfo.none { it.index == selectedIndex }) {
-            listState.scrollToItem((selectedIndex - 2).coerceAtLeast(0))
+        val target = listIndex(selectedIndex)
+        if (listState.layoutInfo.visibleItemsInfo.none { it.index == target }) {
+            listState.scrollToItem((target - 2).coerceAtLeast(0))
         }
-        snapshotFlowOf { listState.layoutInfo.visibleItemsInfo.any { it.index == selectedIndex } }
+        snapshotFlowOf { listState.layoutInfo.visibleItemsInfo.any { it.index == target } }
         runCatching { state.focus.requestFocus() }
     }
     // Moving focus out (Right, to the channels) tucks the column away again.
@@ -124,7 +136,7 @@ fun TvGuideCategories(
                 when (event.key) {
                     Key.DirectionLeft -> true
                     Key.DirectionUp -> focusedIndex <= 0
-                    Key.DirectionDown -> focusedIndex >= options.lastIndex
+                    Key.DirectionDown -> focusedIndex >= lastIndex
                     else -> false
                 }
             },
@@ -137,51 +149,34 @@ fun TvGuideCategories(
                 .fillMaxHeight()
                 .graphicsLayer { alpha = namesAlpha },
         ) {
-            Text(
-                "Categories",
-                style = MaterialTheme.typography.labelLarge,
-                color = TvPalette.onSurfaceVariant,
-                // As tall as the guide's row of times, so the first category lines up with the first channel.
-                modifier = Modifier.height(GuideHeaderHeight).padding(start = 12.dp, top = 6.dp),
-            )
+            // As tall as the guide's row of times, so the first category lines up with the first channel.
+            ColumnHeading(if (playlists != null) "Playlists" else "Categories", Modifier.height(GuideHeaderHeight))
             LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                itemsIndexed(options, key = { _, o -> o.id }) { index, option ->
-                    val current = option.id == selected
-                    Surface(
-                        onClick = { onSelect(option.id) },
+                if (playlists != null) {
+                    itemsIndexed(playlists.options, key = { _, o -> "playlist-${o.id}" }) { index, option ->
+                        ColumnRow(
+                            name = option.name,
+                            count = null,
+                            current = option.id == playlists.selected,
+                            enabled = state.open,
+                            onClick = { onSelectPlaylists(option.id) },
+                            modifier = Modifier.onFocusChanged { if (it.isFocused) focusedIndex = index },
+                        )
+                    }
+                    item(key = "categories-heading") { ColumnHeading("Categories", Modifier.padding(top = 8.dp)) }
+                }
+                itemsIndexed(options, key = { _, o -> o.id }) { i, option ->
+                    val index = playlistCount + i
+                    ColumnRow(
+                        name = option.name,
+                        count = option.count,
+                        current = option.id == selected,
                         enabled = state.open,
-                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
-                        colors = ClickableSurfaceDefaults.colors(
-                            containerColor = if (current) Color.White.copy(alpha = 0.1f) else Color.Transparent,
-                            contentColor = if (current) TvPalette.primary else TvPalette.onSurface,
-                            focusedContainerColor = TvPalette.focus,
-                            focusedContentColor = TvPalette.onFocus,
-                            disabledContainerColor = if (current) Color.White.copy(alpha = 0.1f) else Color.Transparent,
-                            disabledContentColor = if (current) TvPalette.primary else TvPalette.onSurface,
-                        ),
-                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                        onClick = { onSelect(option.id) },
                         modifier = Modifier
-                            .fillMaxWidth()
                             .onFocusChanged { if (it.isFocused) focusedIndex = index }
                             .then(if (index == selectedIndex) Modifier.focusRequester(state.focus) else Modifier),
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                option.name,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = if (current) FontWeight.SemiBold else null,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f),
-                            )
-                            option.count?.let {
-                                Text(formatCount(it), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 8.dp))
-                            }
-                        }
-                    }
+                    )
                 }
             }
         }
@@ -202,6 +197,53 @@ fun TvGuideCategories(
                     Modifier.padding(top = 10.dp).size(16.dp),
                     tint = TvPalette.onSurfaceVariant,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColumnHeading(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelLarge,
+        color = TvPalette.onSurfaceVariant,
+        modifier = modifier.padding(start = 12.dp, top = 6.dp, bottom = 4.dp),
+    )
+}
+
+/** A playlist or category in the column, marked when it's the one showing. */
+@Composable
+private fun ColumnRow(name: String, count: Int?, current: Boolean, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (current) Color.White.copy(alpha = 0.1f) else Color.Transparent,
+            contentColor = if (current) TvPalette.primary else TvPalette.onSurface,
+            focusedContainerColor = TvPalette.focus,
+            focusedContentColor = TvPalette.onFocus,
+            disabledContainerColor = if (current) Color.White.copy(alpha = 0.1f) else Color.Transparent,
+            disabledContentColor = if (current) TvPalette.primary else TvPalette.onSurface,
+        ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        modifier = modifier.fillMaxWidth().semantics { if (current) selected = true },
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                name,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = if (current) FontWeight.SemiBold else null,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            count?.let {
+                Text(formatCount(it), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 8.dp))
             }
         }
     }

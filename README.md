@@ -28,7 +28,7 @@ Tellycine is a player only. It doesn't provide any channels or content; you add 
 
 ## Features
 
-- **Your sources:** M3U/M3U8 links, local M3U files, Xtream Codes accounts and Dispatcharr servers, with as many playlists as you like.
+- **Your sources:** M3U/M3U8 links, local M3U files, Xtream Codes accounts and Dispatcharr servers, with as many playlists as you like, browsed one at a time or all together.
 - **Live TV with a TV guide:** XMLTV guides, "on now" with progress, and a full schedule for each channel.
 - **Catch-up TV:** replay past programmes, or restart the current one. Works with Xtream timeshift and M3U `catchup` attributes.
 - **Movies & series:** poster grids, details with full backdrops and trailers, seasons and episodes, and resume where you left off.

@@ -68,7 +68,9 @@ fun TvPlayerGuide(
     val channels = remember(selected) {
         content.channels(request.playlistId, selected, now = { System.currentTimeMillis() })
     }.collectAsLazyPagingItems()
-    val categories by vm.categories.collectAsStateWithLifecycle()
+    // The guide stays in the playing channel's own playlist, as changing channel does.
+    val categories by remember(request.playlistId) { content.categories(request.playlistId, ContentKind.LIVE) }
+        .collectAsStateWithLifecycle(emptyList())
     val options = remember(categories) {
         categoryOptions(ContentKind.LIVE, categories, categories.takeIf { it.isNotEmpty() }?.sumOf { it.itemCount })
     }

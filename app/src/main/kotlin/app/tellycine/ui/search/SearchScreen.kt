@@ -61,6 +61,7 @@ import app.tellycine.data.repo.ProgrammeHit
 import app.tellycine.player.PlayRequest
 import app.tellycine.player.play
 import app.tellycine.ui.components.Artwork
+import app.tellycine.ui.components.SourceLabel
 import app.tellycine.ui.components.EmptyState
 import app.tellycine.ui.components.SectionHeader
 import app.tellycine.ui.components.formatDay
@@ -309,15 +310,6 @@ private fun supporting(text: String?, source: String?): (@Composable () -> Unit)
             text?.let { Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             source?.let { SourceLabel(it) }
         }
-    }
-}
-
-/** Which playlist a result is from. */
-@Composable
-private fun SourceLabel(name: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Icon(Icons.AutoMirrored.Filled.PlaylistPlay, "Playlist", Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-        Text(name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

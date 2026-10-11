@@ -58,7 +58,9 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
     val categories by vm.categories.collectAsStateWithLifecycle()
     val selected by vm.selectedCategory.collectAsStateWithLifecycle()
     val items = vm.items.collectAsLazyPagingItems()
-    val total = if (kind == ContentKind.MOVIE) session.active?.movieCount else session.active?.seriesCount
+    val scope by vm.scope.collectAsStateWithLifecycle()
+    val playlistFilter by vm.playlistFilter.collectAsStateWithLifecycle()
+    val total = scope.playlists.sumOf { if (kind == ContentKind.MOVIE) it.movieCount else it.seriesCount }
     val options = remember(categories, total) {
         categoryOptions(kind, categories, if (categories.isEmpty()) total else categories.sumOf { it.itemCount })
     }
@@ -80,7 +82,7 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
     Column(Modifier.fillMaxSize()) {
         TvHeader(
             title = title,
-            subtitle = session.active?.name,
+            subtitle = scope.label.takeIf { session.active != null },
             actions = {
                 if (session.active != null) {
                     TvActionButton(
@@ -105,7 +107,8 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
             items.itemCount == 0 -> TvEmptyState(
                 icon,
                 if (session.activeProgress != null) "Loading…" else "Nothing here",
-                session.activeProgress?.message ?: "This playlist has no ${title.lowercase()} in this category.",
+                session.activeProgress?.message
+                    ?: "${if (scope.combined) "These playlists have" else "This playlist has"} no ${title.lowercase()} in this category.",
                 body,
                 actionLabel = "Choose a category",
                 onAction = { showCategories = true },
@@ -128,7 +131,7 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
                         }
                     },
             ) {
-                items(items.itemCount, key = items.itemKey { it.streamId }) { index ->
+                items(items.itemCount, key = items.itemKey { "${it.playlistId}:${it.streamId}" }) { index ->
                     val item = items[index]
                     if (item == null) {
                         Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f))
@@ -139,6 +142,7 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
                             meta = listOfNotNull(item.year, item.genre?.substringBefore(',')).joinToString(" · "),
                             rating = item.rating,
                             onClick = { onOpen(item) },
+                            source = vm.sourceOf(item),
                             modifier = Modifier
                                 .onFocusChanged { if (it.hasFocus) lastFocused = index }
                                 .then(if (index == lastFocused) Modifier.focusRequester(gridFocus) else Modifier),
@@ -160,6 +164,11 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
                 showCategories = false
             },
             onDismiss = { showCategories = false },
+            playlists = playlistFilter,
+            onSelectPlaylists = {
+                vm.selectPlaylists(it)
+                showCategories = false
+            },
         )
     }
 }

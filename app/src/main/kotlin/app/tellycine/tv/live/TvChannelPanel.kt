@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Icon
 import androidx.tv.material3.ListItem
 import androidx.tv.material3.MaterialTheme
@@ -56,6 +57,7 @@ import app.tellycine.tv.components.RequestFocusOnStart
 import app.tellycine.tv.components.TvActionButton
 import app.tellycine.tv.components.TvDialog
 import app.tellycine.tv.components.TvSidePanel
+import app.tellycine.tv.components.TvSourceLabel
 import app.tellycine.ui.components.Artwork
 import app.tellycine.ui.components.formatDay
 import app.tellycine.ui.components.formatTime
@@ -70,12 +72,13 @@ import app.tellycine.ui.live.ScheduleState
 fun TvChannelPanel(
     state: ScheduleState,
     vm: LiveViewModel,
-    recordings: List<DvrRecording>,
+    recordings: Map<Long, List<DvrRecording>>,
     onShare: (label: String, url: String) -> Unit,
 ) {
     val context = LocalContext.current
     val row = state.channel
     val canRecord = vm.canRecord(row)
+    val showSource by vm.showSource.collectAsStateWithLifecycle()
     var favorite by remember(row.stream.streamId) { mutableStateOf(row.isFavorite) }
     val watch = remember { FocusRequester() }
     val now = remember(state.programmes) { System.currentTimeMillis() }
@@ -97,6 +100,7 @@ fun TvChannelPanel(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (showSource) vm.playlistOf(row)?.let { TvSourceLabel(it.name) }
                 if (state.catchup) {
                     val days = row.stream.catchupDays ?: 0
                     Text(
@@ -159,11 +163,11 @@ fun TvChannelPanel(
                 icon = Icons.AutoMirrored.Filled.OpenInNew,
             )
             TvActionButton(
-                if (vm.isDispatcharr()) "Dispatcharr URL" else "Stream URL",
+                if (vm.isDispatcharr(row)) "Dispatcharr URL" else "Stream URL",
                 onClick = { onShare(row.stream.name, row.stream.url) },
                 icon = Icons.Filled.Link,
             )
-            if (vm.isDispatcharr()) {
+            if (vm.isDispatcharr(row)) {
                 TvActionButton("Source URL", onClick = { vm.shareSourceUrl(row) }, icon = Icons.Filled.Link)
             }
         }

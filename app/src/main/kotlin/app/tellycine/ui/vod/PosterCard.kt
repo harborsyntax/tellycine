@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.tellycine.ui.components.Artwork
+import app.tellycine.ui.components.SourceLabel
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -35,6 +36,8 @@ fun PosterCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
+    /** The playlist the title is from, when the grid mixes playlists. */
+    source: String? = null,
 ) {
     val shape = RoundedCornerShape(16.dp)
     Surface(
@@ -80,6 +83,7 @@ fun PosterCard(
                         maxLines = 1,
                     )
                 }
+                source?.let { SourceLabel(it, Modifier.padding(top = 2.dp)) }
             }
         }
     }

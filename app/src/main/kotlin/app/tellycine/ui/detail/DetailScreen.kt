@@ -77,6 +77,7 @@ import app.tellycine.player.openTrailer
 import app.tellycine.player.play
 import app.tellycine.ui.components.Artwork
 import app.tellycine.ui.components.DetailBackdrop
+import app.tellycine.ui.components.SourceLabel
 import app.tellycine.ui.components.artworkTint
 import app.tellycine.ui.components.formatDuration
 import app.tellycine.ui.components.progress
@@ -309,6 +310,7 @@ private fun Header(info: DetailInfo, wide: Boolean) {
                     overflow = TextOverflow.Ellipsis,
                 )
                 MetaChips(info)
+                info.source?.let { SourceLabel(it) }
             }
         }
     }

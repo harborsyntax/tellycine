@@ -97,7 +97,8 @@ private const val SLOT = 30 * MINUTE
 
 private fun floorToSlot(ms: Long) = ms - Math.floorMod(ms, SLOT)
 
-private fun rowKey(row: ChannelRow) = "${row.stream.kind}:${row.stream.streamId}"
+// Stream ids can repeat across playlists, which the guide can show together.
+private fun rowKey(row: ChannelRow) = "${row.stream.playlistId}:${row.stream.kind}:${row.stream.streamId}"
 
 /**
  * Where the guide's focus is: a channel row, and a moment in time on it (the programme airing
