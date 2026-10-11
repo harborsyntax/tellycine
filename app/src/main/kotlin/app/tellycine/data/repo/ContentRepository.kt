@@ -11,6 +11,7 @@ import app.tellycine.data.db.HiddenCategoryEntity
 import app.tellycine.data.db.ChannelRow
 import app.tellycine.data.db.FavoriteEntity
 import app.tellycine.data.db.HistoryEntity
+import app.tellycine.data.db.NowPlaying
 import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.db.TellycineDatabase
@@ -114,35 +115,57 @@ class ContentRepository(db: TellycineDatabase) {
     }
 
     /**
-     * Pages live channels joined with their current programme. [now] is read whenever a
-     * new paging source is created, so invalidating the source refreshes "now playing".
-     */
-    fun channels(playlistId: Long, categoryId: String, now: () -> Long, onSource: (PagingSource<*, *>) -> Unit = {}): Flow<PagingData<ChannelRow>> =
-        Pager(pagingConfig) {
-            when (categoryId) {
-                Categories.ALL -> dao.pagedChannels(playlistId, now())
-                Categories.FAVORITES -> dao.pagedFavoriteChannels(playlistId, now())
-                else -> dao.pagedChannelsInCategory(playlistId, categoryId, now())
-            }.also(onSource)
-        }.flow
-
-    /**
-     * Live channels of one or more playlists. Several playlists' channels come one playlist after
-     * another, and their categories are merged ones ([Categories.named]).
+     * Live channels of one or more playlists, with what's on now on each as of [now] when a page
+     * loads: invalidating the source (see [onSource]) brings it up to date. Several playlists'
+     * channels come one playlist after another, and their categories are merged ones
+     * ([Categories.named]).
      */
     fun channels(playlistIds: List<Long>, categoryId: String, now: () -> Long, onSource: (PagingSource<*, *>) -> Unit = {}): Flow<PagingData<ChannelRow>> {
-        // A merged category goes on working while the section switches to a single playlist.
-        if (playlistIds.size == 1 && Categories.nameKeyOf(categoryId) == null) return channels(playlistIds[0], categoryId, now, onSource)
         if (playlistIds.isEmpty()) return flowOf(PagingData.empty())
-        return Pager(pagingConfig) {
-            val nameKey = Categories.nameKeyOf(categoryId)
-            when {
-                categoryId == Categories.FAVORITES -> dao.pagedFavoriteChannelsIn(playlistIds, now())
-                nameKey != null -> dao.pagedChannelsInNamedCategory(playlistIds, nameKey, now())
-                else -> dao.pagedChannelsIn(playlistIds, now())
-            }.also(onSource)
-        }.flow
+        return Pager(pagingConfig) { channelPages(playlistIds, categoryId, now).also(onSource) }.flow
     }
+
+    /** The paging source behind [channels]. */
+    fun channelPages(playlistIds: List<Long>, categoryId: String, now: () -> Long): PagingSource<Int, ChannelRow> {
+        val nameKey = Categories.nameKeyOf(categoryId)
+        // A merged category goes on working while the section switches to a single playlist.
+        val rows = if (playlistIds.size == 1 && nameKey == null) {
+            val playlistId = playlistIds[0]
+            when (categoryId) {
+                Categories.ALL -> dao.pagedChannels(playlistId)
+                Categories.FAVORITES -> dao.pagedFavoriteChannels(playlistId)
+                else -> dao.pagedChannelsInCategory(playlistId, categoryId)
+            }
+        } else {
+            when {
+                categoryId == Categories.FAVORITES -> dao.pagedFavoriteChannelsIn(playlistIds)
+                nameKey != null -> dao.pagedChannelsInNamedCategory(playlistIds, nameKey)
+                else -> dao.pagedChannelsIn(playlistIds)
+            }
+        }
+        return NowPlayingPages(rows) { withNowPlaying(it, now()) }
+    }
+
+    /** [rows] with what's on now ([now]) on each, looked up together for each playlist's channels. */
+    suspend fun withNowPlaying(rows: List<ChannelRow>, now: Long): List<ChannelRow> {
+        val found = rows.filter { it.stream.epgChannelId != null }
+            .groupBy { it.stream.playlistId }
+            .flatMap { (playlistId, group) ->
+                group.map { it.stream.streamId }.chunked(500)
+                    .flatMap { dao.nowPlaying(playlistId, it, now) }
+                    .map { (playlistId to it.streamId) to it }
+            }
+            .toMap()
+        return rows.map { row ->
+            found[row.stream.playlistId to row.stream.streamId]
+                ?.let { row.copy(nowTitle = it.nowTitle, nowStart = it.nowStart, nowStop = it.nowStop) }
+                ?: row
+        }
+    }
+
+    /** What's on [row]'s channel now, for a row on screen whose programme has ended. */
+    suspend fun nowPlaying(row: ChannelRow, now: Long): NowPlaying? =
+        if (row.stream.epgChannelId == null) null else dao.nowPlaying(row.stream.playlistId, listOf(row.stream.streamId), now).firstOrNull()
 
     /** Where [channel] comes in [channels] of [playlistIds] and [categoryId]: how many channels are before it. */
     suspend fun channelPosition(playlistIds: List<Long>, categoryId: String, channel: StreamEntity): Int {
