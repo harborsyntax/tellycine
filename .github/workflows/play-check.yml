@@ -29,7 +29,7 @@ jobs:
           PACKAGE: app.tellycine
         run: |
           python - <<'PY'
-          import json, os, sys
+          import base64, json, os, sys
           from google.auth.exceptions import RefreshError
           from google.auth.transport.requests import AuthorizedSession, Request
           from google.oauth2 import service_account
@@ -47,18 +47,40 @@ jobs:
               summary.write(f"\n**Failed:** {message}\n")
               sys.exit(1)
 
+          out("## Google Play connection check")
+          out()
+
           raw = os.environ.get("KEY", "").strip()
           if not raw:
               fail("The PLAY_SERVICE_ACCOUNT_JSON secret is missing or empty. Add the service account's JSON key under Settings > Secrets and variables > Actions.")
-          try:
-              key = json.loads(raw)
-          except ValueError:
-              fail("PLAY_SERVICE_ACCOUNT_JSON isn't valid JSON. Paste the whole key file, braces included.")
-          if key.get("type") != "service_account" or "private_key" not in key or "client_email" not in key:
+
+          def parse(text):
+              # strict=False lets real line breaks inside the private key through, as some editors add them.
+              try:
+                  return json.loads(text, strict=False), None
+              except ValueError as e:
+                  return None, e
+
+          key, error = parse(raw)
+          if key is None and not raw.startswith("{"):
+              # Also take the key base64-encoded, the way the keystore secret is stored.
+              try:
+                  key, _ = parse(base64.b64decode(raw).decode("utf-8").strip())
+              except Exception:
+                  pass
+              if key is not None:
+                  out("- The secret holds the key base64-encoded; that's fine.")
+          if key is None:
+              # Describe the secret's shape without showing any of it.
+              shape = ", ".join([
+                  f"{len(raw)} characters",
+                  "starts with {" if raw.startswith("{") else "doesn't start with {",
+                  "ends with }" if raw.endswith("}") else "doesn't end with }",
+              ])
+              fail(f"PLAY_SERVICE_ACCOUNT_JSON isn't valid JSON ({error}). The secret has {shape}. Paste the whole key file as downloaded, braces included.")
+          if not isinstance(key, dict) or key.get("type") != "service_account" or "private_key" not in key or "client_email" not in key:
               fail("PLAY_SERVICE_ACCOUNT_JSON is JSON but not a service account key (it needs type, client_email and private_key).")
 
-          out("## Google Play connection check")
-          out()
           out(f"- Service account: `{key['client_email']}`")
           out(f"- App: `{package}`")
 
