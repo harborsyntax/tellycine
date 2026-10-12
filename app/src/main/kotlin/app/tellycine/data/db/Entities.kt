@@ -6,6 +6,7 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import app.tellycine.core.ContentKind
+import java.util.Locale
 
 enum class PlaylistType { M3U_URL, M3U_FILE, XTREAM }
 
@@ -82,6 +83,11 @@ data class CategoryEntity(
         Index(value = ["playlistId", "kind", "sortOrder"]),
         Index(value = ["playlistId", "kind", "categoryId", "sortOrder"]),
         Index(value = ["playlistId", "epgChannelId"]),
+        // Movies and series sorted by date: see VodSort.
+        Index(value = ["playlistId", "kind", "addedAt"]),
+        Index(value = ["playlistId", "kind", "released"]),
+        Index(value = ["playlistId", "kind", "updatedAt"]),
+        Index(value = ["playlistId", "kind", "sortName"]),
     ],
 )
 data class StreamEntity(
@@ -102,7 +108,15 @@ data class StreamEntity(
     val year: String? = null,
     val plot: String? = null,
     val genre: String? = null,
+    /**
+     * When the provider added it, or for movies and series without that date, when Tellycine first
+     * saw it (kept across refreshes).
+     */
     val addedAt: Long? = null,
+    /** When the provider last changed it: for a series, usually when an episode was added. */
+    val updatedAt: Long? = null,
+    /** Its release date: "2023-05-01", or "2023" when only the year is known. */
+    val released: String? = null,
     /** Days of archive available for catch-up; null or 0 when unsupported. */
     val catchupDays: Int? = null,
     /** M3U catch-up method (`default`, `append`, `shift`, `flussonic`); unused for Xtream. */
@@ -112,7 +126,14 @@ data class StreamEntity(
     val backdrop: String? = null,
     val userAgent: String? = null,
     val referrer: String? = null,
-)
+    /** For movies and series, the name as A–Z sorts it ([sortNameOf]). */
+    val sortName: String? = if (kind == ContentKind.LIVE) null else sortNameOf(name),
+) {
+    companion object {
+        /** [name] as A–Z sorts it: without surrounding spaces and in lower case, so case doesn't matter. */
+        fun sortNameOf(name: String): String = name.trim().lowercase(Locale.ROOT)
+    }
+}
 
 /** Episodes of M3U-sourced series (Xtream episodes come from `get_series_info`). */
 @Entity(

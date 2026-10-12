@@ -85,10 +85,16 @@ import app.tellycine.data.net.UserAgentPreset
 import app.tellycine.data.net.UserAgents
 import app.tellycine.AppContainer
 import app.tellycine.core.xtream.XtreamUrls
+import app.tellycine.data.repo.XtreamOffer
 import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.PlaylistType
 import app.tellycine.ui.components.tellycineViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -130,6 +136,43 @@ data class PlaylistForm(
         type == PlaylistType.M3U_URL && Regex("(?i)^https?://[^/]+/output/m3u(/|\\?|$)").containsMatchIn(url.trim())
 }
 
+/** A link worth asking its server about. */
+private val LINK = Regex("""(?i)^https?://[^/?#\s]+.*""")
+
+/** What an M3U link's server offers of Xtream Codes, once [XtreamFinder] has checked the link [url]. */
+data class XtreamCheck(val url: String, val offer: XtreamOffer?)
+
+/** A suggestion to use Xtream Codes instead of an M3U link. */
+data class XtreamHint(val message: String, val offer: XtreamOffer)
+
+/**
+ * The suggestion for the M3U link in [form], if any: from the [check] of its server once there is
+ * one, or until then (or if the server couldn't be reached) from the shape of the link.
+ */
+fun xtreamHint(form: PlaylistForm, check: XtreamCheck?): XtreamHint? {
+    if (form.type != PlaylistType.M3U_URL || form.looksLikeDispatcharrM3u) return null
+    val checked = check?.takeIf { it.url == form.url.trim() }
+    val offer = checked?.offer
+    return when {
+        offer?.loginWorks == true -> XtreamHint(
+            "Your provider also offers Xtream Codes, and this link's login works with it. " +
+                "Use it for movie and series details, catch-up and sorting by date.",
+            offer,
+        )
+        offer != null -> XtreamHint(
+            "Your provider's server also offers Xtream Codes. Use your Xtream login (often the same as in " +
+                "your M3U link) for movie and series details, catch-up and sorting by date.",
+            offer,
+        )
+        // Checked: no Xtream Codes there.
+        checked != null -> null
+        else -> form.detectedXtream?.let { (server, user, pass) ->
+            XtreamHint("This looks like an Xtream Codes link. Its API gives movie and series details, catch-up and more.", XtreamOffer(server, user, pass, loginWorks = false))
+        }
+    }
+}
+
+@OptIn(FlowPreview::class)
 class EditPlaylistViewModel(private val container: AppContainer, private val editId: Long?) : ViewModel() {
     /** The saved playlist being edited (live, so DVR connection changes show immediately). */
     val existing: StateFlow<PlaylistEntity?> = container.playlists.playlists
@@ -190,9 +233,36 @@ class EditPlaylistViewModel(private val container: AppContainer, private val edi
 
     fun update(transform: (PlaylistForm) -> PlaylistForm) = _form.update { transform(it).copy(error = null) }
 
-    fun convertToXtream() {
-        val (server, user, pass) = _form.value.detectedXtream ?: return
-        update { it.copy(type = PlaylistType.XTREAM, server = server, username = user, password = pass) }
+    private val _xtream = MutableStateFlow<XtreamCheck?>(null)
+
+    /** The latest check of the M3U link's server for Xtream Codes (see [xtreamHint]). */
+    val xtream: StateFlow<XtreamCheck?> = _xtream.asStateFlow()
+
+    init {
+        // Once the link has been typed or pasted, ask its server about Xtream Codes.
+        viewModelScope.launch {
+            _form.map { f -> f.url.trim().takeIf { f.type == PlaylistType.M3U_URL && !f.looksLikeDispatcharrM3u && LINK.matches(it) } }
+                .distinctUntilChanged()
+                .debounce(700)
+                .collectLatest { url ->
+                    if (url == null) return@collectLatest
+                    val f = _form.value
+                    val offer = try {
+                        container.xtreamFinder.check(url, f.userAgentPreset?.value ?: f.userAgent.trim())
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        // Unreachable for now: the link's shape is all there is to go on.
+                        return@collectLatest
+                    }
+                    _xtream.value = XtreamCheck(url, offer)
+                }
+        }
+    }
+
+    /** Switches to Xtream Codes with [offer]'s server and login (the user fills in a missing login). */
+    fun useXtream(offer: XtreamOffer) {
+        update { it.copy(type = PlaylistType.XTREAM, server = offer.server, username = offer.username, password = offer.password) }
     }
 
     fun save() {
@@ -255,6 +325,7 @@ class EditPlaylistViewModel(private val container: AppContainer, private val edi
 fun EditPlaylistScreen(editId: Long?, onDone: () -> Unit, onManageCategories: (Long) -> Unit) {
     val vm = tellycineViewModel(key = "edit-$editId") { c, _ -> EditPlaylistViewModel(c, editId) }
     val form by vm.form.collectAsStateWithLifecycle()
+    val xtream by vm.xtream.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showPassword by rememberSaveable { mutableStateOf(false) }
     var advanced by rememberSaveable { mutableStateOf(false) }
@@ -334,11 +405,8 @@ fun EditPlaylistScreen(editId: Long?, onDone: () -> Unit, onManageCategories: (L
                                 },
                             )
                         }
-                        if (form.detectedXtream != null) {
-                            AssistChip(
-                                onClick = vm::convertToXtream,
-                                label = { Text("This looks like an Xtream Codes link – use the API for movies & series details") },
-                            )
+                        xtreamHint(form, xtream)?.let { hint ->
+                            AssistChip(onClick = { vm.useXtream(hint.offer) }, label = { Text(hint.message) })
                         }
                     }
                     PlaylistType.M3U_FILE -> {

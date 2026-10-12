@@ -10,11 +10,17 @@
 </h1>
 
 <p align="center">
+  <img src="branding/play-store-coming-soon.svg" width="200" alt="Coming soon to Google Play">
+</p>
+
+<p align="center">
   An IPTV player for Android phones, tablets and TVs, built with a Material 3 UI.
   <br><br>
   <a href="https://github.com/harborsyntax/tellycine/releases/latest"><b>Download the latest APK</b></a>
   &nbsp;·&nbsp;
   <a href="docs/Home.md"><b>Documentation</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/harborsyntax/tellycine/issues"><b>Report a bug or suggest a feature</b></a>
 </p>
 
 <p align="center">
@@ -50,6 +56,17 @@ Tellycine is a player only. It doesn't provide any channels or content; you add 
 <p align="center">
   <img src="docs/images/screens/tv-guide.png" width="640" alt="Android TV guide">
 </p>
+
+## Bugs and ideas
+
+Found a bug, or have an idea for a feature? Please [open an issue on GitHub](https://github.com/harborsyntax/tellycine/issues/new). Before you do, check whether [someone has already raised it](https://github.com/harborsyntax/tellycine/issues): if so, add a 👍 or your details there instead.
+
+For a bug, it helps to include:
+
+- what you did, what happened, and what you expected to happen;
+- your device (phone, tablet or TV, and its model) and Android version;
+- the app version, from **Settings** (shown at the bottom);
+- your playlist type (M3U link or file, Xtream Codes or Dispatcharr). Please don't post your playlist link, login or any stream addresses.
 
 ## Documentation
 

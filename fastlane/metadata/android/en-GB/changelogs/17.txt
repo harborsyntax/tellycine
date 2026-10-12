@@ -1,0 +1,3 @@
+• Sort movies and series by date added, release date, A–Z or (series) latest episode
+• Adding an M3U link now suggests Xtream Codes when its server offers it
+• Long movie and series lists open faster

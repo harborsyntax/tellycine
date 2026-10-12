@@ -1,5 +1,6 @@
 package app.tellycine.core
 
+import app.tellycine.core.xtream.XtreamApi
 import app.tellycine.core.xtream.XtreamCategory
 import app.tellycine.core.xtream.XtreamItem
 import app.tellycine.core.xtream.XtreamParser
@@ -36,7 +37,7 @@ class XtreamParserTest {
               {"num":"2","name":"Movie","stream_id":"202","stream_icon":"http://i","rating_5based":4.5,
                "container_extension":"mkv","category_id":null,"tv_archive":"0"},
               {"name":"Series","series_id":303,"cover":"http://c","plot":"p","releaseDate":"2019-02-02",
-               "backdrop_path":["http://b"]}
+               "last_modified":"1710000000","backdrop_path":["http://b"]}
             ]""".reader()
         ) { items += it }
 
@@ -50,6 +51,11 @@ class XtreamParserTest {
         assertNull(items[1].catchupDays)
         assertEquals("303", items[2].id)
         assertEquals("2019", items[2].year)
+        // A series' last change (usually a new episode) isn't when it was added.
+        assertNull(items[2].addedMs)
+        assertEquals(1710000000000L, items[2].updatedMs)
+        assertEquals("2019-02-02", items[2].released)
+        assertNull(items[1].released)
         assertEquals("http://b", items[2].backdrop)
     }
 
@@ -104,5 +110,19 @@ class XtreamParserTest {
             XtreamUrls.fromM3uUrl("http://h:80/get.php?username=a&password=b&type=m3u_plus&output=ts"),
         )
         assertEquals("https://h", XtreamUrls.normaliseServer("https://h/"))
+        // XUI.one's playlist links carry the login in the path.
+        assertEquals(Triple("http://h:8080", "a b", "c"), XtreamUrls.fromM3uUrl("http://h:8080/playlist/a%20b/c/m3u_plus?output=hls"))
+        assertNull(XtreamUrls.fromM3uUrl("http://h/lists/mine.m3u"))
+        assertEquals("http://h:8080", XtreamUrls.origin("http://h:8080/lists/mine.m3u?x=1"))
+    }
+
+    @Test
+    fun tellsWhetherAServerHasAnXtreamApi() {
+        assertEquals(XtreamApi.WORKS, parser.apiStatus("""{"user_info":{"auth":1,"status":"Active"},"server_info":{}}"""))
+        assertEquals(XtreamApi.OFFERED, parser.apiStatus("""{"user_info":{"auth":0}}"""))
+        assertEquals(XtreamApi.OFFERED, parser.apiStatus("""{"user_info":[]}"""))
+        assertEquals(XtreamApi.NONE, parser.apiStatus("#EXTM3U\n#EXTINF:-1,Channel"))
+        assertEquals(XtreamApi.NONE, parser.apiStatus("""{"error":"not found"}"""))
+        assertEquals(XtreamApi.NONE, parser.apiStatus(""))
     }
 }

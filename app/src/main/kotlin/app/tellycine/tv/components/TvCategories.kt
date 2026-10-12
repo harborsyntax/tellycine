@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -152,4 +153,40 @@ private fun PanelHeading(text: String, modifier: Modifier = Modifier) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier.padding(start = 12.dp, bottom = 4.dp),
     )
+}
+
+/** Side panel to pick one of [choices] (such as the order of a list), opening on the [selected] one. */
+@Composable
+fun <T> TvChoicePanel(
+    title: String,
+    choices: List<T>,
+    selected: T,
+    label: (T) -> String,
+    onSelect: (T) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val focus = remember { FocusRequester() }
+    var focusOnTarget by remember { mutableStateOf(false) }
+    TvSidePanel(onDismiss = onDismiss, width = 400.dp) {
+        Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(bottom = 12.dp))
+        choices.forEach { choice ->
+            val current = choice == selected
+            ListItem(
+                selected = current,
+                onClick = { onSelect(choice) },
+                headlineContent = { Text(label(choice)) },
+                trailingContent = if (current) ({ Icon(Icons.Filled.Check, "Current") }) else null,
+                modifier = Modifier.fillMaxWidth().then(
+                    if (current) Modifier.focusRequester(focus).onFocusChanged { focusOnTarget = it.hasFocus } else Modifier
+                ),
+            )
+        }
+    }
+    // As in TvCategoryPanel: the panel's window can take focus to its first row as it opens.
+    LaunchedEffect(Unit) {
+        repeat(12) {
+            withFrameNanos { }
+            if (!focusOnTarget) runCatching { focus.requestFocus() }
+        }
+    }
 }

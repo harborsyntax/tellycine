@@ -5,7 +5,9 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.RawQuery
 import androidx.room.Upsert
+import androidx.sqlite.db.SupportSQLiteQuery
 import app.tellycine.core.ContentKind
 import kotlinx.coroutines.flow.Flow
 
@@ -13,7 +15,7 @@ import kotlinx.coroutines.flow.Flow
  * Excludes streams (aliased `s`) whose category the user hid for this playlist.
  * Streams without a category are always visible.
  */
-private const val VISIBLE =
+internal const val VISIBLE =
     "NOT EXISTS (SELECT 1 FROM hidden_categories h WHERE h.playlistId = s.playlistId AND h.kind = s.kind AND h.categoryId = s.categoryId)"
 
 /** What's on now on a channel (aliased `s`), and whether it's a favourite, as [ChannelRow] wants them. */
@@ -273,33 +275,13 @@ interface ContentDao {
 
     // ---- Movies / series ----
 
-    @Query("SELECT * FROM streams s WHERE s.playlistId = :playlistId AND s.kind = :kind AND " + VISIBLE + " ORDER BY s.sortOrder")
-    fun pagedItems(playlistId: Long, kind: ContentKind): PagingSource<Int, StreamEntity>
+    /** A page of movies or series, from a query built by [app.tellycine.data.repo.ItemQueries]. */
+    @RawQuery
+    suspend fun items(query: SupportSQLiteQuery): List<StreamEntity>
 
-    @Query("SELECT * FROM streams WHERE playlistId = :playlistId AND kind = :kind AND categoryId = :categoryId ORDER BY sortOrder")
-    fun pagedItemsInCategory(playlistId: Long, kind: ContentKind, categoryId: String): PagingSource<Int, StreamEntity>
-
-    @Query(
-        """SELECT s.* FROM streams s INNER JOIN favorites f
-             ON f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId
-           WHERE s.playlistId = :playlistId AND s.kind = :kind AND """ + VISIBLE + """ ORDER BY f.addedAt DESC"""
-    )
-    fun pagedFavoriteItems(playlistId: Long, kind: ContentKind): PagingSource<Int, StreamEntity>
-
-    @Query("SELECT * FROM streams s WHERE s.playlistId IN (:playlistIds) AND s.kind = :kind AND " + VISIBLE + " ORDER BY s.playlistId, s.sortOrder")
-    fun pagedItemsIn(playlistIds: List<Long>, kind: ContentKind): PagingSource<Int, StreamEntity>
-
-    @Query(
-        "SELECT s.* " + FROM_NAMED_CATEGORY + " AND c.kind = :kind AND " + VISIBLE + " ORDER BY s.playlistId, s.sortOrder"
-    )
-    fun pagedItemsInNamedCategory(playlistIds: List<Long>, kind: ContentKind, nameKey: String): PagingSource<Int, StreamEntity>
-
-    @Query(
-        """SELECT s.* FROM streams s INNER JOIN favorites f
-             ON f.playlistId = s.playlistId AND f.kind = s.kind AND f.streamId = s.streamId
-           WHERE s.playlistId IN (:playlistIds) AND s.kind = :kind AND """ + VISIBLE + """ ORDER BY f.addedAt DESC"""
-    )
-    fun pagedFavoriteItemsIn(playlistIds: List<Long>, kind: ContentKind): PagingSource<Int, StreamEntity>
+    /** How many there are in a list of movies or series ([app.tellycine.data.repo.ItemQueries]). */
+    @RawQuery
+    suspend fun countItems(query: SupportSQLiteQuery): Int
 
     @Query(
         """SELECT s.* FROM streams s INNER JOIN favorites f

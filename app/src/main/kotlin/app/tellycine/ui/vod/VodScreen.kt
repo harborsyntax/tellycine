@@ -13,21 +13,33 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -39,6 +51,7 @@ import androidx.paging.compose.itemKey
 import app.tellycine.core.ContentKind
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.repo.Categories
+import app.tellycine.data.settings.VodSort
 import app.tellycine.ui.components.CategoryChips
 import app.tellycine.ui.components.CategoryPane
 import app.tellycine.ui.components.EmptyState
@@ -69,6 +82,16 @@ fun VodScreen(
     val title = if (kind == ContentKind.MOVIE) "Movies" else "Series"
     val icon = if (kind == ContentKind.MOVIE) Icons.Filled.Movie else Icons.Filled.VideoLibrary
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val sort by vm.sort.collectAsStateWithLifecycle()
+    val gridState = rememberLazyGridState()
+    // A new order starts from the top.
+    var shownSort by rememberSaveable { mutableStateOf(sort) }
+    LaunchedEffect(sort) {
+        if (sort != shownSort) {
+            shownSort = sort
+            gridState.scrollToItem(0)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -79,6 +102,7 @@ fun VodScreen(
                 scrollBehavior = scrollBehavior,
                 // With more than one playlist, the choice is beside the categories instead.
                 showPlaylist = playlistFilter == null,
+                actions = { if (session.active != null) SortMenu(sort, vm.sortChoices, vm::setSort) },
             )
         },
         contentWindowInsets = WindowInsets(0),
@@ -105,6 +129,7 @@ fun VodScreen(
                     )
                     else -> LazyVerticalGrid(
                         columns = GridCells.Adaptive(if (maxWidth >= 600.dp) 150.dp else 112.dp),
+                        state = gridState,
                         contentPadding = PaddingValues(12.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -142,6 +167,27 @@ fun VodScreen(
                     CategoryChips(options, selected, vm::selectCategory, Modifier.padding(bottom = 4.dp), playlistFilter, vm::selectPlaylists)
                     grid(Modifier.weight(1f))
                 }
+            }
+        }
+    }
+}
+
+/** The Sort button, with a menu of the orders to choose from. */
+@Composable
+private fun SortMenu(sort: VodSort, choices: List<VodSort>, onSelect: (VodSort) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) { Icon(Icons.AutoMirrored.Filled.Sort, "Sort: ${sort.label}") }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            choices.forEach { choice ->
+                DropdownMenuItem(
+                    text = { Text(choice.label) },
+                    onClick = {
+                        open = false
+                        onSelect(choice)
+                    },
+                    trailingIcon = if (choice == sort) ({ Icon(Icons.Filled.Check, "Current") }) else null,
+                )
             }
         }
     }

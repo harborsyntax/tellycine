@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Movie
@@ -42,6 +43,7 @@ import app.tellycine.data.repo.Categories
 import app.tellycine.tv.components.RequestFocusOnStart
 import app.tellycine.tv.components.TvActionButton
 import app.tellycine.tv.components.TvCategoryPanel
+import app.tellycine.tv.components.TvChoicePanel
 import app.tellycine.tv.components.TvEmptyState
 import app.tellycine.tv.components.TvHeader
 import app.tellycine.tv.components.TvPosterCard
@@ -68,6 +70,8 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
     val title = if (kind == ContentKind.MOVIE) "Movies" else "Series"
     val icon = if (kind == ContentKind.MOVIE) Icons.Filled.Movie else Icons.Filled.VideoLibrary
     var showCategories by remember { mutableStateOf(false) }
+    val sort by vm.sort.collectAsStateWithLifecycle()
+    var showSort by remember { mutableStateOf(false) }
     val gridFocus = remember { FocusRequester() }
     val gridState = rememberLazyGridState()
     // The poster last focused, so coming back from a title's page lands on it again.
@@ -76,6 +80,15 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
     LaunchedEffect(selected) {
         if (selected != shownCategory) {
             shownCategory = selected
+            gridState.scrollToItem(0)
+        }
+    }
+    // A new order starts from the top too.
+    var shownSort by rememberSaveable { mutableStateOf(sort) }
+    LaunchedEffect(sort) {
+        if (sort != shownSort) {
+            shownSort = sort
+            lastFocused = 0
             gridState.scrollToItem(0)
         }
     }
@@ -91,6 +104,7 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
                         onClick = { showCategories = true },
                         icon = Icons.Filled.Category,
                     )
+                    TvActionButton(sort.label, onClick = { showSort = true }, icon = Icons.AutoMirrored.Filled.Sort)
                 }
             },
         )
@@ -155,6 +169,20 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
         }
     }
     RequestFocusOnStart(gridFocus, items.itemCount > 0)
+
+    if (showSort) {
+        TvChoicePanel(
+            title = if (kind == ContentKind.MOVIE) "Sort movies" else "Sort series",
+            choices = vm.sortChoices,
+            selected = sort,
+            label = { it.label },
+            onSelect = {
+                vm.setSort(it)
+                showSort = false
+            },
+            onDismiss = { showSort = false },
+        )
+    }
 
     if (showCategories) {
         TvCategoryPanel(

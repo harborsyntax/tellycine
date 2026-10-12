@@ -11,6 +11,7 @@ import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.repo.Categories
 import app.tellycine.data.repo.PlaylistFilter
 import app.tellycine.data.repo.PlaylistScope
+import app.tellycine.data.settings.VodSort
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,8 +55,17 @@ class VodViewModel(private val container: AppContainer, val kind: ContentKind) :
         .flatMapLatest { ids -> content.categories(ids, kind) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val items: Flow<PagingData<StreamEntity>> = combine(scopeIds, _selected) { ids, cat -> ids to cat }
-        .flatMapLatest { (ids, cat) -> content.items(ids, kind, cat) }
+    /** The order titles are shown in, and the choices for this tab. */
+    val sort: StateFlow<VodSort> = container.settings.settings.map { it.vodSort(kind) }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, VodSort.PROVIDER)
+    val sortChoices: List<VodSort> = VodSort.choices(kind)
+
+    fun setSort(sort: VodSort) {
+        viewModelScope.launch { container.settings.setVodSort(kind, sort) }
+    }
+
+    val items: Flow<PagingData<StreamEntity>> = combine(scopeIds, _selected, sort) { ids, cat, order -> Triple(ids, cat, order) }
+        .flatMapLatest { (ids, cat, order) -> content.items(ids, kind, cat, order) }
         .cachedIn(viewModelScope)
 
     init {
