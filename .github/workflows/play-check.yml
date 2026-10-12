@@ -6,7 +6,9 @@ name: Google Play check
 on:
   workflow_dispatch:
   push:
-    paths: [ ".github/workflows/play-check.yml" ]
+    paths:
+      - ".github/workflows/play-check.yml"
+      - ".github/scripts/**"
 
 permissions:
   contents: read
@@ -16,132 +18,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install Google's auth library
-        run: pip install --quiet google-auth requests
+      - name: Install Google's API client
+        run: pip install --quiet -r .github/scripts/requirements.txt
 
       - name: Connect to Play Console
         env:
-          KEY: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          PACKAGE: app.tellycine
-        run: |
-          python - <<'PY'
-          import base64, json, os, sys
-          from google.auth.exceptions import RefreshError
-          from google.auth.transport.requests import AuthorizedSession, Request
-          from google.oauth2 import service_account
-
-          package = os.environ["PACKAGE"]
-          api = f"https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{package}"
-          summary = open(os.environ["GITHUB_STEP_SUMMARY"], "a")
-
-          def out(line=""):
-              print(line)
-              summary.write(line + "\n")
-
-          def fail(message):
-              print(f"::error::{message}")
-              summary.write(f"\n**Failed:** {message}\n")
-              sys.exit(1)
-
-          out("## Google Play connection check")
-          out()
-
-          raw = os.environ.get("KEY", "").strip()
-          if not raw:
-              fail("The PLAY_SERVICE_ACCOUNT_JSON secret is missing or empty. Add the service account's JSON key under Settings > Secrets and variables > Actions.")
-
-          def parse(text):
-              # strict=False lets real line breaks inside the private key through, as some editors add them.
-              try:
-                  return json.loads(text, strict=False), None
-              except ValueError as e:
-                  return None, e
-
-          key, error = parse(raw)
-          if key is None and not raw.startswith("{"):
-              # Also take the key base64-encoded, the way the keystore secret is stored.
-              try:
-                  key, _ = parse(base64.b64decode(raw).decode("utf-8").strip())
-              except Exception:
-                  pass
-              if key is not None:
-                  out("- The secret holds the key base64-encoded; that's fine.")
-          if key is None:
-              # Describe the secret's shape without showing any of it.
-              shape = ", ".join([
-                  f"{len(raw)} characters",
-                  "starts with {" if raw.startswith("{") else "doesn't start with {",
-                  "ends with }" if raw.endswith("}") else "doesn't end with }",
-              ])
-              fail(f"PLAY_SERVICE_ACCOUNT_JSON isn't valid JSON ({error}). The secret has {shape}. Paste the whole key file as downloaded, braces included.")
-          if not isinstance(key, dict) or key.get("type") != "service_account" or "private_key" not in key or "client_email" not in key:
-              fail("PLAY_SERVICE_ACCOUNT_JSON is JSON but not a service account key (it needs type, client_email and private_key).")
-
-          out(f"- Service account: `{key['client_email']}`")
-          out(f"- App: `{package}`")
-
-          creds = service_account.Credentials.from_service_account_info(
-              key, scopes=["https://www.googleapis.com/auth/androidpublisher"])
-          try:
-              creds.refresh(Request())
-          except RefreshError as e:
-              fail(f"Google refused the key ({e}). It may have been deleted, or the service account disabled: create a new JSON key and update the secret.")
-          out("- Key accepted by Google ✅")
-
-          session = AuthorizedSession(creds)
-
-          def call(method, path):
-              r = session.request(method, api + path, timeout=30)
-              if r.status_code >= 400:
-                  try:
-                      message = r.json()["error"]["message"]
-                  except Exception:
-                      message = r.text[:300]
-                  return None, r.status_code, message
-              return (r.json() if r.content else {}), r.status_code, None
-
-          edit, status, message = call("POST", "/edits")
-          if edit is None:
-              if "has not been used" in message or "is disabled" in message:
-                  hint = "Turn on the Google Play Android Developer API in the service account's Google Cloud project, wait a few minutes and run this again."
-              elif status in (401, 403):
-                  hint = "In Play Console > Users and permissions, invite the service account's email above and give it access to Tellycine. New permissions can take a while to start working."
-              elif status == 404:
-                  hint = f"This account can't see an app with the package name {package} in Play Console."
-              else:
-                  hint = ""
-              fail(f"Play Console refused access ({status}: {message}). {hint}")
-          out("- Play Console access to the app ✅")
-
-          edit_id = edit["id"]
-          try:
-              tracks, _, message = call("GET", f"/edits/{edit_id}/tracks")
-              if tracks is None:
-                  fail(f"Couldn't read the release tracks: {message}")
-              out()
-              out("### Tracks")
-              out()
-              out("| Track (API name) | Release | Version codes | Status |")
-              out("|---|---|---|---|")
-              for track in tracks.get("tracks", []):
-                  for release in track.get("releases") or [{}]:
-                      codes = ", ".join(release.get("versionCodes", [])) or "—"
-                      out(f"| `{track['track']}` | {release.get('name', '—')} | {codes} | {release.get('status', '—')} |")
-
-              listings, _, message = call("GET", f"/edits/{edit_id}/listings")
-              out()
-              if listings is None:
-                  out(f"Couldn't read the store listing: {message}")
-              else:
-                  languages = ", ".join(l["language"] for l in listings.get("listings", [])) or "none"
-                  out(f"Store listing languages: {languages}")
-          finally:
-              call("DELETE", f"/edits/{edit_id}")
-
-          out()
-          out("Nothing was changed in Play Console: the check opened a temporary edit, read it and threw it away.")
-          PY
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: python .github/scripts/play.py check

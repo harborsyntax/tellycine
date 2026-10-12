@@ -49,7 +49,15 @@ The **Screenshots** workflow does both on GitHub Actions (run it from the Action
 - **Release:**
   - **When it runs:** on pushes to `main`. If `versionName` in `app/build.gradle.kts` hasn't been released yet, it builds, verifies the signatures and publishes `v<versionName>` with the APK, a SHA-256 file and the app bundle for Google Play.
   - **Release notes:** highlights come from `release-notes/v<version>.md`.
-  - **To release:** bump `versionName` and `versionCode` in a PR, add the release notes, and merge.
+  - **Google Play:** a second job then uploads the app bundle to Google Play's closed testing track and sends it for review (see [Google Play](#google-play)).
+  - **To release:** bump `versionName` and `versionCode` in a PR, add the release notes and the Play changelog, and merge.
+
+## Google Play
+- **What's new:** the Play changelog for each version is `fastlane/metadata/android/en-GB/changelogs/<versionCode>.txt`, up to 500 characters. The Release workflow checks it before publishing anything.
+- **Upload:** the Release workflow's **google-play** job (`.github/scripts/play.py`) uploads the bundle to the track in `PLAY_TRACK` (`alpha`, closed testing), with that changelog, and sends it for review. A newer version replaces one still in review. Once Google approves it, it reaches testers.
+- **If it fails:** the GitHub release is already out. Fix the cause, then use **Re-run failed jobs** on the run. It carries on where it stopped, and does nothing if the version is already on the track.
+- **Access:** it signs in as a Google Cloud service account whose JSON key is the repository secret `PLAY_SERVICE_ACCOUNT_JSON`. In Play Console, under **Users and permissions**, that account has access to Tellycine with **Release to testing tracks**.
+- **Checking the connection:** the **Google Play check** workflow (run it from the Actions tab) signs in, lists the tracks with their API names and changes nothing.
 
 ## Signing
 - **Secrets:** releases are signed with the permanent Tellycine key from the repository secrets `TELLYCINE_KEYSTORE_BASE64`, `TELLYCINE_KEYSTORE_PASSWORD`, `TELLYCINE_KEY_ALIAS` and `TELLYCINE_KEY_PASSWORD`.
