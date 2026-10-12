@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Movie
@@ -53,6 +52,8 @@ import app.tellycine.ui.components.categoryOptions
 import app.tellycine.ui.components.tellycineViewModel
 import app.tellycine.ui.home.SessionState
 import app.tellycine.ui.vod.VodViewModel
+import app.tellycine.ui.vod.arrow
+import app.tellycine.ui.vod.scrollToTopOnceLoaded
 
 /** Movies or series as a poster grid, one category at a time. Left from the first column opens the categories. */
 @Composable
@@ -80,7 +81,7 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
     LaunchedEffect(selected) {
         if (selected != shownCategory) {
             shownCategory = selected
-            gridState.scrollToItem(0)
+            gridState.scrollToTopOnceLoaded(items)
         }
     }
     // A new order starts from the top too.
@@ -89,7 +90,7 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
         if (sort != shownSort) {
             shownSort = sort
             lastFocused = 0
-            gridState.scrollToItem(0)
+            gridState.scrollToTopOnceLoaded(items)
         }
     }
 
@@ -104,7 +105,8 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
                         onClick = { showCategories = true },
                         icon = Icons.Filled.Category,
                     )
-                    TvActionButton(sort.label, onClick = { showSort = true }, icon = Icons.AutoMirrored.Filled.Sort)
+                    // The arrow shows which way round: down for newest first or Z–A.
+                    TvActionButton(sort.sort.label, onClick = { showSort = true }, icon = sort.arrow)
                 }
             },
         )
@@ -174,13 +176,12 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
         TvChoicePanel(
             title = if (kind == ContentKind.MOVIE) "Sort movies" else "Sort series",
             choices = vm.sortChoices,
-            selected = sort,
+            selected = sort.sort,
             label = { it.label },
-            onSelect = {
-                vm.setSort(it)
-                showSort = false
-            },
+            // Pressing the current order turns it round, so the panel stays open to show that.
+            onSelect = vm::pressSort,
             onDismiss = { showSort = false },
+            selectedIcon = sort.arrow to sort.direction,
         )
     }
 

@@ -2,6 +2,8 @@ package app.tellycine.data.settings
 
 import android.content.Context
 import app.tellycine.core.ContentKind
+import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -11,6 +13,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.io.Serializable
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
@@ -26,18 +29,43 @@ enum class TvTheme(val label: String, val description: String) {
 /** Ordering for the Library's favourites and history rows. */
 enum class LibrarySort { RECENT, NAME_ASC, NAME_DESC, PLAYLIST_ORDER }
 
-/** The order of movies or series. [UPDATED] is for series only ([choices]). */
-enum class VodSort(val label: String) {
-    PROVIDER("Provider order"),
-    ADDED("Date added"),
-    RELEASED("Release date"),
-    UPDATED("Latest episode"),
-    NAME("A–Z"),
+/**
+ * What movies or series are sorted by. [UPDATED] is for series only ([choices]). Each starts in its
+ * usual direction: dates newest first ([descendingFirst]), titles A–Z and the provider's order as listed.
+ */
+enum class VodSort(val label: String, val descendingFirst: Boolean) {
+    ADDED("Date added", true),
+    RELEASED("Release date", true),
+    UPDATED("Latest episode", true),
+    NAME("Title", false),
+    PROVIDER("Provider order", false),
     ;
 
     companion object {
         /** The orders offered for movies or series ([kind]). */
         fun choices(kind: ContentKind): List<VodSort> = if (kind == ContentKind.SERIES) entries else entries - UPDATED
+    }
+}
+
+/** The order of movies or series: what they're sorted by, and which way round. */
+data class VodOrder(val sort: VodSort, val descending: Boolean = sort.descendingFirst) : Serializable {
+    /** After pressing [choice]: the current one turns round; another starts in its usual direction. */
+    fun press(choice: VodSort): VodOrder = if (choice == sort) copy(descending = !descending) else VodOrder(choice)
+
+    /** The direction in words, such as "newest first". */
+    val direction: String
+        get() = when (sort) {
+            VodSort.NAME -> if (descending) "Z to A" else "A to Z"
+            VodSort.PROVIDER -> if (descending) "reversed" else "as listed"
+            else -> if (descending) "newest first" else "oldest first"
+        }
+
+    companion object {
+        /** Until one is chosen: newest additions first. */
+        val DEFAULT = VodOrder(VodSort.ADDED)
+
+        /** The order for [kind] from the [chosen] one, if it's offered there. */
+        fun of(kind: ContentKind, chosen: VodOrder?): VodOrder = chosen?.takeIf { it.sort in VodSort.choices(kind) } ?: DEFAULT
     }
 }
 
@@ -80,10 +108,10 @@ data class AppSettings(
     val sectionPlaylists: Map<ContentKind, Long> = emptyMap(),
     /** The order of Live TV's categories. */
     val liveCategorySort: CategorySort = CategorySort.PROVIDER,
-    /** The order of movies, and of series. */
-    val vodSorts: Map<ContentKind, VodSort> = emptyMap(),
+    /** The order of movies, and of series, as last chosen. */
+    val vodSorts: Map<ContentKind, VodOrder> = emptyMap(),
 ) {
-    fun vodSort(kind: ContentKind): VodSort = vodSorts[kind]?.takeIf { it in VodSort.choices(kind) } ?: VodSort.PROVIDER
+    fun vodSort(kind: ContentKind): VodOrder = VodOrder.of(kind, vodSorts[kind])
 
     companion object {
         /** A section showing every playlist together. */
@@ -115,6 +143,7 @@ class SettingsRepository(private val context: Context) {
         val sectionPlaylists = ContentKind.entries.associateWith { longPreferencesKey("playlists_${it.name.lowercase()}") }
         val liveCategorySort = stringPreferencesKey("live_category_sort")
         val vodSorts = listOf(ContentKind.MOVIE, ContentKind.SERIES).associateWith { stringPreferencesKey("sort_${it.name.lowercase()}") }
+        val vodSortsDescending = listOf(ContentKind.MOVIE, ContentKind.SERIES).associateWith { booleanPreferencesKey("sort_${it.name.lowercase()}_descending") }
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -137,7 +166,7 @@ class SettingsRepository(private val context: Context) {
             multiViewLayout = p[Keys.multiViewLayout],
             sectionPlaylists = Keys.sectionPlaylists.mapNotNull { (kind, key) -> p[key]?.let { kind to it } }.toMap(),
             liveCategorySort = p[Keys.liveCategorySort]?.let { runCatching { CategorySort.valueOf(it) }.getOrNull() } ?: CategorySort.PROVIDER,
-            vodSorts = Keys.vodSorts.mapNotNull { (kind, key) -> p[key]?.let { v -> runCatching { VodSort.valueOf(v) }.getOrNull()?.let { kind to it } } }.toMap(),
+            vodSorts = Keys.vodSorts.keys.mapNotNull { kind -> vodOrder(p, kind)?.let { kind to it } }.toMap(),
         )
     }
 
@@ -172,5 +201,20 @@ class SettingsRepository(private val context: Context) {
     suspend fun setTvTheme(theme: TvTheme) = context.dataStore.edit { it[Keys.tvTheme] = theme.name }
     suspend fun setMultiViewLayout(name: String) = context.dataStore.edit { it[Keys.multiViewLayout] = name }
     suspend fun setLiveCategorySort(sort: CategorySort) = context.dataStore.edit { it[Keys.liveCategorySort] = sort.name }
-    suspend fun setVodSort(kind: ContentKind, sort: VodSort) = context.dataStore.edit { p -> Keys.vodSorts[kind]?.let { p[it] = sort.name } }
+    suspend fun setVodSort(kind: ContentKind, order: VodOrder) = context.dataStore.edit { p -> putVodOrder(p, kind, order) }
+
+    /** Sorts [kind] by [choice], or turns its order round if it already is ([VodOrder.press]), in one step. */
+    suspend fun pressVodSort(kind: ContentKind, choice: VodSort) = context.dataStore.edit { p ->
+        putVodOrder(p, kind, VodOrder.of(kind, vodOrder(p, kind)).press(choice))
+    }
+
+    private fun vodOrder(p: Preferences, kind: ContentKind): VodOrder? {
+        val sort = Keys.vodSorts[kind]?.let { p[it] }?.let { runCatching { VodSort.valueOf(it) }.getOrNull() } ?: return null
+        return VodOrder(sort, Keys.vodSortsDescending[kind]?.let { p[it] } ?: sort.descendingFirst)
+    }
+
+    private fun putVodOrder(p: MutablePreferences, kind: ContentKind, order: VodOrder) {
+        Keys.vodSorts[kind]?.let { p[it] = order.sort.name }
+        Keys.vodSortsDescending[kind]?.let { p[it] = order.descending }
+    }
 }

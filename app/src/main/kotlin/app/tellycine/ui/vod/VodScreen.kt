@@ -12,12 +12,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -40,17 +42,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.LoadState
+import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import app.tellycine.core.ContentKind
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.repo.Categories
+import app.tellycine.data.settings.VodOrder
 import app.tellycine.data.settings.VodSort
 import app.tellycine.ui.components.CategoryChips
 import app.tellycine.ui.components.CategoryPane
@@ -59,6 +65,8 @@ import app.tellycine.ui.components.categoryOptions
 import app.tellycine.ui.components.tellycineViewModel
 import app.tellycine.ui.home.PlaylistTopBar
 import app.tellycine.ui.home.SessionState
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,7 +97,7 @@ fun VodScreen(
     LaunchedEffect(sort) {
         if (sort != shownSort) {
             shownSort = sort
-            gridState.scrollToItem(0)
+            gridState.scrollToTopOnceLoaded(pagingItems)
         }
     }
 
@@ -102,7 +110,7 @@ fun VodScreen(
                 scrollBehavior = scrollBehavior,
                 // With more than one playlist, the choice is beside the categories instead.
                 showPlaylist = playlistFilter == null,
-                actions = { if (session.active != null) SortMenu(sort, vm.sortChoices, vm::setSort) },
+                actions = { if (session.active != null) SortMenu(sort, vm.sortChoices, vm::pressSort) },
             )
         },
         contentWindowInsets = WindowInsets(0),
@@ -172,25 +180,42 @@ fun VodScreen(
     }
 }
 
-/** The Sort button, with a menu of the orders to choose from. */
+/**
+ * The Sort button, with a menu of the orders to choose from. The current one has an arrow for its
+ * direction, and pressing it again turns it round, so the menu stays open to show that.
+ */
 @Composable
-private fun SortMenu(sort: VodSort, choices: List<VodSort>, onSelect: (VodSort) -> Unit) {
+private fun SortMenu(order: VodOrder, choices: List<VodSort>, onPress: (VodSort) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        IconButton(onClick = { open = true }) { Icon(Icons.AutoMirrored.Filled.Sort, "Sort: ${sort.label}") }
+        IconButton(onClick = { open = true }) {
+            Icon(Icons.AutoMirrored.Filled.Sort, "Sort: ${order.sort.label}, ${order.direction}")
+        }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             choices.forEach { choice ->
                 DropdownMenuItem(
                     text = { Text(choice.label) },
-                    onClick = {
-                        open = false
-                        onSelect(choice)
-                    },
-                    trailingIcon = if (choice == sort) ({ Icon(Icons.Filled.Check, "Current") }) else null,
+                    onClick = { onPress(choice) },
+                    trailingIcon = if (choice == order.sort) ({ Icon(order.arrow, order.direction) }) else null,
                 )
             }
         }
     }
+}
+
+/** Up for ascending (oldest first, A–Z), down for descending; read out as [VodOrder.direction]. */
+val VodOrder.arrow: ImageVector get() = if (descending) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward
+
+/**
+ * Scrolls to the top for a new order or category. Its titles arrive a moment later, and the grid
+ * then keeps whichever title was first in view, wherever the new list has it; so once the first
+ * title changes, scroll up again. (If it doesn't, that title is still first and the grid at the top.)
+ */
+suspend fun LazyGridState.scrollToTopOnceLoaded(items: LazyPagingItems<*>) {
+    val first = items.itemSnapshotList.firstOrNull()
+    scrollToItem(0)
+    withTimeoutOrNull(5_000) { snapshotFlow { items.itemSnapshotList.firstOrNull() }.first { it != first } } ?: return
+    scrollToItem(0)
 }
 
 @Composable
