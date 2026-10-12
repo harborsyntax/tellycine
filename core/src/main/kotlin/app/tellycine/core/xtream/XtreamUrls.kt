@@ -36,6 +36,11 @@ class XtreamUrls(server: String, val username: String, val password: String) {
     companion object {
         private fun enc(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
 
+        private val PLAYLIST_PATH = Regex("""(?i)^(https?://[^/?#]+)/playlist/([^/?#]+)/([^/?#]+)""")
+
+        /** The scheme, host and port of [url]: where its server would answer `player_api.php`. */
+        fun origin(url: String): String? = Regex("""(?i)^(https?://[^/?#]+)""").find(url.trim())?.groupValues?.get(1)
+
         fun normaliseServer(input: String): String {
             var s = input.trim()
             if (!s.startsWith("http://", true) && !s.startsWith("https://", true)) s = "http://$s"
@@ -51,9 +56,15 @@ class XtreamUrls(server: String, val username: String, val password: String) {
 
         /**
          * Detects Xtream credentials embedded in an M3U link such as
-         * `http://host:8080/get.php?username=u&password=p&type=m3u_plus`.
+         * `http://host:8080/get.php?username=u&password=p&type=m3u_plus`, or
+         * `http://host:8080/playlist/u/p/m3u_plus` (XUI.one).
          */
         fun fromM3uUrl(url: String): Triple<String, String, String>? {
+            PLAYLIST_PATH.find(url.trim())?.let { m ->
+                val (origin, user, pass) = m.destructured
+                fun decode(s: String) = java.net.URLDecoder.decode(s, "UTF-8")
+                return Triple(normaliseServer(origin), decode(user), decode(pass))
+            }
             val q = url.substringAfter('?', "")
             if (q.isEmpty() || !url.contains("get.php", ignoreCase = true)) return null
             val params = q.split('&').associate {

@@ -10,6 +10,7 @@ import app.tellycine.data.repo.DetailsRepository
 import app.tellycine.data.repo.DownloadRepository
 import app.tellycine.data.repo.DvrRepository
 import app.tellycine.data.repo.PlaylistRepository
+import app.tellycine.data.repo.XtreamFinder
 import app.tellycine.data.settings.SettingsRepository
 import app.tellycine.data.settings.TvTheme
 import app.tellycine.data.sync.PlaylistSyncer
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import java.util.concurrent.TimeUnit
 
 /** Hand-rolled dependency graph; small enough not to need a DI framework. */
 class AppContainer(context: Context) {
@@ -34,6 +36,8 @@ class AppContainer(context: Context) {
     val playlists = PlaylistRepository(context, database, settings, syncManager)
     val content = ContentRepository(database)
     val details = DetailsRepository(downloader)
+    /** For checking an M3U link's server while it's typed: a quick answer or none. */
+    val xtreamFinder = XtreamFinder(Downloader(context, httpClient.newBuilder().callTimeout(10, TimeUnit.SECONDS).build()))
     val dvr = DvrRepository(database, httpClient)
     val downloads = DownloadRepository(context, database, settings, appScope)
     val cast = CastManager(context)

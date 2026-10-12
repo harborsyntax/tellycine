@@ -11,6 +11,14 @@
 - **Posters** show the title, year, genre and rating.
 - **Hidden tabs:** if a playlist has [movies & series turned off](Managing-Playlists.md), these tabs are hidden.
 - **Playlists:** with more than one playlist, the button before the categories chooses **All playlists** or one of them, separately for Movies and for Series. Together, each poster shows the playlist it's from, and a title's page always says which playlist it's from. See [Switching playlists](Managing-Playlists.md#switching-playlists).
+- **Sort:** the sort button (at the top of the screen; on a TV, beside the category button) puts titles in another order. Movies and Series each remember their own:
+  - **Provider order:** as your provider lists them.
+  - **Date added:** newest first. Xtream Codes providers say when they added each movie; otherwise (M3U playlists, and most series) it's when Tellycine first saw the title, so after the first import, new arrivals come to the top.
+  - **Release date:** newest first, from the provider's release date or year. In M3U playlists, a year in brackets in the title counts, as in "Film Name (2023)".
+  - **Latest episode** (series): the series with the newest episodes first, from Xtream Codes providers.
+  - **A–Z:** by title.
+
+  Titles without the date sorted by come after the rest, in the provider's order.
 
 <img src="images/screens/tablet-movies.png" width="600" alt="Tablet movies">
 

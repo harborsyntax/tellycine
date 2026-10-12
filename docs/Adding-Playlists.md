@@ -16,7 +16,10 @@ Choose the type at the top:
 
 ## M3U link
 Paste the playlist URL.
-- **Xtream link detection:** if it's an Xtream-style `get.php?username=…&password=…` link, Tellycine offers to switch to **Xtream Codes**. Do it: you get movie and series details, seasons and episodes, and catch-up.
+- **Xtream Codes check:** once you've entered the link, Tellycine asks its server whether it also offers **Xtream Codes**, and if so, suggests switching. Do it: you get movie and series details, seasons and episodes, catch-up, and dates to sort movies and series by.
+  - When the link has your login in it (`get.php?username=…&password=…`, or `/playlist/username/password/…`), Tellycine tries it, and when it works, switching fills it all in.
+  - Otherwise, switching fills in the server: enter your Xtream login, which providers often make the same as for the M3U link.
+  - No suggestion means the server has no Xtream Codes, or the M3U link is the way your provider wants you to connect.
 - **Dispatcharr links:** if it's a Dispatcharr `…/output/m3u` link, Tellycine suggests using your Dispatcharr Xtream login instead. See [Dispatcharr](Dispatcharr.md).
 
 ## File

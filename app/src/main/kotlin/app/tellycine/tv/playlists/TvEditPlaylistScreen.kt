@@ -69,6 +69,7 @@ import app.tellycine.tv.components.TvValueRow
 import app.tellycine.ui.components.tellycineViewModel
 import app.tellycine.ui.playlists.DvrConnectState
 import app.tellycine.ui.playlists.EditPlaylistViewModel
+import app.tellycine.ui.playlists.xtreamHint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -83,6 +84,7 @@ private enum class Field { NAME, URL, SERVER, USERNAME, PASSWORD, EPG, USER_AGEN
 fun TvEditPlaylistScreen(editId: Long?, onDone: () -> Unit, onManageCategories: (Long) -> Unit) {
     val vm = tellycineViewModel(key = "edit-$editId") { c, _ -> EditPlaylistViewModel(c, editId) }
     val form by vm.form.collectAsStateWithLifecycle()
+    val xtream by vm.xtream.collectAsStateWithLifecycle()
     val saved by vm.existing.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -158,9 +160,9 @@ fun TvEditPlaylistScreen(editId: Long?, onDone: () -> Unit, onManageCategories: 
                                 }
                             }
                         }
-                        if (form.detectedXtream != null) {
+                        xtreamHint(form, xtream)?.let { hint ->
                             item(key = "xtream-hint") {
-                                Hint("This looks like an Xtream Codes link. Its API gives movie and series details.", "Use Xtream Codes", vm::convertToXtream)
+                                Hint(hint.message, "Use Xtream Codes") { vm.useXtream(hint.offer) }
                             }
                         }
                     }

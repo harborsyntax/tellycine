@@ -26,6 +26,21 @@ enum class TvTheme(val label: String, val description: String) {
 /** Ordering for the Library's favourites and history rows. */
 enum class LibrarySort { RECENT, NAME_ASC, NAME_DESC, PLAYLIST_ORDER }
 
+/** The order of movies or series. [UPDATED] is for series only ([choices]). */
+enum class VodSort(val label: String) {
+    PROVIDER("Provider order"),
+    ADDED("Date added"),
+    RELEASED("Release date"),
+    UPDATED("Latest episode"),
+    NAME("A–Z"),
+    ;
+
+    companion object {
+        /** The orders offered for movies or series ([kind]). */
+        fun choices(kind: ContentKind): List<VodSort> = if (kind == ContentKind.SERIES) entries else entries - UPDATED
+    }
+}
+
 /** Ordering for Live TV's categories: as the provider lists them, or by name. */
 enum class CategorySort(val label: String) {
     PROVIDER("Provider order"),
@@ -65,7 +80,11 @@ data class AppSettings(
     val sectionPlaylists: Map<ContentKind, Long> = emptyMap(),
     /** The order of Live TV's categories. */
     val liveCategorySort: CategorySort = CategorySort.PROVIDER,
+    /** The order of movies, and of series. */
+    val vodSorts: Map<ContentKind, VodSort> = emptyMap(),
 ) {
+    fun vodSort(kind: ContentKind): VodSort = vodSorts[kind]?.takeIf { it in VodSort.choices(kind) } ?: VodSort.PROVIDER
+
     companion object {
         /** A section showing every playlist together. */
         const val ALL_PLAYLISTS = -1L
@@ -95,6 +114,7 @@ class SettingsRepository(private val context: Context) {
         val multiViewLayout = stringPreferencesKey("multi_view_layout")
         val sectionPlaylists = ContentKind.entries.associateWith { longPreferencesKey("playlists_${it.name.lowercase()}") }
         val liveCategorySort = stringPreferencesKey("live_category_sort")
+        val vodSorts = listOf(ContentKind.MOVIE, ContentKind.SERIES).associateWith { stringPreferencesKey("sort_${it.name.lowercase()}") }
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -117,6 +137,7 @@ class SettingsRepository(private val context: Context) {
             multiViewLayout = p[Keys.multiViewLayout],
             sectionPlaylists = Keys.sectionPlaylists.mapNotNull { (kind, key) -> p[key]?.let { kind to it } }.toMap(),
             liveCategorySort = p[Keys.liveCategorySort]?.let { runCatching { CategorySort.valueOf(it) }.getOrNull() } ?: CategorySort.PROVIDER,
+            vodSorts = Keys.vodSorts.mapNotNull { (kind, key) -> p[key]?.let { v -> runCatching { VodSort.valueOf(v) }.getOrNull()?.let { kind to it } } }.toMap(),
         )
     }
 
@@ -151,4 +172,5 @@ class SettingsRepository(private val context: Context) {
     suspend fun setTvTheme(theme: TvTheme) = context.dataStore.edit { it[Keys.tvTheme] = theme.name }
     suspend fun setMultiViewLayout(name: String) = context.dataStore.edit { it[Keys.multiViewLayout] = name }
     suspend fun setLiveCategorySort(sort: CategorySort) = context.dataStore.edit { it[Keys.liveCategorySort] = sort.name }
+    suspend fun setVodSort(kind: ContentKind, sort: VodSort) = context.dataStore.edit { p -> Keys.vodSorts[kind]?.let { p[it] = sort.name } }
 }

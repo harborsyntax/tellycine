@@ -7,6 +7,7 @@ import app.tellycine.TellycineApp
 import app.tellycine.core.ContentKind
 import app.tellycine.data.settings.AppSettings
 import app.tellycine.data.settings.CategorySort
+import app.tellycine.data.settings.VodSort
 import app.tellycine.screenshots.DemoData
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -72,7 +73,7 @@ class CombinedPlaylistsTest {
             listOf("Metro News 24", "Global Report", "Second News HD"),
             page(dao.pagedChannelsInNamedCategory(ids, "news")).map { it.stream.name },
         )
-        val dramas = page(dao.pagedItemsInNamedCategory(ids, ContentKind.MOVIE, "drama")).map { it.name }
+        val dramas = page(container.content.itemPages(ids, ContentKind.MOVIE, Categories.named("drama"), VodSort.PROVIDER)).map { it.name }
         assertTrue(dramas.containsAll(listOf("Midnight Harbor", "Northern Lights", "Quiet Tide")))
         assertEquals("Quiet Tide", dramas.last())
     }
@@ -121,7 +122,7 @@ class CombinedPlaylistsTest {
         val channels = page(dao.pagedFavoriteChannelsIn(ids)).map { it.stream.name }
         assertEquals("Second Football", channels.first())
         assertTrue(channels.size > 1)
-        assertEquals("Quiet Tide", page(dao.pagedFavoriteItemsIn(ids, ContentKind.MOVIE)).first().name)
+        assertEquals("Quiet Tide", page(container.content.itemPages(ids, ContentKind.MOVIE, Categories.FAVORITES, VodSort.PROVIDER)).first().name)
     }
 
     @Test

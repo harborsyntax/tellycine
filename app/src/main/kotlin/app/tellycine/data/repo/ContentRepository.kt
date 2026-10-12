@@ -16,6 +16,7 @@ import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.db.TellycineDatabase
 import app.tellycine.data.settings.CategorySort
+import app.tellycine.data.settings.VodSort
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -78,7 +79,7 @@ data class ProgrammeHit(val programme: ProgrammeEntity, val channel: StreamEntit
 /** How far back programme search looks; older entries are outside any catch-up archive the app keeps. */
 private const val PAST_SEARCH_WINDOW = 14 * 24 * 60 * 60 * 1000L
 
-class ContentRepository(db: TellycineDatabase) {
+class ContentRepository(private val db: TellycineDatabase) {
     private val dao = db.content()
 
     private val pagingConfig = PagingConfig(
@@ -178,27 +179,18 @@ class ContentRepository(db: TellycineDatabase) {
         }
     }
 
-    fun items(playlistId: Long, kind: ContentKind, categoryId: String): Flow<PagingData<StreamEntity>> =
-        Pager(pagingConfig) {
-            when (categoryId) {
-                Categories.ALL -> dao.pagedItems(playlistId, kind)
-                Categories.FAVORITES -> dao.pagedFavoriteItems(playlistId, kind)
-                else -> dao.pagedItemsInCategory(playlistId, kind, categoryId)
-            }
-        }.flow
-
-    /** Movies or series of one or more playlists, as [channels] does for live channels. */
-    fun items(playlistIds: List<Long>, kind: ContentKind, categoryId: String): Flow<PagingData<StreamEntity>> {
-        if (playlistIds.size == 1 && Categories.nameKeyOf(categoryId) == null) return items(playlistIds[0], kind, categoryId)
+    /** Movies or series of one or more playlists, in [sort]'s order ([ItemQueries.items]). */
+    fun items(playlistIds: List<Long>, kind: ContentKind, categoryId: String, sort: VodSort = VodSort.PROVIDER): Flow<PagingData<StreamEntity>> {
         if (playlistIds.isEmpty()) return flowOf(PagingData.empty())
-        return Pager(pagingConfig) {
-            val nameKey = Categories.nameKeyOf(categoryId)
-            when {
-                categoryId == Categories.FAVORITES -> dao.pagedFavoriteItemsIn(playlistIds, kind)
-                nameKey != null -> dao.pagedItemsInNamedCategory(playlistIds, kind, nameKey)
-                else -> dao.pagedItemsIn(playlistIds, kind)
-            }
-        }.flow
+        return Pager(pagingConfig) { itemPages(playlistIds, kind, categoryId, sort) }.flow
+    }
+
+    /** The paging source behind [items]. */
+    fun itemPages(playlistIds: List<Long>, kind: ContentKind, categoryId: String, sort: VodSort): PagingSource<Int, StreamEntity> {
+        val query = ItemQueries.items(playlistIds, kind, categoryId, sort)
+        return CountedPages(db, ItemQueries.TABLES, count = { dao.countItems(query.count()) }) { limit, offset ->
+            dao.items(query.page(limit, offset))
+        }
     }
 
     suspend fun channelList(playlistId: Long, categoryId: String?): List<StreamEntity> =

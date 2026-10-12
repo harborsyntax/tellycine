@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import android.util.Xml
 import app.tellycine.core.ContentKind
+import app.tellycine.core.ReleaseDates
 import app.tellycine.core.gunzipIfNeeded
 import app.tellycine.core.m3u.M3uHeader
 import app.tellycine.core.m3u.M3uParser
@@ -105,6 +106,7 @@ class PlaylistSyncer(
         }
 
         db.runInTransaction {
+            val firstSeen = FirstSeen(db, pid)
             dao.deleteStreams(pid)
             dao.deleteCategories(pid)
             dao.deleteEpisodes(pid)
@@ -127,9 +129,11 @@ class PlaylistSyncer(
                         val seriesName = match?.groupValues?.get(1)?.trim(' ', '-', '_', '.', '|', ':')?.ifEmpty { null } ?: e.name
                         val seriesId = hasher.of("${group}|${seriesName}")
                         val state = seriesSeen.getOrPut(seriesId) {
+                            val year = ReleaseDates.yearInTitle(seriesName)
                             streams += StreamEntity(
                                 playlistId = pid, kind = kind, streamId = seriesId, name = seriesName,
                                 sortOrder = counts[kind.ordinal]++, categoryId = group, logo = e.logo, url = "",
+                                year = year, released = year,
                             )
                             countCategory(kind, group)
                             intArrayOf(0)
@@ -150,6 +154,7 @@ class PlaylistSyncer(
                         val catchupType = if (live) e.catchupType ?: header?.catchupType else null
                         val catchupSource = if (live) e.catchupSource ?: header?.catchupSource else null
                         val hasCatchup = catchupType != null || catchupSource != null
+                        val year = if (live) null else ReleaseDates.yearInTitle(e.name)
                         streams += StreamEntity(
                             playlistId = pid,
                             kind = kind,
@@ -166,6 +171,8 @@ class PlaylistSyncer(
                             catchupSource = catchupSource,
                             userAgent = e.userAgent,
                             referrer = e.referrer,
+                            year = year,
+                            released = year,
                         )
                         countCategory(kind, group)
                     }
@@ -184,6 +191,7 @@ class PlaylistSyncer(
             dao.insertCategories(categories.map { (key, v) ->
                 CategoryEntity(pid, key.first, key.second, key.second, v[0], v[1])
             })
+            firstSeen.restore()
         }
 
         return ContentSyncResult(
@@ -249,6 +257,7 @@ class PlaylistSyncer(
             val pid = playlist.id
 
             db.runInTransaction {
+                val firstSeen = FirstSeen(db, pid)
                 dao.deleteStreams(pid)
                 dao.deleteCategories(pid)
                 dao.deleteEpisodes(pid)
@@ -284,6 +293,7 @@ class PlaylistSyncer(
                     )
                     report("Imported ${"%,d".format(counts[kind.ordinal])} ${kind.label()}", null)
                 }
+                firstSeen.restore()
             }
 
             return ContentSyncResult(
@@ -321,6 +331,8 @@ class PlaylistSyncer(
         plot = plot,
         genre = genre,
         addedAt = addedMs,
+        updatedAt = updatedMs,
+        released = released,
         catchupDays = catchupDays,
         backdrop = backdrop,
     )

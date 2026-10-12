@@ -16,8 +16,8 @@ android {
         minSdk = 26
         // Google Play requires API 36 for new apps and updates from 31 August 2026.
         targetSdk = 36
-        versionCode = 16
-        versionName = "1.9.2"
+        versionCode = 17
+        versionName = "1.10.0"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -95,6 +95,8 @@ kotlin {
 
 ksp {
     arg("room.generateKotlin", "true")
+    // Each version's schema, for writing and testing migrations.
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {

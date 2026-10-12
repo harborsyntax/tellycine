@@ -1,5 +1,6 @@
 package app.tellycine.core.xtream
 
+import app.tellycine.core.ReleaseDates
 import app.tellycine.core.YouTube
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
@@ -35,6 +36,16 @@ class XtreamParser {
         )
     }
 
+    /**
+     * What a server's answer to `player_api.php` ([body]) says about its Xtream Codes API: none, one
+     * that didn't accept the login (or wasn't given one), or one that did.
+     */
+    fun apiStatus(body: String): XtreamApi {
+        val root = runCatching { JsonReader(body.reader()).apply { isLenient = true }.use { readValue(it) } }.getOrNull()
+        val user = (root as? Map<*, *>)?.get("user_info") ?: return XtreamApi.NONE
+        return if ((user as? Map<*, *>)?.int("auth") == 1) XtreamApi.WORKS else XtreamApi.OFFERED
+    }
+
     fun parseCategories(reader: Reader, onCategory: (XtreamCategory) -> Unit) {
         forEachObject(reader) { obj ->
             val id = obj.str("category_id") ?: return@forEachObject
@@ -62,9 +73,13 @@ class XtreamParser {
                     containerExtension = obj.str("container_extension"),
                     num = obj.int("num"),
                     rating = obj.double("rating_5based")?.let { it * 2 } ?: obj.double("rating"),
-                    addedMs = (obj.long("added") ?: obj.long("last_modified"))?.let { it * 1000 },
+                    addedMs = obj.long("added")?.let { it * 1000 },
+                    updatedMs = obj.long("last_modified")?.let { it * 1000 },
                     plot = obj.str("plot"),
                     year = obj.str("year") ?: obj.str("releaseDate")?.take(4) ?: obj.str("release_date")?.take(4),
+                    released = ReleaseDates.first(
+                        obj.str("releaseDate"), obj.str("release_date"), obj.str("releasedate"), obj.str("year"),
+                    ),
                     genre = obj.str("genre"),
                     catchupDays = if (obj.int("tv_archive") == 1) obj.int("tv_archive_duration") else null,
                     backdrop = obj.backdrops().firstOrNull(),

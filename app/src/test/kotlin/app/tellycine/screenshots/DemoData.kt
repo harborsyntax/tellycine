@@ -19,6 +19,7 @@ import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.repo.ContentRepository
 import app.tellycine.data.settings.CategorySort
+import app.tellycine.data.settings.VodSort
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 
@@ -53,6 +54,7 @@ object DemoData {
     }
 
     private const val HOUR = 60 * 60 * 1000L
+    private const val DAY = 24 * HOUR
 
     private val liveCategories = listOf("news" to "News", "sport" to "Sport", "ent" to "Entertainment", "kids" to "Kids", "docs" to "Documentaries", "music" to "Music")
     private val channels = listOf(
@@ -106,6 +108,8 @@ object DemoData {
         // Settings outlive a test, so each section starts on the active playlist again.
         container.settings.clearSectionPlaylists()
         container.settings.setLiveCategorySort(CategorySort.PROVIDER)
+        container.settings.setVodSort(ContentKind.MOVIE, VodSort.PROVIDER)
+        container.settings.setVodSort(ContentKind.SERIES, VodSort.PROVIDER)
         container.settings.setLibraryGroupByCategory(groupLibrary)
         val dao = db.content()
 
@@ -127,10 +131,17 @@ object DemoData {
                 playlistId = pid, kind = ContentKind.MOVIE, streamId = "mv$i", name = name, sortOrder = i, categoryId = genre,
                 logo = null, url = "https://example.com/movie/$i.mp4", year = year, genre = genre, rating = rating.toDouble(),
                 plot = "A gripping $genre story about choices, chance and the people who change everything.",
+                // Added over the last fortnight, in another order than the playlist's: Velocity is newest.
+                released = year, addedAt = now - ((i * 5 + 3) % movies.size) * DAY,
             )
         })
         dao.insertStreams(series.mapIndexed { i, (name, genre, year) ->
-            StreamEntity(playlistId = pid, kind = ContentKind.SERIES, streamId = "sr$i", name = name, sortOrder = i, categoryId = genre, logo = null, url = "", year = year, genre = genre)
+            StreamEntity(
+                playlistId = pid, kind = ContentKind.SERIES, streamId = "sr$i", name = name, sortOrder = i, categoryId = genre, logo = null, url = "",
+                year = year, genre = genre, released = year,
+                // Office Hours had the latest episode.
+                addedAt = now - (30 + i) * DAY, updatedAt = now - ((i * 5 + 2) % series.size) * DAY,
+            )
         })
         dao.insertEpisodes((1..2).flatMap { season ->
             (1..6).map { ep ->

@@ -35,9 +35,14 @@ data class XtreamItem(
     val containerExtension: String?,
     val num: Int?,
     val rating: Double?,
+    /** When the provider added it. */
     val addedMs: Long?,
+    /** When the provider last changed it: for a series, usually when an episode was added. */
+    val updatedMs: Long? = null,
     val plot: String?,
     val year: String?,
+    /** Its release date, as [app.tellycine.core.ReleaseDates.normalise] gives it. */
+    val released: String? = null,
     val genre: String?,
     val catchupDays: Int?,
     val backdrop: String?,
@@ -95,3 +100,15 @@ data class XtreamVodInfo(
     val trailer: String?,
     val containerExtension: String?,
 )
+
+/** What a server offers of Xtream Codes' API ([XtreamParser.apiStatus]). */
+enum class XtreamApi {
+    /** No Xtream Codes API. */
+    NONE,
+
+    /** An Xtream Codes API, which didn't accept the login it was given (or wasn't given one). */
+    OFFERED,
+
+    /** An Xtream Codes API that accepts the login. */
+    WORKS,
+}
