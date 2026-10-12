@@ -19,6 +19,7 @@ import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.repo.ContentRepository
 import app.tellycine.data.settings.CategorySort
+import app.tellycine.data.settings.VodOrder
 import app.tellycine.data.settings.VodSort
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -108,8 +109,9 @@ object DemoData {
         // Settings outlive a test, so each section starts on the active playlist again.
         container.settings.clearSectionPlaylists()
         container.settings.setLiveCategorySort(CategorySort.PROVIDER)
-        container.settings.setVodSort(ContentKind.MOVIE, VodSort.PROVIDER)
-        container.settings.setVodSort(ContentKind.SERIES, VodSort.PROVIDER)
+        // Screenshots show the demo playlist in its own order, not the default (newest first).
+        container.settings.setVodSort(ContentKind.MOVIE, VodOrder(VodSort.PROVIDER))
+        container.settings.setVodSort(ContentKind.SERIES, VodOrder(VodSort.PROVIDER))
         container.settings.setLibraryGroupByCategory(groupLibrary)
         val dao = db.content()
 

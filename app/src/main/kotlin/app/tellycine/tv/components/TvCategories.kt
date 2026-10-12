@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
@@ -155,7 +156,10 @@ private fun PanelHeading(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** Side panel to pick one of [choices] (such as the order of a list), opening on the [selected] one. */
+/**
+ * Side panel to pick one of [choices] (such as the order of a list), opening on the [selected] one,
+ * which shows [selectedIcon] (an icon and what it reads out).
+ */
 @Composable
 fun <T> TvChoicePanel(
     title: String,
@@ -164,6 +168,7 @@ fun <T> TvChoicePanel(
     label: (T) -> String,
     onSelect: (T) -> Unit,
     onDismiss: () -> Unit,
+    selectedIcon: Pair<ImageVector, String> = Icons.Filled.Check to "Current",
 ) {
     val focus = remember { FocusRequester() }
     var focusOnTarget by remember { mutableStateOf(false) }
@@ -175,7 +180,7 @@ fun <T> TvChoicePanel(
                 selected = current,
                 onClick = { onSelect(choice) },
                 headlineContent = { Text(label(choice)) },
-                trailingContent = if (current) ({ Icon(Icons.Filled.Check, "Current") }) else null,
+                trailingContent = if (current) ({ Icon(selectedIcon.first, selectedIcon.second) }) else null,
                 modifier = Modifier.fillMaxWidth().then(
                     if (current) Modifier.focusRequester(focus).onFocusChanged { focusOnTarget = it.hasFocus } else Modifier
                 ),

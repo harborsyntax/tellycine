@@ -3,23 +3,44 @@ package app.tellycine.data.repo
 import androidx.sqlite.db.SimpleSQLiteQuery
 import app.tellycine.core.ContentKind
 import app.tellycine.data.db.VISIBLE
+import app.tellycine.data.settings.VodOrder
 import app.tellycine.data.settings.VodSort
 
 /** Queries for pages of movies or series: see [items]. */
 object ItemQueries {
-    /** A list's count and its pages, from [items]. */
-    class Query(private val from: String, private val order: String, private val args: List<Any>) {
+    /**
+     * A list's count and its pages, from [items]. Sorted oldest first by a [date], titles without
+     * one come last: those with one are read through the date's index in that order, then the rest,
+     * rather than sorting the whole list for every page.
+     */
+    class Query(private val from: String, private val order: String, private val args: List<Any>, private val date: String? = null) {
         fun count() = SimpleSQLiteQuery("SELECT COUNT(*) $from", args.toTypedArray())
-        fun page(limit: Int, offset: Int) =
+
+        /** Items [offset] to [offset] + [limit], with [items] and [count] to run its queries. */
+        suspend fun <T> page(
+            limit: Int,
+            offset: Int,
+            items: suspend (SimpleSQLiteQuery) -> List<T>,
+            count: suspend (SimpleSQLiteQuery) -> Int,
+        ): List<T> {
+            if (date == null) return items(select(from, order, limit, offset))
+            // (Every [from] ends with a WHERE clause.)
+            val dated = count(SimpleSQLiteQuery("SELECT COUNT(*) $from AND $date IS NOT NULL", args.toTypedArray()))
+            val first = if (offset < dated) items(select("$from AND $date IS NOT NULL", order, limit, offset)) else emptyList()
+            if (first.size >= limit) return first
+            return first + items(select("$from AND $date IS NULL", PROVIDER_ORDER, limit - first.size, maxOf(0, offset - dated)))
+        }
+
+        private fun select(from: String, order: String, limit: Int, offset: Int) =
             SimpleSQLiteQuery("SELECT s.* $from ORDER BY $order LIMIT ? OFFSET ?", (args + limit + offset).toTypedArray())
     }
 
     /**
      * [kind] from [playlistIds] in [categoryId] (all of them, favourites, a playlist's own category
-     * or one merged by name: see [Categories]), in [sort]'s order. Ties, and titles without the
-     * date sorted by, keep the provider's order, after those with one.
+     * or one merged by name: see [Categories]), in [order]. Ties, and titles without the date
+     * sorted by, keep the provider's order, after those with one either way round.
      */
-    fun items(playlistIds: List<Long>, kind: ContentKind, categoryId: String, sort: VodSort): Query {
+    fun items(playlistIds: List<Long>, kind: ContentKind, categoryId: String, order: VodOrder): Query {
         require(playlistIds.isNotEmpty())
         val ids = playlistIds.joinToString(", ") { "?" }
         val args = ArrayList<Any>(playlistIds)
@@ -50,15 +71,32 @@ object ItemQueries {
                 "FROM streams s WHERE s.playlistId IN ($ids) AND s.kind = ? AND s.categoryId = ?"
             }
         }
-        // Dates sort newest first; missing ones (null) come last that way. Each has an index.
-        val order = when (sort) {
-            VodSort.PROVIDER -> if (favorites) "f.addedAt DESC" else "s.playlistId, s.sortOrder"
-            VodSort.ADDED -> "s.addedAt DESC, s.playlistId, s.sortOrder"
-            VodSort.RELEASED -> "s.released DESC, s.playlistId, s.sortOrder"
-            VodSort.UPDATED -> "s.updatedAt DESC, s.playlistId, s.sortOrder"
-            VodSort.NAME -> "s.sortName, s.playlistId, s.sortOrder"
+        val oldestFirst = dateColumn(order.sort)?.takeIf { !order.descending }
+        return Query(from, orderBy(order, favorites), args, date = oldestFirst)
+    }
+
+    private const val PROVIDER_ORDER = "s.playlistId, s.sortOrder"
+
+    private fun dateColumn(sort: VodSort): String? = when (sort) {
+        VodSort.ADDED -> "s.addedAt"
+        VodSort.RELEASED -> "s.released"
+        VodSort.UPDATED -> "s.updatedAt"
+        VodSort.NAME, VodSort.PROVIDER -> null
+    }
+
+    private fun orderBy(order: VodOrder, favorites: Boolean): String {
+        val down = order.descending
+        val date = dateColumn(order.sort) ?: return when (order.sort) {
+            VodSort.NAME -> "s.sortName ${if (down) "DESC" else "ASC"}, $PROVIDER_ORDER"
+            // Favourites list as they were added, newest first, unless turned round.
+            else -> when {
+                favorites -> if (down) "f.addedAt" else "f.addedAt DESC"
+                down -> "s.playlistId DESC, s.sortOrder DESC"
+                else -> PROVIDER_ORDER
+            }
         }
-        return Query(from, order, args)
+        // Newest first leaves missing dates (null) at the end; oldest first reads them last ([Query]).
+        return "$date ${if (down) "DESC" else "ASC"}, $PROVIDER_ORDER"
     }
 
     /** The tables whose changes change these lists. */

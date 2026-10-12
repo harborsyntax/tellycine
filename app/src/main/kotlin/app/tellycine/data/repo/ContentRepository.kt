@@ -16,7 +16,7 @@ import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.db.TellycineDatabase
 import app.tellycine.data.settings.CategorySort
-import app.tellycine.data.settings.VodSort
+import app.tellycine.data.settings.VodOrder
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -179,17 +179,17 @@ class ContentRepository(private val db: TellycineDatabase) {
         }
     }
 
-    /** Movies or series of one or more playlists, in [sort]'s order ([ItemQueries.items]). */
-    fun items(playlistIds: List<Long>, kind: ContentKind, categoryId: String, sort: VodSort = VodSort.PROVIDER): Flow<PagingData<StreamEntity>> {
+    /** Movies or series of one or more playlists, in [order] ([ItemQueries.items]). */
+    fun items(playlistIds: List<Long>, kind: ContentKind, categoryId: String, order: VodOrder): Flow<PagingData<StreamEntity>> {
         if (playlistIds.isEmpty()) return flowOf(PagingData.empty())
-        return Pager(pagingConfig) { itemPages(playlistIds, kind, categoryId, sort) }.flow
+        return Pager(pagingConfig) { itemPages(playlistIds, kind, categoryId, order) }.flow
     }
 
     /** The paging source behind [items]. */
-    fun itemPages(playlistIds: List<Long>, kind: ContentKind, categoryId: String, sort: VodSort): PagingSource<Int, StreamEntity> {
-        val query = ItemQueries.items(playlistIds, kind, categoryId, sort)
+    fun itemPages(playlistIds: List<Long>, kind: ContentKind, categoryId: String, order: VodOrder): PagingSource<Int, StreamEntity> {
+        val query = ItemQueries.items(playlistIds, kind, categoryId, order)
         return CountedPages(db, ItemQueries.TABLES, count = { dao.countItems(query.count()) }) { limit, offset ->
-            dao.items(query.page(limit, offset))
+            query.page(limit, offset, dao::items, dao::countItems)
         }
     }
 

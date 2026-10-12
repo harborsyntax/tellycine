@@ -1,0 +1,3 @@
+• Sort movies and series either way round: press the current order again to turn it, shown by an up or down arrow
+• Movies and series start newest first (date added), then keep your choice
+• Changing the order now starts the list from the top
