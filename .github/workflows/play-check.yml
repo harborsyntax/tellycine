@@ -1,0 +1,33 @@
+name: Google Play check
+
+# Checks that GitHub can reach Tellycine in Play Console with the PLAY_SERVICE_ACCOUNT_JSON secret,
+# and lists the release tracks with their API names. Read-only: it opens a temporary edit, reads it
+# and throws it away, so nothing changes in Play Console. Run it from the Actions tab at any time.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/play-check.yml"
+      - ".github/scripts/**"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Google's API client
+        run: pip install --quiet -r .github/scripts/requirements.txt
+
+      - name: Connect to Play Console
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: python .github/scripts/play.py check
