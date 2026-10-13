@@ -1,24 +1,5 @@
 package app.tellycine.player
 
-import android.util.Log
-import java.util.concurrent.Executor
-import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.resume
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.suspendCancellableCoroutine
-import androidx.media3.exoplayer.source.TrackGroupArray
-import androidx.media3.exoplayer.MetadataRetriever
-import androidx.media3.common.MimeTypes
-import app.tellycine.core.CastAudio
-import app.tellycine.core.AudioTrackInfo
-import app.tellycine.data.db.PlaylistEntity
-import app.tellycine.cast.CastMedia
-import app.tellycine.cast.CastMediaItemConverter
-import android.widget.Toast
-import androidx.media3.cast.SessionAvailabilityListener
-import androidx.media3.cast.CastPlayer
-import androidx.fragment.app.FragmentActivity
 import android.app.PictureInPictureParams
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -27,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Rational
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.annotation.OptIn
@@ -37,64 +19,42 @@ import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.media3.common.C
-import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaSession
+import app.tellycine.MainActivity
 import app.tellycine.container
 import app.tellycine.core.ContentKind
-import app.tellycine.data.db.HistoryEntity
-import app.tellycine.data.db.StreamEntity
 import app.tellycine.player.multiview.MultiViewActivity
-import app.tellycine.data.repo.Categories
-import app.tellycine.data.repo.ContentRepository
-import app.tellycine.data.settings.ThemeMode
-import app.tellycine.ui.theme.TellycineTheme
 import app.tellycine.tv.TellycineTvTheme
 import app.tellycine.tv.isTelevision
-import androidx.media3.session.MediaSession
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+/**
+ * The TV's player, driven by the remote. (On a phone, the player sits in the app itself: see
+ * [PhonePlayback].) Playback is a [PlaybackEngine]; this adds the channel banner, number entry,
+ * the guide over the picture, the mini player, picture in picture and the refresh rate.
+ */
 @OptIn(UnstableApi::class)
 class PlayerActivity : FragmentActivity() {
 
-    private lateinit var factory: PlayerFactory
-    private lateinit var exoPlayer: ExoPlayer
-    /** Media3 player that drives a Chromecast while a Cast session is connected. */
-    private var castPlayer: CastPlayer? = null
-    private var activePlayer by mutableStateOf<Player?>(null)
-    /** Whichever player currently has the stream: local ExoPlayer or the Cast device. */
-    private val player: Player get() = activePlayer ?: exoPlayer
-    private var castingTo by mutableStateOf<String?>(null)
-    private var playlist: PlaylistEntity? = null
+    private lateinit var engine: PlaybackEngine
+    private val exoPlayer: ExoPlayer get() = engine.exoPlayer
+    private val player: Player get() = engine.player
 
-    // State observed by the Compose UI.
-    private var request by mutableStateOf<PlayRequest?>(null)
-    private var channels by mutableStateOf<List<StreamEntity>>(emptyList())
-    private var error by mutableStateOf<String?>(null)
     private var inPip by mutableStateOf(false)
     private var resizeMode by mutableIntStateOf(0)
-    /** Why a movie's sound may not play on the Chromecast, shown while casting. */
-    private var castAudioNotice by mutableStateOf<String?>(null)
-    private var castJob: Job? = null
 
-    private var progressJob: Job? = null
-    private var liveRetries = 0
-
-    // ---- TV ----
-    /** On a TV the player is driven by the remote, with its own controls. */
-    private val tv by lazy { isTelevision() }
     /** The live channel playing, what's on and the channel watched before it (TV banner). */
     private var liveInfo by mutableStateOf(LiveInfo())
-    private var previousChannel: StreamEntity? = null
     private var liveInfoJob: Job? = null
     /** Lets the remote's play/pause and voice commands reach the player. */
     private var mediaSession: MediaSession? = null
@@ -102,11 +62,16 @@ class PlayerActivity : FragmentActivity() {
     private var matchFrameRate = false
     /** Set when Back hands the channel to the guide's mini player, which keeps it playing. */
     private var toMini = false
-    /** "Stats for nerds", read while its panel is open. */
-    private lateinit var stats: PlaybackStats
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!isTelevision()) {
+            // Phones play in the app itself.
+            PlayRequest.fromIntent(intent)?.let { container.phonePlayback.play(it) }
+            startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+            finish()
+            return
+        }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
@@ -114,76 +79,55 @@ class PlayerActivity : FragmentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         hideSystemBars()
 
-        if (tv) {
-            // Shared with the guide's mini player, so a live channel can keep playing there.
-            val playback = container.tvPlayback
-            factory = playback.factory
-            exoPlayer = playback.claim(this)
-        } else {
-            factory = PlayerFactory(this, container.httpClient)
-            exoPlayer = factory.create()
-        }
-        exoPlayer.addListener(listener)
-        stats = PlaybackStats(factory.traffic)
-        exoPlayer.addAnalyticsListener(stats)
-        activePlayer = exoPlayer
-        setUpCast()
+        // Shared with the guide's mini player, so a live channel can keep playing there.
+        val playback = container.tvPlayback
+        engine = PlaybackEngine(
+            this,
+            playback.factory,
+            playback.claim(this),
+            lifecycleScope,
+            onStarted = { req, continuing ->
+                loadLiveInfo(req)
+                if (continuing) matchDisplayToVideo()
+            },
+            onVideoSizeChanged = {
+                matchDisplayToVideo()
+                updatePipParams()
+            },
+            onIsPlayingChanged = { updatePipParams() },
+            currentChannel = { liveInfo.channel },
+        )
 
-        if (tv) {
-            lifecycleScope.launch {
-                container.settings.settings.collect { matchFrameRate = it.matchFrameRate }
-            }
-            // After the player's own panels have had their say.
-            onBackPressedDispatcher.addCallback(this) { leave() }
+        lifecycleScope.launch {
+            container.settings.settings.collect { matchFrameRate = it.matchFrameRate }
         }
+        // After the player's own panels have had their say.
+        onBackPressedDispatcher.addCallback(this) { leave() }
 
         setContent {
-            if (tv) {
-                TellycineTvTheme {
-                    TvPlayerScreen(
-                        player = activePlayer ?: exoPlayer,
-                        request = request,
-                        channels = channels,
-                        live = liveInfo,
-                        error = error,
-                        inPip = inPip,
-                        resizeMode = resizeMode,
-                        pipSupported = pipSupported(),
-                        onBack = { leave() },
-                        onRetry = { retry() },
-                        onZap = { zap(it) },
-                        onSelectChannel = { playChannel(it) },
-                        onChannelNumber = { tuneToNumber(it) },
-                        onPreviousChannel = { previousChannel?.let { playChannel(it) } },
-                        onToggleFavorite = { toggleFavorite() },
-                        onOpenWith = { request?.let { openExternally(it, chooser = true) } },
-                        onCycleResize = { resizeMode = (resizeMode + 1) % RESIZE_MODES.size },
-                        onEnterPip = { enterPip() },
-                        onPlay = { playFromGuide(it) },
-                        stats = ::statsRows,
-                        onMultiView = ::openMultiView,
-                    )
-                }
-                return@setContent
-            }
-            TellycineTheme(themeMode = ThemeMode.DARK, dynamicColor = true) {
-                PlayerScreen(
-                    player = activePlayer ?: exoPlayer,
-                    castingTo = castingTo,
-                    castNotice = castAudioNotice,
-                    request = request,
-                    channels = channels,
-                    error = error,
+            TellycineTvTheme {
+                TvPlayerScreen(
+                    player = engine.activePlayer ?: exoPlayer,
+                    request = engine.request,
+                    channels = engine.channels,
+                    live = liveInfo,
+                    error = engine.error,
                     inPip = inPip,
                     resizeMode = resizeMode,
                     pipSupported = pipSupported(),
-                    onBack = { finish() },
-                    onRetry = { retry() },
-                    onZap = { zap(it) },
-                    onSelectChannel = { playChannel(it) },
+                    onBack = { leave() },
+                    onRetry = { engine.retry() },
+                    onZap = { engine.zap(it) },
+                    onSelectChannel = { engine.playChannel(it) },
+                    onChannelNumber = { tuneToNumber(it) },
+                    onPreviousChannel = { engine.previousChannel?.let { engine.playChannel(it) } },
+                    onToggleFavorite = { toggleFavorite() },
+                    onOpenWith = { engine.request?.let { openExternally(it, chooser = true) } },
                     onCycleResize = { resizeMode = (resizeMode + 1) % RESIZE_MODES.size },
                     onEnterPip = { enterPip() },
+                    onPlay = { engine.playPicked(it) },
                     stats = ::statsRows,
+                    onMultiView = ::openMultiView,
                 )
             }
         }
@@ -193,230 +137,31 @@ class PlayerActivity : FragmentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        handleIntent(intent)
+        if (::engine.isInitialized) handleIntent(intent)
     }
 
     private fun handleIntent(intent: Intent) {
         val req = PlayRequest.fromIntent(intent) ?: return finish()
-        saveProgress()
-        channels = emptyList()
         // The channel already playing in the guide's mini player carries on, full screen.
-        val fromMini = tv && req.isLive && request == null &&
+        val fromMini = req.isLive && engine.request == null &&
             exoPlayer.currentMediaItem?.localConfiguration?.uri?.toString() == req.url
-        lifecycleScope.launch {
-            // The playlist decides how a stream is adapted for Chromecast.
-            if (playlist?.id != req.playlistId) playlist = container.playlists.get(req.playlistId)
-            if (fromMini) resume(req) else start(req)
-            if (req.isLive) loadChannels(req)
-        }
+        engine.open(req, continuing = fromMini)
     }
 
-    /** Shows [req], which the shared TV player is already playing, without restarting it. */
-    private fun resume(req: PlayRequest) {
-        request = req
-        error = null
-        liveRetries = 0
-        exoPlayer.playWhenReady = true
-        recordHistory(req, 0, 0)
-        startProgressUpdates()
-        loadLiveInfo(req)
-        matchDisplayToVideo()
-    }
-
-    /** Back on a TV: a live channel carries on in the guide's mini player; anything else stops. */
+    /** Back: a live channel carries on in the guide's mini player; anything else stops. */
     private fun leave() {
-        val req = request
-        if (tv && req != null && req.isLive && error == null && !isCasting()) {
-            exoPlayer.removeListener(listener)
-            exoPlayer.removeAnalyticsListener(stats)
+        val req = engine.request
+        if (req != null && req.isLive && engine.error == null && !engine.isCasting()) {
+            engine.detach()
             container.tvPlayback.toMini(this, req)
             toMini = true
         }
         finish()
     }
 
-    private fun start(req: PlayRequest) {
-        request = req
-        error = null
-        liveRetries = 0
-        val position = if (req.isLive) C.TIME_UNSET else req.startPositionMs
-        val cast = castPlayer?.takeIf { it.isCastSessionAvailable && req.apiKey == null }
-        castJob?.cancel()
-        castAudioNotice = null
-        if (cast != null) {
-            // What the phone already knows about this file's soundtracks, read before it stops.
-            val knownAudio = if (req.kind != ContentKind.LIVE && activePlayer === exoPlayer) localAudioTracks(req) else null
-            if (activePlayer !== cast) exoPlayer.stop()
-            activePlayer = cast
-            castingTo = container.cast.deviceName() ?: "TV"
-            castJob = lifecycleScope.launch {
-                val p = playlist
-                if (req.kind != ContentKind.LIVE) {
-                    // Checked before the TV starts, so a provider allowing one connection isn't asked for two.
-                    val audio = knownAudio ?: withTimeoutOrNull(8_000) { probeAudioTracks(req) }
-                    castAudioNotice = audio?.let(CastAudio::notice)
-                }
-                // Dispatcharr can convert a channel's audio to AAC, which Chromecast always plays.
-                val outputProfile = if (req.isLive && p?.isDispatcharr == true) {
-                    withTimeoutOrNull(5_000) { container.dvr.aacOutputProfile(p) }
-                } else {
-                    null
-                }
-                cast.setMediaItem(CastMedia.mediaItem(req, p, outputProfile), position)
-                cast.prepare()
-                cast.playWhenReady = true
-            }
-        } else {
-            activePlayer = exoPlayer
-            castingTo = null
-            factory.applyHeaders(req)
-            exoPlayer.setMediaItem(factory.mediaItem(req), position)
-            exoPlayer.prepare()
-            exoPlayer.playWhenReady = true
-        }
-        recordHistory(req, 0, 0)
-        startProgressUpdates()
-        if (tv) loadLiveInfo(req)
-    }
-
-    // ---- Chromecast ----
-
-    private fun setUpCast() {
-        val castContext = container.cast.castContext ?: return
-        castPlayer = CastPlayer(castContext, CastMediaItemConverter()).also { cast ->
-            cast.addListener(listener)
-            cast.setSessionAvailabilityListener(object : SessionAvailabilityListener {
-                override fun onCastSessionAvailable() = moveToCast()
-                override fun onCastSessionUnavailable() = moveToLocal()
-            })
-        }
-    }
-
-    /** A Cast session started: continue the current stream on the TV from the same point. */
-    private fun moveToCast() {
-        val req = request ?: return
-        if (req.apiKey != null) {
-            Toast.makeText(this, "Recordings can only play on this device", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val position = exoPlayer.currentPosition
-        start(req.copy(startPositionMs = position))
-    }
-
-    /** The Cast session ended: bring playback back to the phone. */
-    private fun moveToLocal() {
-        val cast = castPlayer ?: return
-        if (activePlayer !== cast) return
-        val req = request ?: return
-        val position = cast.currentPosition
-        cast.stop()
-        start(req.copy(startPositionMs = position))
-    }
-
-    private fun isCasting() = castPlayer != null && activePlayer === castPlayer
-
-    /** Soundtracks of [req] from the phone's player, if that's what it has loaded. */
-    private fun localAudioTracks(req: PlayRequest): List<AudioTrackInfo>? {
-        val loaded = exoPlayer.currentMediaItem?.localConfiguration?.uri?.toString() ?: return null
-        if (loaded != (req.localUri ?: req.url)) return null
-        return exoPlayer.currentTracks.groups
-            .filter { it.type == C.TRACK_TYPE_AUDIO }
-            .map { group -> group.getTrackFormat(0).let { AudioTrackInfo(it.sampleMimeType, it.language) } }
-            .ifEmpty { null }
-    }
-
-    /** Reads the file's soundtracks, in file order, without playing it. */
-    private suspend fun probeAudioTracks(req: PlayRequest): List<AudioTrackInfo>? {
-        val future = MetadataRetriever.retrieveMetadata(factory.probeSourceFactory(req), factory.mediaItem(req))
-        return try {
-            val groups = suspendCancellableCoroutine<TrackGroupArray> { cont ->
-                future.addListener({
-                    try {
-                        cont.resume(future.get())
-                    } catch (e: Exception) {
-                        cont.resumeWithException(e)
-                    }
-                }, Executor(Runnable::run))
-                cont.invokeOnCancellation { future.cancel(true) }
-            }
-            (0 until groups.length)
-                .map { groups[it].getFormat(0) }
-                .filter { MimeTypes.isAudio(it.sampleMimeType) }
-                .map { AudioTrackInfo(it.sampleMimeType, it.language) }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.w("PlayerActivity", "Couldn't read soundtracks before casting", e)
-            null
-        }
-    }
-
-    private fun loadChannels(req: PlayRequest) {
-        lifecycleScope.launch {
-            val content = container.content
-            channels = if (req.categoryId == Categories.FAVORITES) {
-                content.favoriteItems(req.playlistId, ContentKind.LIVE, 2000).first()
-            } else {
-                content.channelList(req.playlistId, req.categoryId)
-            }
-        }
-    }
-
-    /** Switch to the previous (-1) or next (+1) channel in the current list. */
-    private fun zap(direction: Int) {
-        val list = channels
-        val current = request ?: return
-        if (list.isEmpty()) return
-        val index = list.indexOfFirst { it.streamId == current.streamId }
-        val next = list[((if (index < 0) 0 else index + direction) % list.size + list.size) % list.size]
-        playChannel(next)
-    }
-
-    private fun playChannel(stream: StreamEntity) {
-        val current = request ?: return
-        if (stream.streamId != current.streamId) {
-            previousChannel = channels.firstOrNull { it.streamId == current.streamId } ?: liveInfo.channel
-        }
-        saveProgress()
-        start(
-            current.copy(
-                streamId = stream.streamId,
-                historyKey = ContentRepository.liveKey(stream.streamId),
-                url = stream.url,
-                title = stream.name,
-                subtitle = null,
-                artwork = stream.logo,
-                userAgent = stream.userAgent ?: current.userAgent,
-                referrer = stream.referrer,
-                startPositionMs = 0,
-            )
-        )
-        lifecycleScope.launch {
-            val channelId = stream.epgChannelId ?: return@launch
-            val now = container.content.schedule(stream.playlistId, channelId, limit = 1).firstOrNull()
-            if (now != null && now.startMs <= System.currentTimeMillis() && request?.streamId == stream.streamId) {
-                request = request?.copy(subtitle = now.title)
-            }
-        }
-    }
-
-    /**
-     * A channel or past programme picked in the guide over the picture. A channel from another
-     * category brings that category's channels, so up/down then move through them.
-     */
-    private fun playFromGuide(req: PlayRequest) {
-        val current = request
-        if (req.isLive && current != null && req.streamId != current.streamId) {
-            previousChannel = channels.firstOrNull { it.streamId == current.streamId } ?: liveInfo.channel
-        }
-        saveProgress()
-        start(req)
-        if (req.isLive && req.categoryId != current?.categoryId) loadChannels(req)
-    }
-
     /** Moves the channel playing into multi-view, where more can be added beside it. */
     private fun openMultiView() {
-        val req = request ?: return
+        val req = engine.request ?: return
         // Lets go of the stream first: some accounts allow only one connection.
         exoPlayer.stop()
         startActivity(MultiViewActivity.intent(this, req))
@@ -432,7 +177,7 @@ class PlayerActivity : FragmentActivity() {
             liveInfo = LiveInfo()
             return
         }
-        liveInfo = LiveInfo(channel = channels.firstOrNull { it.streamId == req.streamId }, previous = previousChannel)
+        liveInfo = LiveInfo(channel = engine.channels.firstOrNull { it.streamId == req.streamId }, previous = engine.previousChannel)
         liveInfoJob = lifecycleScope.launch {
             val content = container.content
             val channel = content.getStream(req.playlistId, ContentKind.LIVE, req.streamId)
@@ -455,12 +200,12 @@ class PlayerActivity : FragmentActivity() {
 
     /** Tunes to the channel with the number typed on the remote. */
     private fun tuneToNumber(number: Int) {
-        val req = request ?: return
+        val req = engine.request ?: return
         lifecycleScope.launch {
-            val stream = channels.firstOrNull { it.number == number }
+            val stream = engine.channels.firstOrNull { it.number == number }
                 ?: container.content.channelList(req.playlistId, null).firstOrNull { it.number == number }
             if (stream != null) {
-                playChannel(stream)
+                engine.playChannel(stream)
             } else {
                 Toast.makeText(this@PlayerActivity, "No channel $number", Toast.LENGTH_SHORT).show()
             }
@@ -468,131 +213,16 @@ class PlayerActivity : FragmentActivity() {
     }
 
     private fun toggleFavorite() {
-        val req = request ?: return
+        val req = engine.request ?: return
         if (!req.isLive) return
         lifecycleScope.launch { container.content.toggleFavorite(req.playlistId, ContentKind.LIVE, req.streamId) }
     }
 
-    private fun retry() {
-        val req = request ?: return
-        error = null
-        if (req.isLive) {
-            start(req)
-        } else {
-            val position = player.currentPosition
-            start(req.copy(startPositionMs = position))
-        }
-    }
-
-    private val listener = object : Player.Listener {
-        override fun onPlayerError(e: PlaybackException) {
-            val req = request ?: return
-            if (isCasting()) {
-                error = "Chromecast couldn't play this stream. The TV may not support its format, " +
-                    "or the provider may need headers the TV can't send. Disconnect to watch on this device."
-                return
-            }
-            if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
-                player.seekToDefaultPosition()
-                player.prepare()
-                return
-            }
-            // Live IPTV streams frequently drop; retry a few times before giving up.
-            if (req.isLive && liveRetries < 3) {
-                liveRetries++
-                lifecycleScope.launch {
-                    delay(1500L * liveRetries)
-                    if (request == req) {
-                        player.prepare()
-                        player.play()
-                    }
-                }
-                return
-            }
-            error = describe(e)
-        }
-
-        override fun onPlaybackStateChanged(state: Int) {
-            if (state == Player.STATE_READY) {
-                liveRetries = 0
-                error = null
-            }
-            if (state == Player.STATE_ENDED) saveProgress()
-        }
-
-        override fun onVideoSizeChanged(videoSize: VideoSize) {
-            matchDisplayToVideo()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && pipSupported()) {
-                runCatching { setPictureInPictureParams(pipParams()) }
-            }
-        }
-    }
-
-    private fun describe(e: PlaybackException): String = when (e.errorCode) {
-        PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "The server refused the stream (${e.cause?.message ?: "HTTP error"})."
-        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
-        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "Couldn't connect to the stream. Check your connection."
-        PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
-        PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED -> "This stream format isn't supported."
-        PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
-        PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED -> "This device can't decode the stream."
-        else -> e.message ?: "Playback failed."
-    }
-
-    // ---- Watch history ----
-
-    private fun startProgressUpdates() {
-        progressJob?.cancel()
-        progressJob = lifecycleScope.launch {
-            while (isActive) {
-                delay(15_000)
-                if (player.isPlaying) saveProgress()
-            }
-        }
-    }
-
-    private fun saveProgress() {
-        val req = request ?: return
-        if (req.isLive) return
-        val duration = player.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: 0L
-        val position = player.currentPosition
-        if (position <= 0) return
-        recordHistory(req, position, duration)
-    }
-
-    private fun recordHistory(req: PlayRequest, position: Long, duration: Long) {
-        if (req.catchup) return
-        val content = container.content
-        val entity = HistoryEntity(
-            playlistId = req.playlistId,
-            itemKey = req.historyKey,
-            kind = req.kind,
-            streamId = req.streamId,
-            title = req.title,
-            subtitle = if (req.isLive) null else req.subtitle,
-            artwork = req.artwork,
-            url = req.url,
-            positionMs = position,
-            durationMs = duration,
-            lastWatchedAt = System.currentTimeMillis(),
-        )
-        container.appScope.launch {
-            if (!req.isLive && position == 0L) {
-                // Starting playback: keep any existing resume point.
-                val existing = content.getHistory(req.playlistId, req.historyKey)
-                content.saveHistory(existing?.copy(lastWatchedAt = entity.lastWatchedAt) ?: entity)
-            } else {
-                content.saveHistory(entity)
-            }
-        }
-    }
-
     /** The stats panel's rows: the stream as the local player sees it. */
     private fun statsRows(): List<Pair<String, String>> {
-        if (isCasting()) return listOf("Casting" to "Stats come from this device's player, which isn't playing")
         @Suppress("DEPRECATION")
         val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display else windowManager.defaultDisplay
-        return stats.rows(exoPlayer, display)
+        return engine.statsRows(display)
     }
 
     // ---- TV: refresh rate ----
@@ -603,7 +233,7 @@ class PlayerActivity : FragmentActivity() {
      * smooth. Only when the setting is on and the stream says its frame rate.
      */
     private fun matchDisplayToVideo() {
-        if (!tv || !matchFrameRate || isCasting()) return
+        if (!matchFrameRate || engine.isCasting()) return
         val fps = exoPlayer.videoFormat?.frameRate?.takeIf { it > 1f } ?: return
         @Suppress("DEPRECATION")
         val display = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display else windowManager.defaultDisplay) ?: return
@@ -627,32 +257,15 @@ class PlayerActivity : FragmentActivity() {
 
     // ---- Picture in picture & lifecycle ----
 
-    private fun pipSupported() = packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE) && !isCasting()
+    private fun pipSupported() = packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE) && !engine.isCasting()
 
-    private fun pipParams(): PictureInPictureParams {
-        val size = player.videoSize
-        val builder = PictureInPictureParams.Builder()
-        if (size.width > 0 && size.height > 0) {
-            val ratio = (size.width.toFloat() * size.pixelWidthHeightRatio / size.height).coerceIn(0.42f, 2.38f)
-            builder.setAspectRatio(Rational((ratio * 1000).toInt(), 1000))
-        } else {
-            builder.setAspectRatio(Rational(16, 9))
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            builder.setAutoEnterEnabled(player.isPlaying && !tv)
-            builder.setSeamlessResizeEnabled(true)
-        }
-        return builder.build()
+    private fun updatePipParams() {
+        if (pipSupported()) runCatching { setPictureInPictureParams(pipParams(player.videoSize)) }
     }
 
     private fun enterPip() {
         if (!pipSupported()) return
-        runCatching { enterPictureInPictureMode(pipParams()) }
-    }
-
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        if (!tv && player.isPlaying && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) enterPip()
+        runCatching { enterPictureInPictureMode(pipParams(player.videoSize)) }
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
@@ -667,17 +280,17 @@ class PlayerActivity : FragmentActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (!::engine.isInitialized) return
         hideSystemBars()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && pipSupported()) {
-            runCatching { setPictureInPictureParams(pipParams()) }
-        }
+        updatePipParams()
     }
 
     override fun onStart() {
         super.onStart()
+        if (!::engine.isInitialized) return
         // Only while the player is on screen, so the remote's play button can't restart a
         // stream in the background after leaving.
-        if (tv && mediaSession == null) {
+        if (mediaSession == null) {
             mediaSession = runCatching {
                 MediaSession.Builder(this, exoPlayer).setId("tellycine-player-${System.identityHashCode(this)}").build()
             }.getOrNull()
@@ -686,25 +299,21 @@ class PlayerActivity : FragmentActivity() {
 
     override fun onStop() {
         super.onStop()
+        if (!::engine.isInitialized) return
         mediaSession?.release()
         mediaSession = null
-        saveProgress()
+        engine.saveProgress()
         // Keep the TV playing when the app goes to the background while casting, and the
         // channel playing on in the guide's mini player.
-        if (!isInPictureInPictureMode && !isCasting() && !toMini) player.pause()
+        if (!isInPictureInPictureMode && !engine.isCasting() && !toMini) player.pause()
     }
 
     override fun onDestroy() {
-        saveProgress()
-        progressJob?.cancel()
-        exoPlayer.removeListener(listener)
-        exoPlayer.removeAnalyticsListener(stats)
-        // On a TV the player is shared: it stops only if nothing else has taken it over.
-        if (tv) container.tvPlayback.release(this) else exoPlayer.release()
-        castPlayer?.let {
-            it.setSessionAvailabilityListener(null)
-            it.removeListener(listener)
-            it.release()
+        if (::engine.isInitialized) {
+            engine.saveProgress()
+            engine.detach()
+            // The player is shared: it stops only if nothing else has taken it over.
+            container.tvPlayback.release(this)
         }
         super.onDestroy()
     }
@@ -715,4 +324,23 @@ class PlayerActivity : FragmentActivity() {
             hide(WindowInsetsCompat.Type.systemBars())
         }
     }
+}
+
+/**
+ * Picture-in-picture settings for a video of [size]: its shape, and (from Android 12) going into
+ * picture in picture by itself when the user leaves while it [autoEnter]s.
+ */
+fun pipParams(size: VideoSize, autoEnter: Boolean = false): PictureInPictureParams {
+    val builder = PictureInPictureParams.Builder()
+    if (size.width > 0 && size.height > 0) {
+        val ratio = (size.width.toFloat() * size.pixelWidthHeightRatio / size.height).coerceIn(0.42f, 2.38f)
+        builder.setAspectRatio(Rational((ratio * 1000).toInt(), 1000))
+    } else {
+        builder.setAspectRatio(Rational(16, 9))
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        builder.setAutoEnterEnabled(autoEnter)
+        builder.setSeamlessResizeEnabled(true)
+    }
+    return builder.build()
 }

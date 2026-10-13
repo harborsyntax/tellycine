@@ -17,6 +17,7 @@ import app.tellycine.data.sync.PlaylistSyncer
 import app.tellycine.data.sync.SyncManager
 import app.tellycine.data.tvmaze.TvmazeClient
 import app.tellycine.data.tvmaze.TvmazeUpdater
+import app.tellycine.player.PhonePlayback
 import app.tellycine.player.TvPlayback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +48,8 @@ class AppContainer(context: Context) {
     val cast = CastManager(context)
     /** TV only: the player shared by the full-screen player and the guide's mini player. */
     val tvPlayback by lazy { TvPlayback(context, httpClient) }
+    /** Phones and tablets: the player at the top of the app, full screen or in picture in picture. */
+    val phonePlayback by lazy { PhonePlayback(context, httpClient) }
 
     /** The TV interface's colours, ready for its first frame. */
     val tvTheme: StateFlow<TvTheme> = settings.settings

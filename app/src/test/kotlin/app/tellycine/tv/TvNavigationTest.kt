@@ -21,11 +21,13 @@ import app.tellycine.TellycineApp
 import app.tellycine.data.settings.CategorySort
 import app.tellycine.player.PlayerActivity
 import app.tellycine.screenshots.ScreenshotDriver
+import app.tellycine.screenshots.beATelevision
 import app.tellycine.tv.components.hold
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -39,6 +41,9 @@ class TvNavigationTest {
 
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
+
+    @Before
+    fun setUp() = beATelevision()
 
     @Test
     fun remoteMovesAroundTheGuideAndPlays() {

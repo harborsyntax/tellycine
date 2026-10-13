@@ -22,7 +22,7 @@ Tellycine is an IPTV player for Android phones, tablets and TVs. It plays your o
 - [Library](Library.md): favourites, continue watching, sorting and grouping
 - [Downloads](Downloads.md): save movies and episodes to watch offline
 - [Search](Search.md)
-- [Player](Player.md): controls, channel switching, picture-in-picture, external players
+- [Player](Player.md): watching while you browse, full screen, controls, channel switching, picture-in-picture, external players
 - [Chromecast](Chromecast.md)
 - [Dispatcharr](Dispatcharr.md): recordings and source URLs
 - [Android TV & Google TV](Android-TV.md): the TV interface, the remote, and adding playlists from your phone

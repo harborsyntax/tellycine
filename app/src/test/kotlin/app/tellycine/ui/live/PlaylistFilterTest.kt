@@ -11,26 +11,18 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import app.tellycine.TellycineApp
 import app.tellycine.data.repo.SecondPlaylist
-import app.tellycine.player.PlayRequest
 import app.tellycine.screenshots.ScreenshotDriver
+import app.tellycine.screenshots.beATelevision
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-
-private fun startedPlay(): PlayRequest {
-    val started = shadowOf(ApplicationProvider.getApplicationContext<TellycineApp>()).nextStartedActivity
-    return PlayRequest.fromIntent(started)!!
-}
 
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -58,7 +50,7 @@ class PlaylistFilterTest {
 
         // It plays from its own playlist, and changing channel stays in its own category there.
         d.click("Second News HD")
-        val request = startedPlay()
+        val request = d.playing()
         assertEquals(second, request.playlistId)
         assertEquals("7", request.categoryId)
 
@@ -120,8 +112,9 @@ class TvPlaylistFilterTest {
         d.press(Key.DirectionDown, 2)
         d.waitForText("Second Headlines")
         assertTrue(compose.onAllNodesWithText(SecondPlaylist.NAME, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+        beATelevision()
         d.press(Key.DirectionCenter)
-        val request = startedPlay()
+        val request = d.playing()
         assertEquals(second, request.playlistId)
         assertEquals("7", request.categoryId)
     }

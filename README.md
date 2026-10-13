@@ -42,7 +42,7 @@ Tellycine is a player only. It doesn't provide any channels or content; you add 
 - **Downloads:** save movies and episodes to watch offline, with a screen to manage them and a Wi-Fi only option.
 - **Library:** favourites, continue watching and recently watched, with sorting and grouping by category.
 - **Your choice of content:** hide categories per playlist, or turn off movies & series entirely.
-- **A capable player:** HLS, MPEG-TS, DASH and MP4, audio and subtitle tracks, channel switching, and picture-in-picture.
+- **A capable player:** HLS, MPEG-TS, DASH and MP4, audio and subtitle tracks, channel switching, and picture-in-picture. On phones, it plays at the top of the app while you browse, and goes full screen when you turn it sideways.
 - **Chromecast**, plus **Open with…** any external player, or set one as your default.
 - **Dispatcharr:** DVR recordings (watch, schedule and delete), and sharing Dispatcharr or source stream URLs.
 - **Built for big playlists:** stream-parsed imports and paged lists keep huge playlists and guides fast.
