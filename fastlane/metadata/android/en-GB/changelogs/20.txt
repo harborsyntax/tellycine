@@ -1,0 +1,4 @@
+• On phones and tablets, the player sits at the top of the app, so you can keep browsing while you watch
+• Turn sideways or press full screen to fill the screen
+• Going to your home screen while something plays carries it on in picture-in-picture
+• Fixed a crash in very small windows
