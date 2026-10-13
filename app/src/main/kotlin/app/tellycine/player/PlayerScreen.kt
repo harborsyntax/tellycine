@@ -108,6 +108,7 @@ fun PlayerScreen(
     onClose: () -> Unit = onBack,
 ) {
     val toggleFullScreen by rememberUpdatedState(onToggleFullScreen)
+    val isFullScreen by rememberUpdatedState(!docked)
     var controlsVisible by remember { mutableStateOf(true) }
     var showChannels by remember { mutableStateOf(false) }
     var showStats by remember { mutableStateOf(false) }
@@ -138,7 +139,15 @@ fun PlayerScreen(
                     setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
                         controlsVisible = visibility == android.view.View.VISIBLE
                     })
-                    setFullscreenButtonClickListener { toggleFullScreen() }
+                    // Also called when the button is set to match the screen (below), so only a change
+                    // away from what the screen shows is a press. The button keeps showing the screen
+                    // as it is until it changes, so it still works if the screen doesn't turn.
+                    setFullscreenButtonClickListener { pressedTo ->
+                        if (pressedTo != isFullScreen) {
+                            toggleFullScreen()
+                            setFullscreenButtonState(isFullScreen)
+                        }
+                    }
                     playerView = this
                 }
             },

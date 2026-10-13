@@ -66,23 +66,25 @@ fun beATelevision() {
 @OptIn(ExperimentalRoborazziApi::class)
 class ScreenshotDriver(private val compose: ComposeRule) {
     private var theme by mutableStateOf(ThemeMode.DARK)
+    /** Stands in for the phone's picture-in-picture window, as MainActivity reports it. */
+    var inPip by mutableStateOf(false)
     val app: TellycineApp get() = ApplicationProvider.getApplicationContext()
 
     /**
      * Starts the phone interface on the demo playlist, after [afterSeed] has had a chance to change
      * it, with the player that docks at the top as in MainActivity ([onFullScreen] stands in for
-     * turning the phone).
+     * turning the phone). It waits for [ready] to show, if anything.
      */
-    fun launch(onFullScreen: (Boolean) -> Unit = {}, afterSeed: (playlistId: Long) -> Unit = {}) {
+    fun launch(onFullScreen: (Boolean) -> Unit = {}, ready: String? = "Live TV", afterSeed: (playlistId: Long) -> Unit = {}) {
         afterSeed(DemoData.seed(app.container))
         compose.setContent {
             TellycineTheme(themeMode = theme, dynamicColor = false) {
-                PhonePlayerHost(app.container.phonePlayback, inPip = false, pipSupported = true, onFullScreen = onFullScreen, onEnterPip = {}) {
+                PhonePlayerHost(app.container.phonePlayback, inPip = inPip, pipSupported = true, onFullScreen = onFullScreen, onEnterPip = {}) {
                     TellycineNavHost()
                 }
             }
         }
-        waitForText("Live TV")
+        ready?.let(::waitForText)
     }
 
     /** Starts the TV interface instead of the phone one. */

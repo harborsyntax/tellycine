@@ -5,7 +5,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -17,8 +16,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.Constraints
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -47,44 +49,65 @@ fun PhonePlayerHost(
     SystemBars(full = full, docked = docked)
     BackHandler(enabled = full && !inPip) { onFullScreen(false) }
 
-    Column(Modifier.fillMaxSize()) {
-        if (engine != null) {
-            // The same player view either way, so the picture carries on when it docks or fills the screen.
-            Box(
-                if (full) Modifier.fillMaxSize().background(Color.Black)
-                else Modifier.fillMaxWidth().background(Color.Black).statusBarsPadding().aspectRatio(16f / 9f)
-            ) {
-                PlayerScreen(
-                    player = engine.activePlayer ?: engine.exoPlayer,
-                    castingTo = engine.castingTo,
-                    castNotice = engine.castAudioNotice,
-                    request = engine.request,
-                    channels = engine.channels,
-                    error = engine.error,
-                    inPip = inPip,
-                    resizeMode = playback.resizeMode,
-                    pipSupported = pipSupported && !engine.isCasting(),
-                    onBack = { onFullScreen(false) },
-                    onRetry = engine::retry,
-                    onZap = engine::zap,
-                    onSelectChannel = engine::playChannel,
-                    onCycleResize = { playback.resizeMode = (playback.resizeMode + 1) % RESIZE_MODES.size },
-                    onEnterPip = onEnterPip,
-                    stats = { engine.statsRows(view.display) },
-                    docked = docked,
-                    // Browsing below a paused video lets the screen go off as usual.
-                    keepScreenOn = full || playback.isPlaying,
-                    onToggleFullScreen = { onFullScreen(!full) },
-                    onClose = playback::close,
-                )
+    Layout(
+        content = {
+            if (engine != null) {
+                // The same player view either way, so the picture carries on when it docks or fills the screen.
+                Box(
+                    Modifier.layoutId(PLAYER)
+                        .background(Color.Black)
+                        .then(if (full) Modifier.fillMaxSize() else Modifier.fillMaxWidth().statusBarsPadding().aspectRatio(16f / 9f))
+                ) {
+                    PlayerScreen(
+                        player = engine.activePlayer ?: engine.exoPlayer,
+                        castingTo = engine.castingTo,
+                        castNotice = engine.castAudioNotice,
+                        request = engine.request,
+                        channels = engine.channels,
+                        error = engine.error,
+                        inPip = inPip,
+                        resizeMode = playback.resizeMode,
+                        pipSupported = pipSupported && !engine.isCasting(),
+                        onBack = { onFullScreen(false) },
+                        onRetry = engine::retry,
+                        onZap = engine::zap,
+                        onSelectChannel = engine::playChannel,
+                        onCycleResize = { playback.resizeMode = (playback.resizeMode + 1) % RESIZE_MODES.size },
+                        onEnterPip = onEnterPip,
+                        stats = { engine.statsRows(view.display) },
+                        docked = docked,
+                        // Browsing below a paused video lets the screen go off as usual.
+                        keepScreenOn = full || playback.isPlaying,
+                        onToggleFullScreen = { onFullScreen(!full) },
+                        onClose = playback::close,
+                    )
+                }
             }
+            // Below the docked player, the app starts under it rather than under the status bar.
+            Box(Modifier.layoutId(APP).then(if (docked) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier)) {
+                content()
+            }
+        },
+        modifier = Modifier.fillMaxSize(),
+    ) { measurables, constraints ->
+        val width = constraints.maxWidth
+        val height = constraints.maxHeight
+        val player = measurables.firstOrNull { it.layoutId == PLAYER }?.measure(Constraints(maxWidth = width, maxHeight = height))
+        // Behind a full-screen player the app isn't laid out at all: it keeps its place, but isn't
+        // squeezed to nothing, or to the size of a picture-in-picture window, which its lists can't take.
+        val app = if (full) null else {
+            val below = height - (player?.height ?: 0)
+            measurables.first { it.layoutId == APP }.measure(Constraints.fixed(width, below.coerceAtLeast(0)))
         }
-        // Below the docked player, the app starts under it rather than under the status bar.
-        Box(Modifier.weight(1f).fillMaxWidth().then(if (docked) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier)) {
-            content()
+        layout(width, height) {
+            player?.place(0, 0)
+            app?.place(0, player?.height ?: 0)
         }
     }
 }
+
+private const val PLAYER = "player"
+private const val APP = "app"
 
 /** Hides the system bars while [full] screen; light status bar icons over the black above the [docked] player. */
 @Composable

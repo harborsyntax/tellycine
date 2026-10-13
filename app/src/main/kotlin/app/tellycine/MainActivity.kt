@@ -84,6 +84,8 @@ class MainActivity : FragmentActivity() {
      * leaves (or goes back to) full screen.
      */
     private fun setFullScreen(on: Boolean) {
+        // A picture-in-picture window takes its shape from the video, not the screen.
+        if (isInPictureInPictureMode) return
         requestedOrientation = if (on) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         if (autoRotate()) {
             waitingFor = if (on) Configuration.ORIENTATION_LANDSCAPE else Configuration.ORIENTATION_PORTRAIT
@@ -131,6 +133,12 @@ class MainActivity : FragmentActivity() {
         super.onUserLeaveHint()
         // From Android 12, the system does this itself (see updatePipParams).
         if (phone && Build.VERSION.SDK_INT < Build.VERSION_CODES.S && playback.isPlaying) enterPip()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // Also here, in case the window's new size arrives before the news it's picture in picture.
+        if (phone) inPip = isInPictureInPictureMode
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
