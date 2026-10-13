@@ -426,3 +426,32 @@ interface DownloadDao {
     suspend fun delete(playlistId: Long, itemKey: String)
 }
 
+
+/** A series as the TVmaze lookup needs it: what to look up, and where its air date goes. */
+data class SeriesRef(
+    val playlistId: Long,
+    val streamId: String,
+    val name: String,
+    val year: String?,
+    val released: String?,
+    val changedAt: Long?,
+    val aired: String?,
+)
+
+@Dao
+interface TvmazeDao {
+    @Query("SELECT * FROM tvmaze_shows")
+    suspend fun shows(): List<TvmazeShowEntity>
+
+    @Upsert
+    suspend fun upsert(show: TvmazeShowEntity)
+
+    @Query("DELETE FROM tvmaze_shows WHERE showKey IN (:keys)")
+    suspend fun delete(keys: List<String>)
+
+    @Query("SELECT playlistId, streamId, name, year, released, changedAt, aired FROM streams WHERE kind = 'SERIES'")
+    suspend fun series(): List<SeriesRef>
+
+    @Query("UPDATE streams SET aired = :aired WHERE playlistId = :playlistId AND kind = 'SERIES' AND streamId = :streamId")
+    suspend fun setAired(playlistId: Long, streamId: String, aired: String?)
+}

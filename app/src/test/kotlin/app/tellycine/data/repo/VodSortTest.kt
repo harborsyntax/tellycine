@@ -8,6 +8,7 @@ import app.tellycine.core.ContentKind
 import app.tellycine.data.settings.VodOrder
 import app.tellycine.data.settings.VodSort
 import app.tellycine.screenshots.DemoData
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -50,6 +51,20 @@ class VodSortTest {
         assertEquals(listOf("Velocity", "The Wedding Plan", "The Last Signal"), movies(VodSort.NAME, descending = true).take(3))
         // Oldest releases first, two from 2020 still in the provider's order.
         assertEquals(listOf("Northern Lights", "Velocity"), movies(VodSort.RELEASED, descending = false).take(2))
+    }
+
+    @Test
+    fun seriesByWhenTheyLastAired() = runBlocking(Dispatchers.IO) {
+        val tvmaze = container.database.tvmaze()
+        tvmaze.setAired(demo, "sr3", "2025-06-01")
+        tvmaze.setAired(demo, "sr1", "2024-01-15")
+        tvmaze.setAired(demo, "sr5", "2025-06-01")
+        val aired = names(listOf(demo), ContentKind.SERIES, Categories.ALL, VodOrder(VodSort.AIRED))
+        // Ties in the provider's order; those TVmaze didn't date come last, either way round.
+        assertEquals(listOf("Cold Case Unit", "Flatmates", "Harbour Lane"), aired.take(3))
+        val oldest = names(listOf(demo), ContentKind.SERIES, Categories.ALL, VodOrder(VodSort.AIRED, descending = false))
+        assertEquals(listOf("Harbour Lane", "Cold Case Unit", "Flatmates"), oldest.take(3))
+        assertEquals(aired.drop(3), oldest.drop(3))
     }
 
     @Test

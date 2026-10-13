@@ -40,4 +40,15 @@ class VodOrderTest {
         assertEquals("Z to A", VodOrder(VodSort.NAME, descending = true).direction)
         assertEquals("reversed", VodOrder(VodSort.PROVIDER, descending = true).direction)
     }
+
+    @Test
+    fun lastAiredOnlyWithAirDatesFromTvmaze() {
+        assert(VodSort.AIRED !in VodSort.choices(ContentKind.SERIES))
+        assert(VodSort.AIRED in VodSort.choices(ContentKind.SERIES, airDates = true))
+        assert(VodSort.AIRED !in VodSort.choices(ContentKind.MOVIE, airDates = true))
+        val aired = VodOrder(VodSort.AIRED)
+        assertEquals(aired, AppSettings(vodSorts = mapOf(ContentKind.SERIES to aired), tvmazeAirDates = true).vodSort(ContentKind.SERIES))
+        // Turned off, series go back to newest first.
+        assertEquals(VodOrder.DEFAULT, AppSettings(vodSorts = mapOf(ContentKind.SERIES to aired)).vodSort(ContentKind.SERIES))
+    }
 }

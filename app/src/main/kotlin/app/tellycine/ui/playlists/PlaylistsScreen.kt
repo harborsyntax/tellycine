@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -39,6 +40,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.foundation.layout.size
@@ -64,17 +66,27 @@ import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.PlaylistType
 import app.tellycine.data.db.SyncState
 import app.tellycine.data.sync.SyncProgress
+import app.tellycine.data.tvmaze.TvmazeUpdater
 import app.tellycine.ui.components.TellycineLogo
 import app.tellycine.ui.components.formatCount
 import app.tellycine.ui.components.formatDate
 import app.tellycine.ui.components.formatRelative
 import app.tellycine.ui.components.tellycineViewModel
 import app.tellycine.ui.home.SessionState
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class PlaylistsViewModel(private val container: AppContainer) : ViewModel() {
     val progress: StateFlow<Map<Long, SyncProgress>> = container.syncManager.progress
+
+    /** Air dates from TVmaze: whether they're turned on, and how looking series up is going. */
+    val airDates: StateFlow<Boolean> = container.settings.settings.map { it.tvmazeAirDates }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val tvmaze: StateFlow<TvmazeUpdater.Status> = container.tvmaze.status
+    fun checkTvmaze() = container.tvmaze.requestCheck()
 
     fun refresh(id: Long) = container.syncManager.sync(id)
     fun refreshGuide(id: Long) = container.syncManager.sync(id, content = false, epg = true)
@@ -98,6 +110,8 @@ fun PlaylistsScreen(
 ) {
     val vm = tellycineViewModel { c, _ -> PlaylistsViewModel(c) }
     val progress by vm.progress.collectAsStateWithLifecycle()
+    val airDates by vm.airDates.collectAsStateWithLifecycle()
+    val tvmaze by vm.tvmaze.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf<PlaylistEntity?>(null) }
 
     Scaffold(
@@ -159,6 +173,9 @@ fun PlaylistsScreen(
                     modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth(),
                 )
             }
+            if (airDates) {
+                item(key = "tvmaze") { TvmazeCard(tvmaze, vm::checkTvmaze, Modifier.widthIn(max = 720.dp).fillMaxWidth()) }
+            }
         }
     }
 
@@ -176,6 +193,35 @@ fun PlaylistsScreen(
             },
             dismissButton = { TextButton(onClick = { confirmDelete = null }) { Text("Cancel") } },
         )
+    }
+}
+
+/** How looking series up on TVmaze is going, below the playlists while air dates are turned on. */
+@Composable
+private fun TvmazeCard(status: TvmazeUpdater.Status, onCheck: () -> Unit, modifier: Modifier = Modifier) {
+    OutlinedCard(modifier) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Event, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(12.dp))
+                Text(TvmazeText.TITLE, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                TextButton(onClick = onCheck, enabled = !status.running) { Text("Check now") }
+            }
+            Text(status.headline(), style = MaterialTheme.typography.bodyMedium)
+            if (status.running) {
+                val fraction = status.fraction
+                if (fraction != null) LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+                else LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
+            status.details().takeIf { it.isNotEmpty() }?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (status.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(TvmazeText.CREDIT, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 

@@ -30,20 +30,28 @@ enum class TvTheme(val label: String, val description: String) {
 enum class LibrarySort { RECENT, NAME_ASC, NAME_DESC, PLAYLIST_ORDER }
 
 /**
- * What movies or series are sorted by. [UPDATED] is for series only ([choices]). Each starts in its
- * usual direction: dates newest first ([descendingFirst]), titles A–Z and the provider's order as listed.
+ * What movies or series are sorted by. [UPDATED] and [AIRED] are for series only, and [AIRED] only
+ * with air dates from TVmaze turned on ([choices]). Each starts in its usual direction: dates newest
+ * first ([descendingFirst]), titles A–Z and the provider's order as listed.
  */
 enum class VodSort(val label: String, val descendingFirst: Boolean) {
     ADDED("Date added", true),
     RELEASED("Release date", true),
     UPDATED("Latest episode", true),
+    AIRED("Last aired", true),
     NAME("Title", false),
     PROVIDER("Provider order", false),
     ;
 
     companion object {
-        /** The orders offered for movies or series ([kind]). */
-        fun choices(kind: ContentKind): List<VodSort> = if (kind == ContentKind.SERIES) entries else entries - UPDATED
+        /** The orders offered for movies or series ([kind]), with or without [airDates] from TVmaze. */
+        fun choices(kind: ContentKind, airDates: Boolean = false): List<VodSort> = entries.filter {
+            when (it) {
+                UPDATED -> kind == ContentKind.SERIES
+                AIRED -> kind == ContentKind.SERIES && airDates
+                else -> true
+            }
+        }
     }
 }
 
@@ -64,8 +72,9 @@ data class VodOrder(val sort: VodSort, val descending: Boolean = sort.descending
         /** Until one is chosen: newest additions first. */
         val DEFAULT = VodOrder(VodSort.ADDED)
 
-        /** The order for [kind] from the [chosen] one, if it's offered there. */
-        fun of(kind: ContentKind, chosen: VodOrder?): VodOrder = chosen?.takeIf { it.sort in VodSort.choices(kind) } ?: DEFAULT
+        /** The order for [kind] from the [chosen] one, if it's offered there ([VodSort.choices]). */
+        fun of(kind: ContentKind, chosen: VodOrder?, airDates: Boolean = false): VodOrder =
+            chosen?.takeIf { it.sort in VodSort.choices(kind, airDates) } ?: DEFAULT
     }
 }
 
@@ -110,8 +119,10 @@ data class AppSettings(
     val liveCategorySort: CategorySort = CategorySort.PROVIDER,
     /** The order of movies, and of series, as last chosen. */
     val vodSorts: Map<ContentKind, VodOrder> = emptyMap(),
+    /** Look series up on TVmaze for when their latest episode aired (opt-in: it sends their names there). */
+    val tvmazeAirDates: Boolean = false,
 ) {
-    fun vodSort(kind: ContentKind): VodOrder = VodOrder.of(kind, vodSorts[kind])
+    fun vodSort(kind: ContentKind): VodOrder = VodOrder.of(kind, vodSorts[kind], tvmazeAirDates)
 
     companion object {
         /** A section showing every playlist together. */
@@ -144,6 +155,8 @@ class SettingsRepository(private val context: Context) {
         val liveCategorySort = stringPreferencesKey("live_category_sort")
         val vodSorts = listOf(ContentKind.MOVIE, ContentKind.SERIES).associateWith { stringPreferencesKey("sort_${it.name.lowercase()}") }
         val vodSortsDescending = listOf(ContentKind.MOVIE, ContentKind.SERIES).associateWith { booleanPreferencesKey("sort_${it.name.lowercase()}_descending") }
+        val tvmazeAirDates = booleanPreferencesKey("tvmaze_air_dates")
+        val tvmazeCheckedAt = longPreferencesKey("tvmaze_checked_at")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
@@ -167,6 +180,7 @@ class SettingsRepository(private val context: Context) {
             sectionPlaylists = Keys.sectionPlaylists.mapNotNull { (kind, key) -> p[key]?.let { kind to it } }.toMap(),
             liveCategorySort = p[Keys.liveCategorySort]?.let { runCatching { CategorySort.valueOf(it) }.getOrNull() } ?: CategorySort.PROVIDER,
             vodSorts = Keys.vodSorts.keys.mapNotNull { kind -> vodOrder(p, kind)?.let { kind to it } }.toMap(),
+            tvmazeAirDates = p[Keys.tvmazeAirDates] ?: false,
         )
     }
 
@@ -205,8 +219,14 @@ class SettingsRepository(private val context: Context) {
 
     /** Sorts [kind] by [choice], or turns its order round if it already is ([VodOrder.press]), in one step. */
     suspend fun pressVodSort(kind: ContentKind, choice: VodSort) = context.dataStore.edit { p ->
-        putVodOrder(p, kind, VodOrder.of(kind, vodOrder(p, kind)).press(choice))
+        putVodOrder(p, kind, VodOrder.of(kind, vodOrder(p, kind), p[Keys.tvmazeAirDates] ?: false).press(choice))
     }
+
+    suspend fun setTvmazeAirDates(enabled: Boolean) = context.dataStore.edit { it[Keys.tvmazeAirDates] = enabled }
+
+    /** When TVmaze's list of changed shows was last read, to know how far back the next read goes. */
+    suspend fun tvmazeCheckedAt(): Long? = context.dataStore.data.first()[Keys.tvmazeCheckedAt]
+    suspend fun setTvmazeCheckedAt(at: Long) = context.dataStore.edit { it[Keys.tvmazeCheckedAt] = at }
 
     private fun vodOrder(p: Preferences, kind: ContentKind): VodOrder? {
         val sort = Keys.vodSorts[kind]?.let { p[it] }?.let { runCatching { VodSort.valueOf(it) }.getOrNull() } ?: return null

@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Last updated: 10 October 2026*
+*Last updated: 13 October 2026*
 
 Tellycine is an IPTV player for Android phones, tablets and TVs. This policy explains what happens to your information when you use it. In short: Tellycine has no accounts, ads, analytics or tracking, and it doesn't send your information to its developer.
 
@@ -19,6 +19,7 @@ They're removed when you delete the playlist or uninstall Tellycine. You can als
 - **The servers you add:** your playlist, TV guide, Xtream Codes-compatible and Dispatcharr servers, plus the artwork addresses they list. Tellycine sends them what they need to work, such as your login details. What those servers do with your information is up to whoever runs them; see their privacy policies.
 - **Your phone, on your home network:** when you add a playlist to a TV by scanning a QR code, the TV briefly accepts the details from your phone over your local network. Nothing passes through the internet or any other server.
 - **Google Cast:** to find Cast devices and play to them, Tellycine uses Google's Cast software. It sends Google anonymised information about Cast device discovery, Cast sessions, the device and the app, which Google uses to improve casting. See [Google's Cast data disclosure](https://developers.google.com/cast/docs/android_sender/data_disclosure) and [Google's privacy policy](https://policies.google.com/privacy).
+- **TVmaze, only if you turn it on:** with **Air dates from TVmaze** on in Settings (it's off unless you turn it on), Tellycine sends the names of the series in your playlists to TVmaze (api.tvmaze.com) to find when their episodes aired. It sends nothing else: no logins, playlist addresses or watch history. TVmaze receives your device's IP address with each request, as any website does. See [TVmaze's privacy policy](https://www.tvmaze.com/site/privacy). Turning it off stops it.
 - **Voice search on TV:** speech is handled by your TV's own speech recogniser, not by Tellycine.
 - **Other apps, when you ask:** **Open with…** passes the stream address to the player you choose, and **Share stream URL** passes it to the app you share to. Stream addresses can include your provider login details, so only share them with people you trust. **Trailer** opens the trailer's YouTube address in the YouTube app (or your browser), which is covered by [Google's privacy policy](https://policies.google.com/privacy).
 

@@ -80,7 +80,8 @@ object ItemQueries {
     private fun dateColumn(sort: VodSort): String? = when (sort) {
         VodSort.ADDED -> "s.addedAt"
         VodSort.RELEASED -> "s.released"
-        VodSort.UPDATED -> "s.updatedAt"
+        VodSort.UPDATED -> "s.changedAt"
+        VodSort.AIRED -> "s.aired"
         VodSort.NAME, VodSort.PROVIDER -> null
     }
 

@@ -106,7 +106,7 @@ class PlaylistSyncer(
         }
 
         db.runInTransaction {
-            val firstSeen = FirstSeen(db, pid)
+            val firstSeen = FirstSeen(db, pid, countsEpisodes = true)
             dao.deleteStreams(pid)
             dao.deleteCategories(pid)
             dao.deleteEpisodes(pid)

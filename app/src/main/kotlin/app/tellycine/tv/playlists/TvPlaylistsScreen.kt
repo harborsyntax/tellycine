@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
@@ -45,6 +46,7 @@ import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.PlaylistType
 import app.tellycine.data.db.SyncState
 import app.tellycine.data.sync.SyncProgress
+import app.tellycine.data.tvmaze.TvmazeUpdater
 import app.tellycine.tv.TvPalette
 import app.tellycine.tv.components.RequestFocusOnStart
 import app.tellycine.tv.components.TvActionButton
@@ -58,6 +60,10 @@ import app.tellycine.ui.components.formatRelative
 import app.tellycine.ui.components.tellycineViewModel
 import app.tellycine.ui.home.SessionState
 import app.tellycine.ui.playlists.PlaylistsViewModel
+import app.tellycine.ui.playlists.TvmazeText
+import app.tellycine.ui.playlists.details
+import app.tellycine.ui.playlists.fraction
+import app.tellycine.ui.playlists.headline
 
 @Composable
 fun TvPlaylistsScreen(
@@ -70,6 +76,8 @@ fun TvPlaylistsScreen(
 ) {
     val vm = tellycineViewModel { c, _ -> PlaylistsViewModel(c) }
     val progress by vm.progress.collectAsStateWithLifecycle()
+    val airDates by vm.airDates.collectAsStateWithLifecycle()
+    val tvmaze by vm.tvmaze.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf<PlaylistEntity?>(null) }
     val first = remember { FocusRequester() }
 
@@ -131,6 +139,9 @@ fun TvPlaylistsScreen(
                     firstButton = if (p.id == (session.active?.id ?: session.playlists.first().id)) first else null,
                 )
             }
+            if (airDates) {
+                item(key = "tvmaze") { TvmazePanel(tvmaze, vm::checkTvmaze) }
+            }
         }
     }
     RequestFocusOnStart(first)
@@ -146,6 +157,43 @@ fun TvPlaylistsScreen(
             },
             onDismiss = { confirmDelete = null },
         )
+    }
+}
+
+/** How looking series up on TVmaze is going, below the playlists while air dates are turned on. */
+@Composable
+private fun TvmazePanel(status: TvmazeUpdater.Status, onCheck: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        colors = SurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(Icons.Filled.Event, null, tint = TvPalette.primary)
+                Text(TvmazeText.TITLE, style = MaterialTheme.typography.headlineSmall)
+            }
+            Text(status.headline(), style = MaterialTheme.typography.bodyLarge, color = if (status.running) TvPalette.primary else MaterialTheme.colorScheme.onSurface)
+            if (status.running) {
+                val fraction = status.fraction
+                if (fraction != null) {
+                    LinearProgressIndicator(progress = { fraction }, color = TvPalette.primary, modifier = Modifier.fillMaxWidth().height(4.dp))
+                } else {
+                    LinearProgressIndicator(color = TvPalette.primary, modifier = Modifier.fillMaxWidth().height(4.dp))
+                }
+            }
+            status.details().takeIf { it.isNotEmpty() }?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (status.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(TvmazeText.CREDIT, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // Always enabled, so the remote can reach (and scroll to) this panel; pressed during a
+            // check, it checks once more afterwards.
+            TvActionButton("Check now", onClick = onCheck, icon = Icons.Filled.Refresh, modifier = Modifier.padding(top = 6.dp))
+        }
     }
 }
 

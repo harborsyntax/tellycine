@@ -14,6 +14,7 @@ Open **Playlists → ⚙ Settings**. On a TV, choose **Settings** in the side me
 | **Refresh on launch** | Reloads playlists older than a day and guides older than 12 hours when the app starts. |
 | **Guide days** | How many days of upcoming programmes to keep (1, 2, 3, 5 or 7). Fewer days use less storage. |
 | **Prefer HLS for Xtream live TV** | Use `.m3u8` instead of MPEG-TS for Xtream channels, where the provider allows it. Applies after the next refresh. |
+| **Air dates from TVmaze** | Off unless you turn it on. Looks your series up on TVmaze.com, to sort them by when their latest episode aired (**Last aired**). Sends series names to TVmaze, nothing else. See [Movies & series](Movies-and-Series.md#air-dates-from-tvmaze). |
 | **Clear watch history** | Removes resume points and recently watched channels. |
 | **Open on the last channel** | TV only: starts the channel you watched last when Tellycine opens. |
 | **Match the TV's refresh rate** | TV only: switches the display to suit each video (for example 50 Hz for 25 and 50 fps channels). See [Android TV](Android-TV.md#tv-settings). |

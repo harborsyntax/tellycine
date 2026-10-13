@@ -14,13 +14,22 @@
 - **Sort:** the sort button (at the top of the screen; on a TV, beside the category button) puts titles in another order. The current order has an arrow beside it: **down** for newest first (or Z to A), **up** for oldest first (or A to Z). Press the current order again to turn it round; the menu stays open so you can see the arrow change. Another order starts the usual way round, shown first below. Movies and Series each remember their own, and start on **Date added**, newest first:
   - **Date added:** newest first. Xtream Codes providers say when they added each movie; otherwise (M3U playlists, and most series) it's when Tellycine first saw the title, so after the first import, new arrivals come to the top.
   - **Release date:** newest first, from the provider's release date or year. In M3U playlists, a year in brackets in the title counts, as in "Film Name (2023)".
-  - **Latest episode** (series): the series with the newest episodes first, from Xtream Codes providers.
+  - **Latest episode** (series): the series that gained episodes most recently first. Xtream Codes providers give a date for this; for M3U playlists, it's when Tellycine saw a series gain episodes at a refresh, so it means something from the second refresh on.
+  - **Last aired** (series, with [air dates from TVmaze](#air-dates-from-tvmaze) turned on): by when the latest episode was broadcast, rather than when your provider added it.
   - **Title:** A to Z.
   - **Provider order:** as your provider lists them (turned round, from the end of the list).
 
   Titles without the date sorted by come after the rest, in the provider's order, whichever way round.
 
 <img src="images/screens/tablet-movies.png" width="600" alt="Tablet movies">
+
+## Air dates from TVmaze
+IPTV providers don't say when episodes were broadcast, so Tellycine can look series up on [TVmaze](https://www.tvmaze.com), a free TV database. It's off unless you turn on **Air dates from TVmaze** in [Settings](Settings.md), as it sends your series' names to TVmaze.
+- **What it adds:** the **Last aired** sort for series.
+- **How it matches:** by name and year, after taking off the codes and tags providers add (as in "EN - Show Name (2019) [4K]"). Series with the same name and year in several playlists are looked up once. Series it can't match sort last.
+- **The first look-up** takes a while with many series, as TVmaze takes about two requests a second. After that, Tellycine only asks about new series, shows TVmaze has changed, shows with a new episode out since, and series that gained episodes; series TVmaze didn't know are tried again monthly. It checks after each refresh and when the app starts.
+- **Progress:** the Playlists page shows how it's going, with **Check now**. See [Managing playlists](Managing-Playlists.md#air-dates-from-tvmaze).
+- **Data** from TVmaze.com, under the [CC BY-SA licence](https://creativecommons.org/licenses/by-sa/4.0/).
 
 ## Details
 Tap a poster to open its details: artwork, rating, year, length, genre, plot, director and cast. Xtream accounts load the extra details from the provider.

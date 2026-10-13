@@ -45,6 +45,7 @@ import app.tellycine.data.settings.ThemeMode
 import app.tellycine.data.settings.TvTheme
 import app.tellycine.ui.components.TellycineLogo
 import app.tellycine.ui.components.tellycineViewModel
+import app.tellycine.ui.playlists.TvmazeText
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -65,6 +66,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun clearHistory() = viewModelScope.launch { container.content.clearHistory() }
     fun setStartOnLastChannel(v: Boolean) = viewModelScope.launch { repo.setStartOnLastChannel(v) }
     fun setMatchFrameRate(v: Boolean) = viewModelScope.launch { repo.setMatchFrameRate(v) }
+    fun setTvmazeAirDates(v: Boolean) = viewModelScope.launch { repo.setTvmazeAirDates(v) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -143,6 +145,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit) {
                 s.preferHls,
                 vm::setPreferHls,
             )
+            SwitchItem(TvmazeText.TITLE, TvmazeText.SETTING, s.tvmazeAirDates, vm::setTvmazeAirDates)
             HorizontalDivider()
 
             Header("Privacy")

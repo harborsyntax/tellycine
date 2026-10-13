@@ -86,8 +86,9 @@ data class CategoryEntity(
         // Movies and series sorted by date: see VodSort.
         Index(value = ["playlistId", "kind", "addedAt"]),
         Index(value = ["playlistId", "kind", "released"]),
-        Index(value = ["playlistId", "kind", "updatedAt"]),
+        Index(value = ["playlistId", "kind", "changedAt"]),
         Index(value = ["playlistId", "kind", "sortName"]),
+        Index(value = ["playlistId", "kind", "aired"]),
     ],
 )
 data class StreamEntity(
@@ -128,6 +129,14 @@ data class StreamEntity(
     val referrer: String? = null,
     /** For movies and series, the name as A–Z sorts it ([sortNameOf]). */
     val sortName: String? = if (kind == ContentKind.LIVE) null else sortNameOf(name),
+    /**
+     * For series, when it last gained episodes as far as Tellycine can tell: the provider's date
+     * ([updatedAt]) when there is one; otherwise when Tellycine saw it gain episodes (M3U playlists),
+     * or else first saw it. Worked out at each refresh ([app.tellycine.data.sync.FirstSeen]).
+     */
+    val changedAt: Long? = null,
+    /** For series, when its latest episode aired ("2025-05-01"), from TVmaze when that's turned on. */
+    val aired: String? = null,
 ) {
     companion object {
         /** [name] as A–Z sorts it: without surrounding spaces and in lower case, so case doesn't matter. */
@@ -268,4 +277,24 @@ data class DownloadEntity(
     val error: String?,
     val createdAt: Long,
     val completedAt: Long?,
+)
+
+/**
+ * What TVmaze says about a series, by its cleaned-up name and year ([showKey], from
+ * [app.tellycine.core.ShowNames]), so playlists with the same series share one lookup. Kept across
+ * refreshes; see [app.tellycine.data.tvmaze.TvmazeUpdater].
+ */
+@Entity(tableName = "tvmaze_shows")
+data class TvmazeShowEntity(
+    @PrimaryKey val showKey: String,
+    /** TVmaze's id for the show, or null when none matched. */
+    val tvmazeId: Int?,
+    /** When TVmaze last changed the show (seconds), to tell from its list of changes whether to look again. */
+    val updated: Long?,
+    /** When the latest episode aired, and when the next one will: "2025-05-01". */
+    val lastAired: String?,
+    val nextAired: String?,
+    val ended: Boolean,
+    /** When Tellycine last asked TVmaze about it. */
+    val checkedAt: Long,
 )
