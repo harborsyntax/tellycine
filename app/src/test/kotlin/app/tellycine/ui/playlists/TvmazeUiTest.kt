@@ -50,7 +50,11 @@ class TvmazeUiTest {
         d.waitForText("Demo IPTV")
         compose.onNodeWithContentDescription("Settings").performClick()
         d.click(TvmazeText.TITLE)
-        compose.waitUntil(5_000) { runBlocking(Dispatchers.IO) { d.app.container.settings.settings.first().tvmazeAirDates } }
+        // The write finishes on the main thread, so let that run between looks.
+        compose.waitUntil(5_000) {
+            compose.waitForIdle()
+            runBlocking(Dispatchers.IO) { d.app.container.settings.settings.first().tvmazeAirDates }
+        }
         d.back()
 
         // Below the playlists: one of the demo's six series is on (the pretend) TVmaze.

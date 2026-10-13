@@ -53,7 +53,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -85,6 +84,7 @@ import app.tellycine.player.play
 import app.tellycine.ui.components.CategoryChips
 import app.tellycine.ui.components.CategoryPane
 import app.tellycine.ui.components.EmptyState
+import app.tellycine.ui.components.ListItem
 import app.tellycine.ui.components.SourceLabel
 import app.tellycine.ui.components.categoryOptions
 import app.tellycine.ui.components.formatDay

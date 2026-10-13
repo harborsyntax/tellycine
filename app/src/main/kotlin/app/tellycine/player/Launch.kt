@@ -10,13 +10,15 @@ import app.tellycine.container
 import app.tellycine.core.ContentKind
 import app.tellycine.data.db.HistoryEntity
 import app.tellycine.data.net.DEFAULT_USER_AGENT
+import app.tellycine.tv.isTelevision
 import kotlinx.coroutines.launch
 
 /**
  * Starts playback with the user's default player: the built-in one, or another app.
  * Requests that need an auth header (Dispatcharr recordings) always use the built-in player,
  * as does everything while a Chromecast is connected. Downloaded movies and episodes play from
- * the device, in the built-in player.
+ * the device, in the built-in player. On a TV that's its own full-screen player; on a phone or
+ * tablet, the player at the top of the app ([PhonePlayback]).
  */
 fun Context.play(request: PlayRequest) {
     val req = withDownload(request)
@@ -24,7 +26,7 @@ fun Context.play(request: PlayRequest) {
     val external = container.externalPlayerDefault.value && req.apiKey == null && req.localUri == null &&
         !container.cast.isConnected()
     if (external && openExternally(req, chooser = false)) return
-    startActivity(req.toIntent(this))
+    if (isTelevision()) startActivity(req.toIntent(this)) else container.phonePlayback.play(req)
 }
 
 /** Points [request] at its downloaded copy, if there is one. */

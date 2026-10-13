@@ -9,16 +9,14 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
-import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.tellycine.AppContainer
-import app.tellycine.TellycineApp
 import app.tellycine.core.ContentKind
 import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.PlaylistType
 import app.tellycine.data.db.StreamEntity
-import app.tellycine.player.PlayRequest
 import app.tellycine.screenshots.ScreenshotDriver
+import app.tellycine.screenshots.beATelevision
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -27,7 +25,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -44,11 +41,6 @@ private fun seedSecondPlaylist(container: AppContainer): Long = runBlocking(Disp
         )
     )
     pid
-}
-
-private fun playlistOfStartedPlayer(): Long {
-    val started = shadowOf(ApplicationProvider.getApplicationContext<TellycineApp>()).nextStartedActivity
-    return PlayRequest.fromIntent(started)!!.playlistId
 }
 
 @RunWith(AndroidJUnit4::class)
@@ -75,7 +67,7 @@ class SearchAllPlaylistsTest {
         assertTrue(compose.onAllNodesWithText("Demo IPTV", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
 
         d.click("Metro Sport")
-        assertEquals(second, playlistOfStartedPlayer())
+        assertEquals(second, d.playing().playlistId)
     }
 }
 
@@ -88,6 +80,7 @@ class TvSearchAllPlaylistsTest {
 
     @Test
     fun tvSearchFindsEveryPlaylistLabelsThemAndPlaysFromTheRightOne() {
+        beATelevision()
         val d = ScreenshotDriver(compose)
         d.launchTv()
         val second = seedSecondPlaylist(d.app.container)
@@ -100,6 +93,6 @@ class TvSearchAllPlaylistsTest {
         d.waitForText("Second IPTV")
 
         d.tvClick("Metro Sport")
-        assertEquals(second, playlistOfStartedPlayer())
+        assertEquals(second, d.playing().playlistId)
     }
 }

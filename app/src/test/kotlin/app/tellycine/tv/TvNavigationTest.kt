@@ -21,6 +21,7 @@ import app.tellycine.TellycineApp
 import app.tellycine.data.settings.CategorySort
 import app.tellycine.player.PlayerActivity
 import app.tellycine.screenshots.ScreenshotDriver
+import app.tellycine.screenshots.beATelevision
 import app.tellycine.tv.components.hold
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -54,6 +55,7 @@ class TvNavigationTest {
 
         // Left steps back through the guide to the channel itself; OK there plays it.
         d.pressUntil(Key.DirectionLeft, "Press OK to watch")
+        beATelevision()
         d.press(Key.DirectionCenter)
         val started = shadowOf(ApplicationProvider.getApplicationContext<TellycineApp>()).nextStartedActivity
         assertNotNull(started)
@@ -76,6 +78,7 @@ class TvNavigationTest {
         compose.onNode(hasText("Sport") and isFocused() and !isButton).assertExists()
         d.press(Key.DirectionCenter)
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Metro News 24").fetchSemanticsNodes().isEmpty() }
+        beATelevision()
         d.press(Key.DirectionCenter)
         val started = shadowOf(ApplicationProvider.getApplicationContext<TellycineApp>()).nextStartedActivity
         assertNotNull(started)

@@ -20,7 +20,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
@@ -48,6 +47,7 @@ import app.tellycine.core.ContentKind
 import app.tellycine.data.db.CategoryVisibility
 import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.ui.components.EmptyState
+import app.tellycine.ui.components.ListItem
 import app.tellycine.ui.components.formatCount
 import app.tellycine.ui.components.tellycineViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi

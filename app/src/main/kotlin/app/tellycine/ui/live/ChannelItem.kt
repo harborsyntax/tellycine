@@ -16,7 +16,6 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import app.tellycine.data.db.ChannelRow
 import app.tellycine.data.db.NowPlaying
 import app.tellycine.ui.components.Artwork
+import app.tellycine.ui.components.ListItem
 import app.tellycine.ui.components.SourceLabel
 
 @OptIn(ExperimentalFoundationApi::class)

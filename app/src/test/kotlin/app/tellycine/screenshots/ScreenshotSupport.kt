@@ -1,5 +1,6 @@
 package app.tellycine.screenshots
 
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -32,13 +33,17 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import app.tellycine.TellycineApp
 import app.tellycine.data.settings.ThemeMode
+import app.tellycine.player.PhonePlayerHost
+import app.tellycine.player.PlayRequest
 import app.tellycine.tv.TellycineTvTheme
 import app.tellycine.tv.TvApp
+import app.tellycine.tv.isTelevision
 import app.tellycine.ui.TellycineNavHost
 import app.tellycine.ui.theme.TellycineTheme
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import kotlinx.coroutines.Dispatchers
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.shadows.ShadowDialog
 import kotlinx.coroutines.runBlocking
 import java.io.File
@@ -47,21 +52,39 @@ import java.io.FileOutputStream
 typealias ComposeRule = AndroidComposeTestRule<ActivityScenarioRule<ComponentActivity>, ComponentActivity>
 
 /**
+ * Makes the test device say it's a TV, as the TV qualifiers alone don't, so playing opens the TV's
+ * full-screen player rather than the phone's.
+ */
+fun beATelevision() {
+    shadowOf(ApplicationProvider.getApplicationContext<TellycineApp>().packageManager).setSystemFeature(PackageManager.FEATURE_LEANBACK, true)
+}
+
+/**
  * Drives the real app UI through screens and saves PNGs to docs/images/screens/, in the dark
  * theme with rounded corners like a device screen.
  */
 @OptIn(ExperimentalRoborazziApi::class)
 class ScreenshotDriver(private val compose: ComposeRule) {
     private var theme by mutableStateOf(ThemeMode.DARK)
+    /** Stands in for the phone's picture-in-picture window, as MainActivity reports it. */
+    var inPip by mutableStateOf(false)
     val app: TellycineApp get() = ApplicationProvider.getApplicationContext()
 
-    /** Starts the phone interface on the demo playlist, after [afterSeed] has had a chance to change it. */
-    fun launch(afterSeed: (playlistId: Long) -> Unit = {}) {
+    /**
+     * Starts the phone interface on the demo playlist, after [afterSeed] has had a chance to change
+     * it, with the player that docks at the top as in MainActivity ([onFullScreen] stands in for
+     * turning the phone). It waits for [ready] to show, if anything.
+     */
+    fun launch(onFullScreen: (Boolean) -> Unit = {}, ready: String? = "Live TV", afterSeed: (playlistId: Long) -> Unit = {}) {
         afterSeed(DemoData.seed(app.container))
         compose.setContent {
-            TellycineTheme(themeMode = theme, dynamicColor = false) { TellycineNavHost() }
+            TellycineTheme(themeMode = theme, dynamicColor = false) {
+                PhonePlayerHost(app.container.phonePlayback, inPip = inPip, pipSupported = true, onFullScreen = onFullScreen, onEnterPip = {}) {
+                    TellycineNavHost()
+                }
+            }
         }
-        waitForText("Live TV")
+        ready?.let(::waitForText)
     }
 
     /** Starts the TV interface instead of the phone one. */
@@ -71,6 +94,16 @@ class ScreenshotDriver(private val compose: ComposeRule) {
             TellycineTvTheme { TvApp() }
         }
         waitForText("Metro News 24")
+    }
+
+    /**
+     * What the last tap or OK started playing: on a TV, in the player screen it opened; on a phone,
+     * in the player at the top of the app.
+     */
+    fun playing(): PlayRequest {
+        if (app.isTelevision()) return PlayRequest.fromIntent(shadowOf(app).nextStartedActivity)!!
+        compose.waitUntil(5_000) { app.container.phonePlayback.engine?.request != null }
+        return app.container.phonePlayback.engine!!.request!!
     }
 
     /** Presses a remote-control key [times] times on whatever has focus. */

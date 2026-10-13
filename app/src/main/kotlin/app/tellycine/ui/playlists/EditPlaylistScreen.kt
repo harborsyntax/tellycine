@@ -45,7 +45,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -88,6 +87,7 @@ import app.tellycine.core.xtream.XtreamUrls
 import app.tellycine.data.repo.XtreamOffer
 import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.PlaylistType
+import app.tellycine.ui.components.ListItem
 import app.tellycine.ui.components.tellycineViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview

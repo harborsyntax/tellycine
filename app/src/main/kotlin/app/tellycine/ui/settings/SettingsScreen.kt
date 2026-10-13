@@ -16,7 +16,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -43,6 +42,7 @@ import app.tellycine.BuildConfig
 import app.tellycine.data.settings.AppSettings
 import app.tellycine.data.settings.ThemeMode
 import app.tellycine.data.settings.TvTheme
+import app.tellycine.ui.components.ListItem
 import app.tellycine.ui.components.TellycineLogo
 import app.tellycine.ui.components.tellycineViewModel
 import app.tellycine.ui.playlists.TvmazeText

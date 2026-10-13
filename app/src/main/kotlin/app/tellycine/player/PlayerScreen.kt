@@ -32,6 +32,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.CastConnected
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -40,7 +41,6 @@ import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -51,6 +51,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +68,7 @@ import androidx.media3.ui.PlayerView
 import app.tellycine.cast.CastButton
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.ui.components.Artwork
+import app.tellycine.ui.components.ListItem
 import kotlinx.coroutines.delay
 
 internal val RESIZE_MODES = listOf(
@@ -75,6 +77,11 @@ internal val RESIZE_MODES = listOf(
     AspectRatioFrameLayout.RESIZE_MODE_FILL to "Stretch",
 )
 
+/**
+ * The phone's player: full screen, or [docked] at the top of the app with fewer controls. Its
+ * control bar's full-screen button calls [onToggleFullScreen]; [onBack] leaves full screen and
+ * [onClose] stops playing.
+ */
 @OptIn(UnstableApi::class)
 @Composable
 fun PlayerScreen(
@@ -94,7 +101,14 @@ fun PlayerScreen(
     onCycleResize: () -> Unit,
     onEnterPip: () -> Unit,
     stats: () -> List<Pair<String, String>>,
+    docked: Boolean = false,
+    /** Keeps the screen awake while the player is on screen. */
+    keepScreenOn: Boolean = true,
+    onToggleFullScreen: () -> Unit = {},
+    onClose: () -> Unit = onBack,
 ) {
+    val toggleFullScreen by rememberUpdatedState(onToggleFullScreen)
+    val isFullScreen by rememberUpdatedState(!docked)
     var controlsVisible by remember { mutableStateOf(true) }
     var showChannels by remember { mutableStateOf(false) }
     var showStats by remember { mutableStateOf(false) }
@@ -122,10 +136,18 @@ fun PlayerScreen(
                     setShowSubtitleButton(true)
                     setShowNextButton(false)
                     setShowPreviousButton(false)
-                    keepScreenOn = true
                     setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
                         controlsVisible = visibility == android.view.View.VISIBLE
                     })
+                    // Also called when the button is set to match the screen (below), so only a change
+                    // away from what the screen shows is a press. The button keeps showing the screen
+                    // as it is until it changes, so it still works if the screen doesn't turn.
+                    setFullscreenButtonClickListener { pressedTo ->
+                        if (pressedTo != isFullScreen) {
+                            toggleFullScreen()
+                            setFullscreenButtonState(isFullScreen)
+                        }
+                    }
                     playerView = this
                 }
             },
@@ -140,6 +162,8 @@ fun PlayerScreen(
                 val live = request?.isLive == true
                 view.setShowFastForwardButton(!live)
                 view.setShowRewindButton(!live)
+                view.setFullscreenButtonState(!docked)
+                view.keepScreenOn = keepScreenOn
             },
             modifier = Modifier.fillMaxSize(),
         )
@@ -156,7 +180,9 @@ fun PlayerScreen(
                     hasChannels = channels.size > 1,
                     casting = castingTo != null,
                     pipSupported = pipSupported,
+                    docked = docked,
                     onBack = onBack,
+                    onClose = onClose,
                     onZap = onZap,
                     onToggleChannels = { showChannels = !showChannels },
                     onCycleResize = {
@@ -212,11 +238,11 @@ fun PlayerScreen(
             }
 
             if (error != null) {
-                ErrorPanel(error, onRetry, onBack, Modifier.align(Alignment.Center))
+                ErrorPanel(error, onRetry, onClose, docked, Modifier.align(Alignment.Center))
             }
 
             AnimatedVisibility(
-                visible = showChannels && channels.isNotEmpty(),
+                visible = showChannels && channels.isNotEmpty() && !docked,
                 enter = slideInHorizontally { it },
                 exit = slideOutHorizontally { it },
                 modifier = Modifier.align(Alignment.CenterEnd),
@@ -235,13 +261,16 @@ fun PlayerScreen(
     }
 }
 
+/** The bar over the top of the picture; [docked], just the title, channel switching, Cast and close. */
 @Composable
 private fun TopControls(
     request: PlayRequest?,
     hasChannels: Boolean,
     casting: Boolean,
     pipSupported: Boolean,
+    docked: Boolean,
     onBack: () -> Unit,
+    onClose: () -> Unit,
     onZap: (Int) -> Unit,
     onToggleChannels: () -> Unit,
     onCycleResize: () -> Unit,
@@ -256,7 +285,7 @@ private fun TopControls(
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White) }
+        if (!docked) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White) }
         Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
             Text(
                 request?.title.orEmpty(),
@@ -278,10 +307,14 @@ private fun TopControls(
         if (request?.isLive == true && hasChannels) {
             IconButton(onClick = { onZap(-1) }) { Icon(Icons.Filled.KeyboardArrowUp, "Previous channel", tint = Color.White) }
             IconButton(onClick = { onZap(1) }) { Icon(Icons.Filled.KeyboardArrowDown, "Next channel", tint = Color.White) }
-            IconButton(onClick = onToggleChannels) { Icon(Icons.AutoMirrored.Filled.List, "Channel list", tint = Color.White) }
+            if (!docked) IconButton(onClick = onToggleChannels) { Icon(Icons.AutoMirrored.Filled.List, "Channel list", tint = Color.White) }
         }
         // Recordings need an auth header the TV can't send, so they can't be cast.
         if (request?.apiKey == null) CastButton(onDark = true)
+        if (docked) {
+            IconButton(onClick = onClose) { Icon(Icons.Filled.Close, "Stop playing", tint = Color.White) }
+            return@Row
+        }
         if (!casting) {
             IconButton(onClick = onCycleResize) { Icon(Icons.Filled.AspectRatio, "Resize", tint = Color.White) }
         }
@@ -293,7 +326,20 @@ private fun TopControls(
 }
 
 @Composable
-private fun ErrorPanel(message: String, onRetry: () -> Unit, onBack: () -> Unit, modifier: Modifier) {
+private fun ErrorPanel(message: String, onRetry: () -> Unit, onBack: () -> Unit, compact: Boolean, modifier: Modifier) {
+    if (compact) {
+        // Small enough for the picture at the top of the app.
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(16.dp), modifier = modifier.padding(12.dp)) {
+            Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(message, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onBack) { Text("Close") }
+                    TextButton(onClick = onRetry) { Text("Try again") }
+                }
+            }
+        }
+        return
+    }
     Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(24.dp), modifier = modifier.padding(32.dp)) {
         Column(
             Modifier.padding(24.dp).width(320.dp),
