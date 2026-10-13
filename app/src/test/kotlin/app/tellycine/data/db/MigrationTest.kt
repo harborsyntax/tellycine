@@ -11,7 +11,7 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Updating the app keeps what's in the database: a version 1 database (Tellycine 1.0 to 1.9.2). */
+/** Updating the app keeps what's in the database: a version 1 database (Tellycine 1.0 to 1.9.2) to the latest. */
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
@@ -45,11 +45,11 @@ class MigrationTest {
     }
 
     @Test
-    fun version1KeepsEverythingAndGainsReleaseAndUpdateDates() {
+    fun version1KeepsEverythingAndGainsReleaseUpdateAndChangeDates() {
         createVersion1()
         // No destructive fallback here: a migration that doesn't match the schema fails the test.
         val room = Room.databaseBuilder(context, TellycineDatabase::class.java, name)
-            .addMigrations(TellycineDatabase.MIGRATION_1_2)
+            .addMigrations(*TellycineDatabase.MIGRATIONS)
             .allowMainThreadQueries()
             .build()
         try {
@@ -65,6 +65,11 @@ class MigrationTest {
             assertEquals(2000L, series.second)
             assertEquals("2019", series.third)
             db.query("SELECT sortName FROM streams WHERE streamId = 'm1'").use { it.moveToFirst(); assertEquals("a film", it.getString(0)) }
+            // 1.11: a series' change date starts as its last update; there's nothing from TVmaze yet.
+            db.query("SELECT changedAt, aired FROM streams WHERE streamId = 's1'").use {
+                it.moveToFirst(); assertEquals(2000L, it.getLong(0)); assertNull(it.getString(1))
+            }
+            db.query("SELECT COUNT(*) FROM tvmaze_shows").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
             db.query("SELECT COUNT(*) FROM favorites").use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
             db.query("SELECT name FROM playlists").use { it.moveToFirst(); assertEquals("Mine", it.getString(0)) }
         } finally {

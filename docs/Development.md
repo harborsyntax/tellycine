@@ -15,6 +15,8 @@ Jetpack Compose with Material 3 (including the adaptive navigation suite), Compo
 - **TV:** one APK serves phones and TVs. The manifest offers TV support without requiring it (`android.software.leanback` and touchscreen are optional) and adds `TvActivity` to the TV launcher with a banner; `MainActivity` hands over to it on a TV. The TV screens live in `app.tellycine.tv` and reuse the phone's ViewModels and data layer; `PlayerActivity` swaps in `TvPlayerScreen`, driven by the remote. TV Material acts on the release of OK and fires its long press while OK is held, so TV items use `okClicks` (click and long press, both on release) and dialogs ignore stray OK releases.
 - **Add from phone:** `PhoneSetupServer` is a small HTTP server that only runs while the TV's Add from phone screen is open. It serves a form to the local network and needs the random token in the address shown on the TV.
 - **Settings:** stored in DataStore. Hidden categories are kept in their own table, so they survive refreshes.
+- **Kept across refreshes:** a refresh replaces a playlist's titles, so `FirstSeen` carries over what Tellycine worked out: when titles were first seen, series' change dates (from the provider, or M3U episode counts) and air dates.
+- **Air dates (opt-in):** `TvmazeUpdater` looks series up on TVmaze's public API by cleaned-up name and year (`ShowNames`), keeping TVmaze's answers in their own table. After the first look-up it asks only about what's new or changed; see the class for the rules.
 - **Dependencies:** a small hand-written `AppContainer`, with no DI framework.
 
 ## Building

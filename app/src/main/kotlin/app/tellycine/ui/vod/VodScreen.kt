@@ -91,6 +91,7 @@ fun VodScreen(
     val icon = if (kind == ContentKind.MOVIE) Icons.Filled.Movie else Icons.Filled.VideoLibrary
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val sort by vm.sort.collectAsStateWithLifecycle()
+    val sortChoices by vm.sortChoices.collectAsStateWithLifecycle()
     val gridState = rememberLazyGridState()
     // A new order starts from the top.
     var shownSort by rememberSaveable { mutableStateOf(sort) }
@@ -110,7 +111,7 @@ fun VodScreen(
                 scrollBehavior = scrollBehavior,
                 // With more than one playlist, the choice is beside the categories instead.
                 showPlaylist = playlistFilter == null,
-                actions = { if (session.active != null) SortMenu(sort, vm.sortChoices, vm::pressSort) },
+                actions = { if (session.active != null) SortMenu(sort, sortChoices, vm::pressSort) },
             )
         },
         contentWindowInsets = WindowInsets(0),

@@ -33,6 +33,7 @@ import app.tellycine.tv.components.TvSwitchRow
 import app.tellycine.tv.components.TvValueRow
 import app.tellycine.ui.components.TellycineLogo
 import app.tellycine.ui.components.tellycineViewModel
+import app.tellycine.ui.playlists.TvmazeText
 import app.tellycine.data.settings.TvTheme
 import app.tellycine.ui.settings.SettingsViewModel
 
@@ -114,6 +115,7 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
                         vm::setPreferHls,
                     )
                 }
+                item { TvSwitchRow(TvmazeText.TITLE, TvmazeText.SETTING, s.tvmazeAirDates, vm::setTvmazeAirDates) }
 
                 item { TvSectionLabel("Downloads") }
                 item {

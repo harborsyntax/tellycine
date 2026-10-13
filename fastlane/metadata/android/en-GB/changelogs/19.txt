@@ -1,0 +1,3 @@
+• Optional air dates from TVmaze: sort series by when their latest episode aired (turn it on in Settings)
+• The Playlists page shows how the TVmaze look-up is going
+• Latest episode now works for M3U playlists too

@@ -112,6 +112,7 @@ object DemoData {
         // Screenshots show the demo playlist in its own order, not the default (newest first).
         container.settings.setVodSort(ContentKind.MOVIE, VodOrder(VodSort.PROVIDER))
         container.settings.setVodSort(ContentKind.SERIES, VodOrder(VodSort.PROVIDER))
+        container.settings.setTvmazeAirDates(false)
         container.settings.setLibraryGroupByCategory(groupLibrary)
         val dao = db.content()
 
@@ -143,6 +144,8 @@ object DemoData {
                 year = year, genre = genre, released = year,
                 // Office Hours had the latest episode.
                 addedAt = now - (30 + i) * DAY, updatedAt = now - ((i * 5 + 2) % series.size) * DAY,
+                // As a refresh works it out from the provider's date (see FirstSeen).
+                changedAt = now - ((i * 5 + 2) % series.size) * DAY,
             )
         })
         dao.insertEpisodes((1..2).flatMap { season ->

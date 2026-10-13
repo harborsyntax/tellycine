@@ -15,6 +15,8 @@ import app.tellycine.data.settings.SettingsRepository
 import app.tellycine.data.settings.TvTheme
 import app.tellycine.data.sync.PlaylistSyncer
 import app.tellycine.data.sync.SyncManager
+import app.tellycine.data.tvmaze.TvmazeClient
+import app.tellycine.data.tvmaze.TvmazeUpdater
 import app.tellycine.player.TvPlayback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +34,9 @@ class AppContainer(context: Context) {
     val database = TellycineDatabase.create(context)
     val settings = SettingsRepository(context)
     val downloader = Downloader(context, httpClient)
-    val syncManager = SyncManager(database, PlaylistSyncer(context, database, downloader), settings, appScope)
+    /** Air dates from TVmaze, when they're turned on. */
+    val tvmaze = TvmazeUpdater(database, settings, TvmazeClient(httpClient), appScope)
+    val syncManager = SyncManager(database, PlaylistSyncer(context, database, downloader), settings, appScope, onContentSynced = tvmaze::requestCheck)
     val playlists = PlaylistRepository(context, database, settings, syncManager)
     val content = ContentRepository(database)
     val details = DetailsRepository(downloader)

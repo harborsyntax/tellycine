@@ -26,6 +26,9 @@ A movie or series page, and a channel's details, say which playlist it's from wh
 
 A refresh replaces the playlist in a single step. You keep seeing the old channels until the new ones are ready, and a failed refresh never leaves a half-empty playlist.
 
+## Air dates from TVmaze
+With **Air dates from TVmaze** turned on in [Settings](Settings.md), a section below the playlists shows how looking series up is going: how many it has done while it works, then how many series TVmaze found, when it last checked and how many it didn't find. **Check now** checks again straight away. See [Movies & series](Movies-and-Series.md#air-dates-from-tvmaze).
+
 ## Choosing categories to show
 Open **⋮ → Categories**, or **Choose categories to show** in the playlist editor.
 

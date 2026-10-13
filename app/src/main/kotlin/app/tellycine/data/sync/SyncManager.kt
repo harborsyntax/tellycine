@@ -22,13 +22,14 @@ data class SyncProgress(val message: String, val fraction: Float?)
 
 /**
  * Runs playlist refreshes in the application scope, one at a time, and exposes live
- * progress for the UI.
+ * progress for the UI. [onContentSynced] runs after each playlist's content is refreshed.
  */
 class SyncManager(
     private val db: TellycineDatabase,
     private val syncer: PlaylistSyncer,
     private val settings: SettingsRepository,
     private val scope: CoroutineScope,
+    private val onContentSynced: () -> Unit = {},
 ) {
     private val dao = db.playlists()
     private val jobs = ConcurrentHashMap<Long, Job>()
@@ -116,6 +117,7 @@ class SyncManager(
                 serverSoftware = result.account?.serverSoftware,
             )
             playlist = dao.get(playlistId) ?: return
+            onContentSynced()
         }
 
         var epgError: String? = null

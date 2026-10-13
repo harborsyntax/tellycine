@@ -72,6 +72,7 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
     val icon = if (kind == ContentKind.MOVIE) Icons.Filled.Movie else Icons.Filled.VideoLibrary
     var showCategories by remember { mutableStateOf(false) }
     val sort by vm.sort.collectAsStateWithLifecycle()
+    val sortChoices by vm.sortChoices.collectAsStateWithLifecycle()
     var showSort by remember { mutableStateOf(false) }
     val gridFocus = remember { FocusRequester() }
     val gridState = rememberLazyGridState()
@@ -175,7 +176,7 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
     if (showSort) {
         TvChoicePanel(
             title = if (kind == ContentKind.MOVIE) "Sort movies" else "Sort series",
-            choices = vm.sortChoices,
+            choices = sortChoices,
             selected = sort.sort,
             label = { it.label },
             // Pressing the current order turns it round, so the panel stays open to show that.
