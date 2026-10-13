@@ -41,7 +41,6 @@ import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -69,6 +68,7 @@ import androidx.media3.ui.PlayerView
 import app.tellycine.cast.CastButton
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.ui.components.Artwork
+import app.tellycine.ui.components.ListItem
 import kotlinx.coroutines.delay
 
 internal val RESIZE_MODES = listOf(
