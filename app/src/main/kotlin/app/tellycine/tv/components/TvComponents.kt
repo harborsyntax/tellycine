@@ -40,6 +40,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
+import androidx.tv.material3.Checkbox
 import androidx.tv.material3.Icon
 import androidx.tv.material3.ListItem
 import androidx.tv.material3.ListItemDefaults
@@ -350,6 +351,24 @@ fun TvSwitchRow(
         onClick = { onChange(!checked) },
         modifier = modifier,
         trailing = { Switch(checked = checked, onCheckedChange = null) },
+    )
+}
+
+/** A row with a tick box, ticked and unticked with OK. */
+@Composable
+fun TvCheckboxRow(
+    title: String,
+    summary: String?,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    TvValueRow(
+        title = title,
+        value = summary,
+        onClick = { onChange(!checked) },
+        modifier = modifier,
+        trailing = { Checkbox(checked = checked, onCheckedChange = null) },
     )
 }
 

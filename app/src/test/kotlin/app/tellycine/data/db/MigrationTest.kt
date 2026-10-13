@@ -72,6 +72,8 @@ class MigrationTest {
             db.query("SELECT COUNT(*) FROM tvmaze_shows").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
             db.query("SELECT COUNT(*) FROM favorites").use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
             db.query("SELECT name FROM playlists").use { it.moveToFirst(); assertEquals("Mine", it.getString(0)) }
+            // Guides added before keep replacing the playlist's own.
+            db.query("SELECT epgCombine FROM playlists").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
         } finally {
             room.close()
         }

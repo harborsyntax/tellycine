@@ -16,7 +16,7 @@ Your credentials are wrong, or the provider requires a particular user agent. Pi
 
 **No TV guide, or the wrong guide**
 - **Check the guide URL:** make sure the playlist has one. Look under **Edit → Advanced options**, or for `url-tvg` in the M3U file.
-- **Check the channel IDs:** channels match the guide by `tvg-id`, then by name. If your playlist's IDs don't match the guide's channel IDs, add the matching guide URL.
+- **Check the channel IDs:** channels match the guide by `tvg-id`, then by name. If your playlist's IDs don't match the guide's channel IDs, add the matching guide URL. To keep the playlist's own guide as well, tick **Also use the provider's guide** (see [Adding playlists](Adding-Playlists.md#advanced-options)).
 - **Try a manual refresh:** use **⋮ → Update TV guide only**.
 
 **A channel shows another region's schedule**

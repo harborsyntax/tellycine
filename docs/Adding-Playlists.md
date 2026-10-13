@@ -40,8 +40,11 @@ Turn **Movies & series** off if you only want live TV. Tellycine then skips down
 
 ## Advanced options
 - **XMLTV guide URL:** the TV guide to use.
-  - **When empty:** Tellycine uses the guide named in the M3U file (`url-tvg` / `x-tvg-url`), or the provider's guide for Xtream accounts.
-  - **Several guides:** separate them with commas.
+  - **When empty:** Tellycine uses the playlist's own guide: the one named in the M3U file (`url-tvg` / `x-tvg-url`), or the provider's guide for Xtream accounts.
+  - **Several guides:** press **+ Add another guide URL** for another field (on a TV, the **Add another guide URL** row). To remove one, press its **✕** (on a TV, clear it).
+  - **Replace or combine:** with a guide entered, the **Also use the provider's guide** tick box (**Also use the guide linked in the playlist** for M3U playlists) decides what happens to the playlist's own guide:
+    - **Unticked** (the default): your guides replace it.
+    - **Ticked:** it's loaded first, and your guides add to it, for example with channels it's missing.
   - **Compressed guides:** `.xml.gz` files are supported.
 - **User agent:** how Tellycine identifies itself to your provider. Some providers only serve streams to apps they recognise.
   - **Default (VLC):** Tellycine identifies itself as VLC, which most providers accept.

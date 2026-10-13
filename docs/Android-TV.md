@@ -98,7 +98,7 @@ Press OK on the search box to type with the on-screen keyboard, or choose **Voic
 ## Adding a playlist
 Typing long addresses and passwords with a remote is slow, so there are two ways:
 
-- **Add from phone** (on the Playlists screen): the TV shows a QR code. Scan it with your phone, which must be on the same Wi-Fi, and fill in the playlist on the page that opens: an Xtream or Dispatcharr login, an M3U link, or a playlist file from your phone. It's added to the TV straight away. The page only works while that screen is open on the TV, and only with the code it shows.
+- **Add from phone** (on the Playlists screen): the TV shows a QR code. Scan it with your phone, which must be on the same Wi-Fi, and fill in the playlist on the page that opens: an Xtream or Dispatcharr login, an M3U link, or a playlist file from your phone, with any XMLTV guide URLs. It's added to the TV straight away. The page only works while that screen is open on the TV, and only with the code it shows.
 - **Add playlist:** a form where each field opens the keyboard when you press OK.
 
 Many TVs don't have a file picker. If **Playlist file** says there's no way to choose a file, use **Add from phone** to send the file instead.

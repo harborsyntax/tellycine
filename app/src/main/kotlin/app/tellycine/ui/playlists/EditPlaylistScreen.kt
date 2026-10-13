@@ -30,7 +30,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -42,6 +44,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -83,6 +86,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import app.tellycine.data.net.UserAgentPreset
 import app.tellycine.data.net.UserAgents
 import app.tellycine.AppContainer
+import app.tellycine.core.xmltv.GuideUrls
 import app.tellycine.core.xtream.XtreamUrls
 import app.tellycine.data.repo.XtreamOffer
 import app.tellycine.data.db.PlaylistEntity
@@ -117,7 +121,10 @@ data class PlaylistForm(
     val server: String = "",
     val username: String = "",
     val password: String = "",
-    val epgUrl: String = "",
+    /** The XMLTV guide URLs as typed, one per field; always at least one field. */
+    val epgUrls: List<String> = listOf(""),
+    /** Load the playlist's or provider's own guide as well as [epgUrls], rather than instead. */
+    val epgCombine: Boolean = false,
     /** Selected entry in [UserAgents.presets], or null for a custom user agent. */
     val userAgentPreset: UserAgentPreset? = UserAgents.presets.first(),
     /** The custom user agent, used when [userAgentPreset] is null. */
@@ -130,6 +137,16 @@ data class PlaylistForm(
 ) {
     /** Xtream credentials detected inside an M3U `get.php` link. */
     val detectedXtream get() = if (type == PlaylistType.M3U_URL) XtreamUrls.fromM3uUrl(url.trim()) else null
+
+    /** Whether any guide URL is filled in. */
+    val hasGuides get() = epgUrls.any { it.isNotBlank() }
+
+    fun withGuide(index: Int, url: String) =
+        copy(epgUrls = epgUrls.toMutableList().apply { if (index < size) set(index, url) else add(url) })
+
+    fun withoutGuide(index: Int) = copy(epgUrls = epgUrls.filterIndexed { i, _ -> i != index }.ifEmpty { listOf("") })
+
+    fun withAnotherGuide() = copy(epgUrls = epgUrls + "")
 
     /** A Dispatcharr `/output/m3u` link: catch-up, movies and series need its Xtream login instead. */
     val looksLikeDispatcharrM3u get() =
@@ -222,7 +239,8 @@ class EditPlaylistViewModel(private val container: AppContainer, private val edi
                 server = if (existing.type == PlaylistType.XTREAM) existing.url else "",
                 username = existing.username,
                 password = existing.password,
-                epgUrl = existing.epgUrl,
+                epgUrls = GuideUrls.split(existing.epgUrl).ifEmpty { listOf("") },
+                epgCombine = existing.epgCombine,
                 userAgentPreset = UserAgents.presetFor(existing.userAgent),
                 userAgent = existing.userAgent,
                 connectionLimit = existing.connectionLimit?.toString().orEmpty(),
@@ -309,7 +327,8 @@ class EditPlaylistViewModel(private val container: AppContainer, private val edi
                     url = url,
                     username = if (f.type == PlaylistType.XTREAM) f.username.trim() else "",
                     password = if (f.type == PlaylistType.XTREAM) f.password else "",
-                    epgUrl = f.epgUrl.trim(),
+                    epgUrl = GuideUrls.join(f.epgUrls),
+                    epgCombine = f.epgCombine,
                     userAgent = f.userAgentPreset?.value ?: f.userAgent.trim(),
                     connectionLimit = connectionLimit,
                     vodEnabled = f.vodEnabled,
@@ -332,7 +351,7 @@ fun EditPlaylistScreen(editId: Long?, onDone: () -> Unit, onManageCategories: (L
 
     LaunchedEffect(form.saved) { if (form.saved) onDone() }
     LaunchedEffect(form.loaded) {
-        if (form.loaded && (form.epgUrl.isNotBlank() || form.userAgent.isNotBlank())) advanced = true
+        if (form.loaded && (form.hasGuides || form.userAgent.isNotBlank())) advanced = true
     }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -508,19 +527,7 @@ fun EditPlaylistScreen(editId: Long?, onDone: () -> Unit, onManageCategories: (L
                     Icon(if (advanced) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null)
                 }
                 if (advanced) {
-                    OutlinedTextField(
-                        value = form.epgUrl,
-                        onValueChange = { v -> vm.update { it.copy(epgUrl = v) } },
-                        label = { Text("XMLTV guide URL") },
-                        supportingText = {
-                            Text(
-                                if (form.type == PlaylistType.XTREAM) "Leave empty to use the provider's guide."
-                                else "Leave empty to use the guide linked in the playlist. Separate several with commas."
-                            )
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    GuideUrlFields(form, vm)
                     UserAgentPicker(form, vm)
                 }
 
@@ -535,6 +542,70 @@ fun EditPlaylistScreen(editId: Long?, onDone: () -> Unit, onManageCategories: (L
         }
     }
 }
+
+/**
+ * The XMLTV guide URLs, with + for another, and a tick box for whether they replace the playlist's
+ * or provider's own guide (the default) or add to it.
+ */
+@Composable
+private fun GuideUrlFields(form: PlaylistForm, vm: EditPlaylistViewModel) {
+    val theirs = theirGuide(form.type)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        form.epgUrls.forEachIndexed { index, url ->
+            OutlinedTextField(
+                value = url,
+                onValueChange = { v -> vm.update { it.withGuide(index, v) } },
+                label = { Text(guideLabel(index)) },
+                supportingText = if (index == 0 && !form.hasGuides) {
+                    { Text("Leave empty to use $theirs.") }
+                } else {
+                    null
+                },
+                trailingIcon = if (form.epgUrls.size > 1) {
+                    { IconButton(onClick = { vm.update { it.withoutGuide(index) } }) { Icon(Icons.Filled.Close, "Remove ${guideLabel(index)}") } }
+                } else {
+                    null
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        TextButton(onClick = { vm.update { it.withAnotherGuide() } }) {
+            Icon(Icons.Filled.Add, null)
+            Spacer(Modifier.width(8.dp))
+            Text("Add another guide URL")
+        }
+        if (form.hasGuides) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .toggleable(value = form.epgCombine, role = Role.Checkbox) { v -> vm.update { it.copy(epgCombine = v) } }
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(checked = form.epgCombine, onCheckedChange = null)
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text("Also use $theirs")
+                    Text(
+                        guideCombineSummary(form.epgCombine),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** "the provider's guide" or "the guide linked in the playlist". */
+fun theirGuide(type: PlaylistType) = if (type == PlaylistType.XTREAM) "the provider's guide" else "the guide linked in the playlist"
+
+fun guideLabel(index: Int) = if (index == 0) "XMLTV guide URL" else "XMLTV guide URL ${index + 1}"
+
+fun guideCombineSummary(combine: Boolean) =
+    if (combine) "Ticked: it's loaded first, and these guides add to it." else "Unticked: these guides replace it."
 
 @Composable
 private fun DvrSection(playlist: PlaylistEntity, vm: EditPlaylistViewModel) {
