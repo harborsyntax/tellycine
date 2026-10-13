@@ -21,10 +21,13 @@ data class PlaylistEntity(
     val url: String,
     val username: String = "",
     val password: String = "",
-    /** User supplied EPG URL(s), comma separated. Overrides the auto-detected one. */
+    /** XMLTV guide URLs you added, one per line (see GuideUrls). They replace [detectedEpgUrl] unless [epgCombine]. */
     val epgUrl: String = "",
-    /** EPG URL advertised by the M3U header (`url-tvg`). */
+    /** The playlist's own guide: named in the M3U header (`url-tvg`), or the Xtream provider's. */
     val detectedEpgUrl: String = "",
+    /** Load [detectedEpgUrl] as well as the guides in [epgUrl], rather than instead of them. */
+    @ColumnInfo(defaultValue = "0")
+    val epgCombine: Boolean = false,
     val userAgent: String = "",
     val createdAt: Long = System.currentTimeMillis(),
     val lastSyncedAt: Long? = null,

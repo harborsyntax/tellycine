@@ -9,6 +9,7 @@ import app.tellycine.core.gunzipIfNeeded
 import app.tellycine.core.m3u.M3uHeader
 import app.tellycine.core.m3u.M3uParser
 import app.tellycine.core.xmltv.EpgMatcher
+import app.tellycine.core.xmltv.GuideUrls
 import app.tellycine.core.xmltv.XmltvParser
 import app.tellycine.core.xtream.XtreamAccount
 import app.tellycine.core.xtream.XtreamItem
@@ -346,10 +347,8 @@ class PlaylistSyncer(
     // EPG
     // ------------------------------------------------------------------------------------
 
-    fun epgUrlsFor(playlist: PlaylistEntity): List<String> {
-        val source = playlist.epgUrl.ifBlank { playlist.detectedEpgUrl }
-        return source.split(',', '\n', ' ').map { it.trim() }.filter { it.isNotEmpty() }.distinct()
-    }
+    fun epgUrlsFor(playlist: PlaylistEntity): List<String> =
+        GuideUrls.toLoad(own = playlist.epgUrl, supplied = playlist.detectedEpgUrl, combine = playlist.epgCombine)
 
     /** @return number of programmes stored */
     suspend fun syncEpg(playlist: PlaylistEntity, days: Int, report: ProgressReporter): Int = withContext(Dispatchers.IO) {

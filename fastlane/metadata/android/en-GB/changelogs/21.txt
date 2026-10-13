@@ -1,0 +1,3 @@
+• Add more than one XMLTV guide to a playlist with the + button in its Advanced options
+• Tick “Also use the provider's guide” to keep the playlist's own guide and add yours to it, or leave it unticked for yours to replace it
+• The Add from phone page can add several guides too

@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Dns
@@ -57,6 +58,7 @@ import app.tellycine.data.repo.PlaylistFiles
 import app.tellycine.tv.TvPalette
 import app.tellycine.tv.components.RequestFocusOnStart
 import app.tellycine.tv.components.TvActionButton
+import app.tellycine.tv.components.TvCheckboxRow
 import app.tellycine.tv.components.TvChoiceDialog
 import app.tellycine.tv.components.TvDialog
 import app.tellycine.tv.components.TvHeader
@@ -69,12 +71,15 @@ import app.tellycine.tv.components.TvValueRow
 import app.tellycine.ui.components.tellycineViewModel
 import app.tellycine.ui.playlists.DvrConnectState
 import app.tellycine.ui.playlists.EditPlaylistViewModel
+import app.tellycine.ui.playlists.guideCombineSummary
+import app.tellycine.ui.playlists.guideLabel
+import app.tellycine.ui.playlists.theirGuide
 import app.tellycine.ui.playlists.xtreamHint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class Field { NAME, URL, SERVER, USERNAME, PASSWORD, EPG, USER_AGENT, CONNECTIONS }
+private enum class Field { NAME, URL, SERVER, USERNAME, PASSWORD, USER_AGENT, CONNECTIONS }
 
 /**
  * Add or edit a playlist with the remote. Each field is a row; OK opens the keyboard for it, so
@@ -89,6 +94,8 @@ fun TvEditPlaylistScreen(editId: Long?, onDone: () -> Unit, onManageCategories: 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var editing by rememberSaveable { mutableStateOf<Field?>(null) }
+    /** Which guide URL is being typed; one past the last for another. */
+    var editingGuide by rememberSaveable { mutableStateOf<Int?>(null) }
     var choosingType by remember { mutableStateOf(false) }
     var choosingAgent by remember { mutableStateOf(false) }
     var noPicker by remember { mutableStateOf(false) }
@@ -223,13 +230,28 @@ fun TvEditPlaylistScreen(editId: Long?, onDone: () -> Unit, onManageCategories: 
                     )
                 }
                 item(key = "advanced") { TvSectionLabel("Advanced") }
-                item(key = "epg") {
-                    TvValueRow(
-                        "XMLTV guide URL",
-                        form.epgUrl.ifEmpty { if (form.type == PlaylistType.XTREAM) "The provider's guide" else "The guide linked in the playlist" },
-                        onClick = { editing = Field.EPG },
-                        icon = Icons.Filled.Schedule,
-                    )
+                form.epgUrls.forEachIndexed { index, url ->
+                    item(key = "epg-$index") {
+                        TvValueRow(
+                            guideLabel(index),
+                            url.ifEmpty { theirGuide(form.type).replaceFirstChar { it.uppercase() } },
+                            onClick = { editingGuide = index },
+                            icon = Icons.Filled.Schedule,
+                        )
+                    }
+                }
+                if (form.hasGuides) {
+                    item(key = "epg-add") {
+                        TvValueRow("Add another guide URL", null, onClick = { editingGuide = form.epgUrls.size }, icon = Icons.Filled.Add)
+                    }
+                    item(key = "epg-combine") {
+                        TvCheckboxRow(
+                            "Also use ${theirGuide(form.type)}",
+                            guideCombineSummary(form.epgCombine),
+                            form.epgCombine,
+                            onChange = { v -> vm.update { it.copy(epgCombine = v) } },
+                        )
+                    }
                 }
                 item(key = "agent") {
                     TvValueRow(
@@ -267,13 +289,6 @@ fun TvEditPlaylistScreen(editId: Long?, onDone: () -> Unit, onManageCategories: 
         Field.PASSWORD -> TextField("Password", form.password, keyboard = KeyboardType.Password, password = true, onDismiss = { editing = null }) { v ->
             vm.update { it.copy(password = v) }
         }
-        Field.EPG -> TextField(
-            "XMLTV guide URL",
-            form.epgUrl,
-            hint = if (form.type == PlaylistType.XTREAM) "Leave empty to use the provider's guide." else "Leave empty to use the guide linked in the playlist. Separate several with commas.",
-            keyboard = KeyboardType.Uri,
-            onDismiss = { editing = null },
-        ) { v -> vm.update { it.copy(epgUrl = v.trim()) } }
         Field.USER_AGENT -> TextField("Custom user agent", form.userAgent, hint = "Sent with every request for this playlist. Leave empty for the default.", onDismiss = { editing = null }) { v ->
             vm.update { it.copy(userAgentPreset = null, userAgent = v.trim()) }
         }
@@ -285,6 +300,29 @@ fun TvEditPlaylistScreen(editId: Long?, onDone: () -> Unit, onManageCategories: 
             onDismiss = { editing = null },
         ) { v -> vm.update { it.copy(connectionLimit = v.filter(Char::isDigit).take(2)) } }
         null -> Unit
+    }
+    editingGuide?.let { index ->
+        val existing = index < form.epgUrls.size
+        TextField(
+            guideLabel(index),
+            form.epgUrls.getOrElse(index) { "" },
+            hint = when {
+                index == 0 && form.epgUrls.size == 1 -> "Leave empty to use ${theirGuide(form.type)}."
+                existing -> "Leave empty to remove it."
+                else -> null
+            },
+            keyboard = KeyboardType.Uri,
+            onDismiss = { editingGuide = null },
+        ) { v ->
+            val url = v.trim()
+            vm.update {
+                when {
+                    url.isNotEmpty() -> it.withGuide(index, url)
+                    existing -> it.withoutGuide(index)
+                    else -> it
+                }
+            }
+        }
     }
 
     if (choosingType) {

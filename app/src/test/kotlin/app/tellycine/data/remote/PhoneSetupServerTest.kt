@@ -49,6 +49,8 @@ class PhoneSetupServerTest {
         val (ok, form) = request(url)
         assertEquals(200, ok)
         assertTrue(form.contains("Add to TV"))
+        assertTrue(form.contains("Add another guide URL"))
+        assertTrue(form.contains("name=\"epgCombine\""))
 
         val (forbidden, _) = request(url.substringBefore("?t=") + "?t=wrong")
         assertEquals(403, forbidden)

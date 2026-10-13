@@ -281,7 +281,12 @@ class PhoneSetupServer(private val onSubmit: suspend (PhoneSubmission) -> Result
                 <label>Playlist file<input name="file" type="file" accept=".m3u,.m3u8,audio/x-mpegurl,application/x-mpegurl,text/plain,*/*"></label>
               </div>
               <label>Name (optional)<input name="name"></label>
-              <label>XMLTV guide URL (optional)<input name="epg" inputmode="url" autocapitalize="off" autocorrect="off"></label>
+              <div id="guides">
+                <label>XMLTV guide URL (optional)<input name="epg" inputmode="url" autocapitalize="off" autocorrect="off"></label>
+              </div>
+              <button type="button" class="more" id="more-guides">+ Add another guide URL</button>
+              <label class="tick"><input type="checkbox" name="epgCombine"> Also use the playlist's or provider's own guide
+                <span>Unticked, the guides above replace it.</span></label>
               <button type="submit">Add to TV</button>
             </form>
             <script>
@@ -291,6 +296,20 @@ class PhoneSetupServer(private val onSubmit: suspend (PhoneSubmission) -> Result
               };
               document.querySelectorAll('input[name=type]').forEach(r => r.addEventListener('change', show));
               show();
+              let guides = 1;
+              document.getElementById('more-guides').addEventListener('click', () => {
+                guides++;
+                const label = document.createElement('label');
+                label.textContent = 'XMLTV guide URL ' + guides;
+                const input = document.createElement('input');
+                input.name = 'epg' + guides;
+                input.inputMode = 'url';
+                input.setAttribute('autocapitalize', 'off');
+                input.setAttribute('autocorrect', 'off');
+                label.appendChild(input);
+                document.getElementById('guides').appendChild(label);
+                input.focus();
+              });
             </script>
             """.trimIndent(),
         )
@@ -304,10 +323,14 @@ class PhoneSetupServer(private val onSubmit: suspend (PhoneSubmission) -> Result
             fieldset { border: 0; padding: 0; margin: 16px 0; display: flex; flex-wrap: wrap; gap: 8px; }
             fieldset label { display: flex; align-items: center; gap: 6px; background: #2e2924; padding: 10px 12px; border-radius: 12px; }
             label { display: block; margin: 12px 0; font-size: 14px; color: #d3c4b4; }
-            input:not([type=radio]) { display: block; width: 100%; box-sizing: border-box; margin-top: 6px; padding: 12px; border-radius: 10px;
+            input:not([type=radio]):not([type=checkbox]) { display: block; width: 100%; box-sizing: border-box; margin-top: 6px; padding: 12px; border-radius: 10px;
               border: 1px solid #4f4539; background: #1f1b16; color: #ebe1d9; font-size: 16px; }
             button { margin-top: 16px; width: 100%; padding: 14px; border: 0; border-radius: 24px; background: #ffb951; color: #462a00;
               font-size: 16px; font-weight: 600; }
+            button.more { width: auto; margin-top: 0; padding: 10px 16px; background: #2e2924; color: #ffb951; }
+            .tick { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; color: #ebe1d9; }
+            .tick input { width: 20px; height: 20px; margin: 0; accent-color: #ffb951; }
+            .tick span { grid-column: 2; color: #d3c4b4; font-size: 13px; }
             a { color: #ffb951; }
         """
     }

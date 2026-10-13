@@ -3,6 +3,7 @@ package app.tellycine.data.remote
 import android.content.Context
 import android.net.Uri
 import app.tellycine.AppContainer
+import app.tellycine.core.xmltv.GuideUrls
 import app.tellycine.core.xtream.XtreamUrls
 import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.PlaylistType
@@ -14,13 +15,16 @@ import kotlinx.coroutines.withContext
 suspend fun addPlaylistFromPhone(context: Context, container: AppContainer, submission: PhoneSubmission): Result<String> = runCatching {
     val fields = submission.fields
     val name = fields["name"].orEmpty().trim()
-    val epg = fields["epg"].orEmpty().trim()
+    // The page names its guide fields epg, epg2, epg3… as more are added.
+    val guides = fields.filterKeys { GUIDE_FIELD.matches(it) }.entries
+        .sortedBy { it.key.removePrefix("epg").toIntOrNull() ?: 1 }
+        .map { it.value }
     val playlist = when (fields["type"]) {
         "file" -> {
             val upload = submission.file ?: error("Choose a playlist file.")
             val fileName = upload.name.substringAfterLast('/').substringAfterLast('\\').ifBlank { "playlist.m3u" }
             val uri = withContext(Dispatchers.IO) { upload.open().use { PlaylistFiles.save(context, fileName, it) } }
-            PlaylistEntity(name = name.ifEmpty { fileName.substringBeforeLast('.').ifEmpty { "Playlist" } }, type = PlaylistType.M3U_FILE, url = uri, epgUrl = epg)
+            PlaylistEntity(name = name.ifEmpty { fileName.substringBeforeLast('.').ifEmpty { "Playlist" } }, type = PlaylistType.M3U_FILE, url = uri)
         }
         "m3u" -> {
             val url = fields["url"].orEmpty().trim()
@@ -36,10 +40,9 @@ suspend fun addPlaylistFromPhone(context: Context, container: AppContainer, subm
                     url = normalised,
                     username = username,
                     password = password,
-                    epgUrl = epg,
                 )
             } else {
-                PlaylistEntity(name = name.ifEmpty { Uri.parse(url).host ?: "Playlist" }, type = PlaylistType.M3U_URL, url = url, epgUrl = epg)
+                PlaylistEntity(name = name.ifEmpty { Uri.parse(url).host ?: "Playlist" }, type = PlaylistType.M3U_URL, url = url)
             }
         }
         else -> {
@@ -56,10 +59,11 @@ suspend fun addPlaylistFromPhone(context: Context, container: AppContainer, subm
                 url = normalised,
                 username = username,
                 password = password,
-                epgUrl = epg,
             )
         }
     }
-    container.playlists.save(playlist)
+    container.playlists.save(playlist.copy(epgUrl = GuideUrls.join(guides), epgCombine = fields["epgCombine"] != null))
     playlist.name
 }
+
+private val GUIDE_FIELD = Regex("epg\\d*")

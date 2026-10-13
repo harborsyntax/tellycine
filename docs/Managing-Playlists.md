@@ -41,5 +41,5 @@ Open **⋮ → Categories**, or **Choose categories to show** in the playlist ed
 - **New categories** your provider adds later start ticked.
 
 ## Editing and deleting
-- **⋮ → Edit:** change the address, login, maximum connections, guide URL, user agent or the Movies & series switch. Saving reloads the playlist.
+- **⋮ → Edit:** change the address, login, maximum connections, guide URLs, user agent or the Movies & series switch. Saving reloads the playlist.
 - **⋮ → Delete:** removes the playlist with its channels, guide, favourites and watch history from your device.

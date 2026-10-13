@@ -20,7 +20,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         DownloadEntity::class,
         TvmazeShowEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class TellycineDatabase : RoomDatabase() {
@@ -78,6 +78,13 @@ abstract class TellycineDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+        /** 1.13: guides you add to a playlist can be loaded as well as its own, not only instead. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `playlists` ADD COLUMN `epgCombine` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
     }
 }
