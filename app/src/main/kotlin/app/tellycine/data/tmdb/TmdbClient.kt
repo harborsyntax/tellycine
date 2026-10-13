@@ -18,8 +18,8 @@ import java.io.IOException
 import java.util.Locale
 
 /**
- * TMDB's API (https://developer.themoviedb.org), with the API key or read access token people get
- * for themselves (Tellycine has none of its own). TMDB asks apps to stay well under about 40
+ * TMDB's API (https://developer.themoviedb.org), with Tellycine's API key or one people get for
+ * themselves (an API key or a read access token). TMDB asks apps to stay well under about 40
  * requests a second, so requests go one at a time at most every [spacingMs], and wait when TMDB
  * says there were too many. Answers come in the device's language where TMDB has it.
  */

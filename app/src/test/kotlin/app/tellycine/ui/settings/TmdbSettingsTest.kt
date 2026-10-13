@@ -69,11 +69,11 @@ class TmdbSettingsTest {
         // TMDB's credit, as its terms ask.
         d.waitForText(TmdbText.NOTICE)
         d.waitForText(TmdbText.SITE_NAME)
-        d.waitForText(TmdbText.keySummary(""))
+        d.waitForText(TmdbText.keySummary("", builtIn = false))
 
-        // Without a key, turning it on asks for one first.
+        // Without a key (tests build without Tellycine's own), turning it on asks for one first.
         compose.onNodeWithText(TmdbText.TITLE).performScrollTo().performClick()
-        d.waitForText(TmdbText.KEY_HELP)
+        d.waitForText(TmdbText.keyHelp(builtIn = false))
         compose.onNode(hasSetTextAction()).performTextInput("not-my-key")
         d.click("Save")
         d.waitForText(TmdbText.KEY_REJECTED)
@@ -87,7 +87,7 @@ class TmdbSettingsTest {
             settings().tmdb
         }
         assertEquals(KEY, settings().tmdbApiKey)
-        d.waitForText(TmdbText.keySummary(KEY))
+        d.waitForText(TmdbText.keySummary(KEY, builtIn = false))
         d.back()
 
         // Below the playlists: one of the demo's 18 movies and series is on (the pretend) TMDB.

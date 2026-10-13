@@ -33,9 +33,9 @@ import java.time.ZoneId
 
 /**
  * Keeps movies' and series' TMDB scores, posters and (for series) air dates up to date while
- * details from TMDB are turned on, with the user's own API key. It's opt-in, as it sends titles'
- * names to TMDB. Titles with the same cleaned-up name and year ([keyOf]) share one lookup, kept in
- * [TmdbTitleEntity] across refreshes; a provider's TMDB id saves searching for it.
+ * details from TMDB are turned on, with Tellycine's API key or the user's own. It's opt-in, as it
+ * sends titles' names to TMDB. Titles with the same cleaned-up name and year ([keyOf]) share one
+ * lookup, kept in [TmdbTitleEntity] across refreshes; a provider's TMDB id saves searching for it.
  *
  * The first check looks every title up, which takes a while for a big playlist. After that, a
  * check only looks up titles that are new, or due again: films after three months, series whose
@@ -84,7 +84,7 @@ class TmdbUpdater(
             forgetOld()
             var launching = true
             var wasOn = false
-            settings.settings.map { it.tmdb to it.tmdbApiKey }.distinctUntilChanged().collectLatest { (on, _) ->
+            settings.settings.map { it.tmdb to it.tmdbKey }.distinctUntilChanged().collectLatest { (on, _) ->
                 if (!on) {
                     launching = false
                     // Turned off: titles show only what their playlists say. (Off at launch, there's nothing to clear.)
@@ -111,7 +111,8 @@ class TmdbUpdater(
 
     /** Looks up what's due (see the class), then gives every title what's known about it. */
     suspend fun check() = oneAtATime.withLock {
-        val key = settings.current().takeIf { it.tmdb }?.tmdbApiKey ?: return@withLock
+        val s = settings.current().takeIf { it.tmdb } ?: return@withLock
+        val key = s.tmdbKey
         val now = clock()
         _status.update { it.copy(running = true, done = 0, todo = 0, error = null) }
         try {
@@ -147,7 +148,7 @@ class TmdbUpdater(
         } catch (e: CancellationException) {
             throw e
         } catch (e: TmdbClient.KeyRejected) {
-            _status.update { it.copy(error = KEY_REJECTED) }
+            _status.update { it.copy(error = if (s.tmdbApiKey.isNotBlank()) KEY_REJECTED else BUILT_IN_KEY_REJECTED) }
         } catch (e: Exception) {
             Log.w(TAG, "TMDB check stopped", e)
             _status.update { it.copy(error = "Couldn't reach TMDB. Tellycine will try again later.") }
@@ -256,6 +257,7 @@ class TmdbUpdater(
     companion object {
         private const val TAG = "TmdbUpdater"
         const val KEY_REJECTED = "TMDB didn't accept your API key. Check it in Settings."
+        const val BUILT_IN_KEY_REJECTED = "TMDB isn't accepting Tellycine's key at the moment. You can add a key of your own in Settings."
         private const val DAY = 24 * 60 * 60 * 1000L
         private const val LAUNCH_DELAY = 20_000L
         private const val BATCH = 25

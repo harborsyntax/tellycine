@@ -15,6 +15,7 @@ import app.tellycine.data.settings.SettingsRepository
 import app.tellycine.data.settings.TvTheme
 import app.tellycine.data.sync.PlaylistSyncer
 import app.tellycine.data.sync.SyncManager
+import app.tellycine.data.tmdb.TmdbBuiltInKey
 import app.tellycine.data.tmdb.TmdbClient
 import app.tellycine.data.tmdb.TmdbLookup
 import app.tellycine.data.tmdb.TmdbUpdater
@@ -34,7 +35,7 @@ class AppContainer(context: Context) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val httpClient = createHttpClient()
     val database = TellycineDatabase.create(context)
-    val settings = SettingsRepository(context)
+    val settings = SettingsRepository(context, builtInTmdbKey = TmdbBuiltInKey.value)
     val downloader = Downloader(context, httpClient)
     /** Details from TMDB, when they're turned on: kept up to date for the lists, and fetched for a title's page. */
     private val tmdbClient = TmdbClient(httpClient)

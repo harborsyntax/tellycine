@@ -118,7 +118,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    /** Forgets the key, which turns details from TMDB off. */
+    /** Forgets the user's key: then Tellycine's own is used, or without one, details from TMDB turn off. */
     fun removeTmdbKey() = viewModelScope.launch { repo.setTmdbApiKey("") }
 
     fun resetKeyCheck() {
@@ -208,13 +208,13 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit) {
             HorizontalDivider()
 
             Header("Movies & series")
-            SwitchItem(TmdbText.TITLE, TmdbText.SETTING, s.tmdb) { on ->
-                // Turning it on needs a key first.
-                if (on && s.tmdbApiKey.isBlank()) keyDialog = true else vm.setTmdbEnabled(on)
+            SwitchItem(TmdbText.TITLE, TmdbText.setting(s.hasBuiltInTmdbKey), s.tmdb) { on ->
+                // Turning it on needs a key first, in a build without one.
+                if (on && s.tmdbKey.isBlank()) keyDialog = true else vm.setTmdbEnabled(on)
             }
             ListItem(
                 headlineContent = { Text(TmdbText.KEY) },
-                supportingContent = { Text(TmdbText.keySummary(s.tmdbApiKey)) },
+                supportingContent = { Text(TmdbText.keySummary(s.tmdbApiKey, s.hasBuiltInTmdbKey)) },
                 modifier = Modifier.clickable { keyDialog = false },
             )
             HorizontalDivider()
@@ -253,6 +253,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit) {
         val check by vm.keyCheck.collectAsStateWithLifecycle()
         TmdbKeyDialog(
             current = s.tmdbApiKey,
+            builtIn = s.hasBuiltInTmdbKey,
             check = check,
             onSave = { vm.saveTmdbKey(it, turnOn) },
             onOpenKeyPage = { context.openLink(TmdbText.KEY_PAGE) },
@@ -340,6 +341,7 @@ private fun TmdbCredit(onOpenSite: () -> Unit) {
 @Composable
 private fun TmdbKeyDialog(
     current: String,
+    builtIn: Boolean,
     check: SettingsViewModel.KeyCheck,
     onSave: (String) -> Unit,
     onOpenKeyPage: () -> Unit,
@@ -357,7 +359,7 @@ private fun TmdbKeyDialog(
         title = { Text(TmdbText.KEY) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(TmdbText.KEY_HELP, style = MaterialTheme.typography.bodyMedium)
+                Text(TmdbText.keyHelp(builtIn), style = MaterialTheme.typography.bodyMedium)
                 TextButton(onClick = onOpenKeyPage, contentPadding = PaddingValues(0.dp)) { Text("Open TMDB's API settings") }
                 OutlinedTextField(
                     value = key,

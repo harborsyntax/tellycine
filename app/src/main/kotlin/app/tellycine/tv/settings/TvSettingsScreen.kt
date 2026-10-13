@@ -130,12 +130,12 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
 
                 item { TvSectionLabel("Movies & series") }
                 item {
-                    TvSwitchRow(TmdbText.TITLE, TmdbText.SETTING, s.tmdb, onChange = { on ->
-                        // Turning it on needs a key first.
-                        if (on && s.tmdbApiKey.isBlank()) keyInput = true else vm.setTmdbEnabled(on)
+                    TvSwitchRow(TmdbText.TITLE, TmdbText.setting(s.hasBuiltInTmdbKey), s.tmdb, onChange = { on ->
+                        // Turning it on needs a key first, in a build without one.
+                        if (on && s.tmdbKey.isBlank()) keyInput = true else vm.setTmdbEnabled(on)
                     })
                 }
-                item { TvValueRow(TmdbText.KEY, TmdbText.keySummary(s.tmdbApiKey), onClick = { keyInput = false }) }
+                item { TvValueRow(TmdbText.KEY, TmdbText.keySummary(s.tmdbApiKey, s.hasBuiltInTmdbKey), onClick = { keyInput = false }) }
 
                 item { TvSectionLabel("Downloads") }
                 item {
@@ -192,7 +192,8 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
         TvTextInputDialog(
             title = TmdbText.KEY,
             initial = s.tmdbApiKey,
-            hint = "${TmdbText.KEY_HELP} Leave it empty to remove the key.",
+            hint = TmdbText.keyHelp(s.hasBuiltInTmdbKey) +
+                if (s.hasBuiltInTmdbKey) " Leave it empty to use Tellycine's key." else " Leave it empty to remove the key.",
             placeholder = "API key or read access token",
             keyboardType = KeyboardType.Ascii,
             onDone = { key ->

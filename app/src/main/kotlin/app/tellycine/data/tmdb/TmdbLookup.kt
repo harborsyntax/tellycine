@@ -86,7 +86,7 @@ class TmdbLookup(
         return tmdbIds.distinct().mapNotNull { found[it] }
     }
 
-    private suspend fun key(): String? = settings.current().takeIf { it.tmdb }?.tmdbApiKey
+    private suspend fun key(): String? = settings.current().takeIf { it.tmdb }?.tmdbKey
 
     /** Searches TMDB for [stream], keeping what's found for the lists to fill in later. */
     private suspend fun find(key: String, stream: StreamEntity): Int? {

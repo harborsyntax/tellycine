@@ -57,5 +57,8 @@ class VodOrderTest {
         // Turned off, or on without a key, series go back to newest first.
         assertEquals(VodOrder.DEFAULT, on.copy(tmdbEnabled = false).vodSort(ContentKind.SERIES))
         assertEquals(VodOrder.DEFAULT, on.copy(tmdbApiKey = "").vodSort(ContentKind.SERIES))
+        // Without a key of their own, Tellycine's does.
+        assertEquals(aired, on.copy(tmdbApiKey = "", tmdbBuiltInKey = "builtin").vodSort(ContentKind.SERIES))
+        assertEquals("theirs", on.copy(tmdbApiKey = "theirs", tmdbBuiltInKey = "builtin").tmdbKey)
     }
 }

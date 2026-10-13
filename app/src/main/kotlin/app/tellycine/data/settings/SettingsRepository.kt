@@ -125,11 +125,18 @@ data class AppSettings(
     val vodSorts: Map<ContentKind, VodOrder> = emptyMap(),
     /** Look movies and series up on TMDB for their details (opt-in: it sends their names there). */
     val tmdbEnabled: Boolean = false,
-    /** The TMDB API key (or read access token) people get for themselves; Tellycine has none of its own. */
+    /** A TMDB API key (or read access token) of the user's own, used instead of Tellycine's. */
     val tmdbApiKey: String = "",
+    /** Tellycine's own TMDB key, when this build has one. */
+    val tmdbBuiltInKey: String = "",
 ) {
+    /** The key TMDB is asked with: the user's own, or else Tellycine's. */
+    val tmdbKey: String get() = tmdbApiKey.ifBlank { tmdbBuiltInKey }
+
+    val hasBuiltInTmdbKey: Boolean get() = tmdbBuiltInKey.isNotBlank()
+
     /** Details from TMDB are turned on, with a key to ask for them. */
-    val tmdb: Boolean get() = tmdbEnabled && tmdbApiKey.isNotBlank()
+    val tmdb: Boolean get() = tmdbEnabled && tmdbKey.isNotBlank()
 
     fun vodSort(kind: ContentKind): VodOrder = VodOrder.of(kind, vodSorts[kind], tmdb)
 
@@ -144,7 +151,11 @@ private val Context.dataStore by preferencesDataStore("settings")
 private val TVMAZE_AIR_DATES = booleanPreferencesKey("tvmaze_air_dates")
 private val TVMAZE_CHECKED_AT = longPreferencesKey("tvmaze_checked_at")
 
-class SettingsRepository(private val context: Context) {
+class SettingsRepository(
+    private val context: Context,
+    /** Tellycine's own TMDB key, if this build has one. */
+    private val builtInTmdbKey: String = "",
+) {
 
     private object Keys {
         val activePlaylist = longPreferencesKey("active_playlist")
@@ -171,7 +182,9 @@ class SettingsRepository(private val context: Context) {
         val tmdbApiKey = stringPreferencesKey("tmdb_api_key")
     }
 
-    val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
+    val settings: Flow<AppSettings> = context.dataStore.data.map(::read)
+
+    private fun read(p: Preferences): AppSettings =
         AppSettings(
             activePlaylistId = p[Keys.activePlaylist],
             themeMode = p[Keys.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
@@ -194,8 +207,8 @@ class SettingsRepository(private val context: Context) {
             vodSorts = Keys.vodSorts.keys.mapNotNull { kind -> vodOrder(p, kind)?.let { kind to it } }.toMap(),
             tmdbEnabled = p[Keys.tmdbEnabled] ?: false,
             tmdbApiKey = p[Keys.tmdbApiKey].orEmpty(),
+            tmdbBuiltInKey = builtInTmdbKey,
         )
-    }
 
     suspend fun current(): AppSettings = settings.first()
 
@@ -232,8 +245,7 @@ class SettingsRepository(private val context: Context) {
 
     /** Sorts [kind] by [choice], or turns its order round if it already is ([VodOrder.press]), in one step. */
     suspend fun pressVodSort(kind: ContentKind, choice: VodSort) = context.dataStore.edit { p ->
-        val tmdb = (p[Keys.tmdbEnabled] ?: false) && !p[Keys.tmdbApiKey].isNullOrBlank()
-        putVodOrder(p, kind, VodOrder.of(kind, vodOrder(p, kind), tmdb).press(choice))
+        putVodOrder(p, kind, VodOrder.of(kind, vodOrder(p, kind), read(p).tmdb).press(choice))
     }
 
     suspend fun setTmdbEnabled(enabled: Boolean) = context.dataStore.edit {
@@ -243,12 +255,15 @@ class SettingsRepository(private val context: Context) {
         it.remove(TVMAZE_CHECKED_AT)
     }
 
-    /** Keeps [key] (trimmed), or forgets the key when it's blank, turning TMDB off. */
+    /**
+     * Keeps [key] (trimmed), or forgets the user's key when it's blank: then Tellycine's own is used,
+     * or, without one, details from TMDB turn off.
+     */
     suspend fun setTmdbApiKey(key: String) = context.dataStore.edit {
         val trimmed = key.trim()
         if (trimmed.isEmpty()) {
             it.remove(Keys.tmdbApiKey)
-            it[Keys.tmdbEnabled] = false
+            if (builtInTmdbKey.isBlank()) it[Keys.tmdbEnabled] = false
         } else {
             it[Keys.tmdbApiKey] = trimmed
         }

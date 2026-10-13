@@ -7,13 +7,7 @@ import app.tellycine.ui.components.formatRelative
 /** The words for details from TMDB, in Settings and on the Playlists page (phone and TV). */
 object TmdbText {
     const val TITLE = "Details from TMDB"
-    const val SETTING = "Adds plots, cast, ratings, trailers, pictures and episode details to movies and series, " +
-        "and sorting by rating or when series last aired. Sends their names to TMDB, with your own API key. " +
-        "The first look-up takes a while."
     const val KEY = "TMDB API key"
-    const val KEY_HELP = "Tellycine doesn't come with a TMDB key: you use your own, which is free for personal use. " +
-        "Sign in at themoviedb.org, open Settings → API and request a developer key, then copy the API Key " +
-        "(or the API Read Access Token) here."
     const val KEY_PAGE = "https://www.themoviedb.org/settings/api"
     const val KEY_REJECTED = "TMDB didn't accept this key. Copy the API Key, or the API Read Access Token, from your TMDB account's API settings."
     const val KEY_UNREACHABLE = "Couldn't reach TMDB to check the key. Check your connection and try again."
@@ -23,9 +17,30 @@ object TmdbText {
     const val SITE = "https://www.themoviedb.org"
     const val SITE_NAME = "www.themoviedb.org"
 
-    /** The key as Settings shows it: whether there is one, and its last few characters. */
-    fun keySummary(key: String): String =
-        if (key.isBlank()) "Not set. Needed for details from TMDB." else "Saved: ending ${key.takeLast(4)}"
+    /** What the setting does; [builtIn] when this build has Tellycine's own key, so none is needed. */
+    fun setting(builtIn: Boolean): String =
+        "Adds plots, cast, ratings, trailers, pictures and episode details to movies and series, " +
+            "and sorting by rating or when series last aired. " +
+            (if (builtIn) "Sends their names to TMDB. " else "Sends their names to TMDB, with your own API key. ") +
+            "The first look-up takes a while."
+
+    /** How to get a key of their own. */
+    fun keyHelp(builtIn: Boolean): String {
+        val why = if (builtIn) {
+            "Tellycine has its own TMDB key, so you don't need one. To use yours instead (free for personal use), "
+        } else {
+            "This copy of Tellycine doesn't come with a TMDB key, so you need your own, which is free for personal use. To get one, "
+        }
+        return why + "sign in at themoviedb.org, open Settings → API and request a developer key, then copy the API Key " +
+            "(or the API Read Access Token) here."
+    }
+
+    /** The user's [key] as Settings shows it: whether there is one, and its last few characters. */
+    fun keySummary(key: String, builtIn: Boolean): String = when {
+        key.isNotBlank() -> "Saved: ending ${key.takeLast(4)}"
+        builtIn -> "Optional. Tellycine's own key is used unless you add yours."
+        else -> "Not set. Needed for details from TMDB."
+    }
 }
 
 /** What a check is doing, or what it found: "Looking up titles: 120 of 3,000". */

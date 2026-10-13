@@ -27,7 +27,11 @@ jobs:
       - name: Unit tests
         run: ./gradlew --no-daemon :core:test
 
+      # Tellycine's own TMDB key goes into the APKs (scrambled), not into the tests, which expect a
+      # build without one. Pull requests from forks don't get it, and build without.
       - name: Build APKs
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: ./gradlew --no-daemon :app:assembleDebug :app:assembleRelease
 
       - name: Upload debug APK

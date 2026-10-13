@@ -68,7 +68,13 @@ jobs:
           TELLYCINE_KEYSTORE_PASSWORD: ${{ secrets.TELLYCINE_KEYSTORE_PASSWORD }}
           TELLYCINE_KEY_ALIAS: ${{ secrets.TELLYCINE_KEY_ALIAS }}
           TELLYCINE_KEY_PASSWORD: ${{ secrets.TELLYCINE_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon :core:test :app:assembleRelease :app:bundleRelease
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          # Without Tellycine's own TMDB key, the release still works: people add their own.
+          if [ -z "$TMDB_API_KEY" ]; then
+            echo "::warning::The TMDB_API_KEY secret is missing, so this release has no built-in TMDB key: people will need their own for details from TMDB."
+          fi
+          ./gradlew --no-daemon :core:test :app:assembleRelease :app:bundleRelease
 
       # Refuse to publish an APK that isn't signed with the permanent Tellycine key.
       # (apksigner, not keytool: minSdk 26+ APKs only carry v2/v3 signatures.)

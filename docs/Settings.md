@@ -14,8 +14,8 @@ Open **Playlists → ⚙ Settings**. On a TV, choose **Settings** in the side me
 | **Refresh on launch** | Reloads playlists older than a day and guides older than 12 hours when the app starts. |
 | **Guide days** | How many days of upcoming programmes to keep (1, 2, 3, 5 or 7). Fewer days use less storage. |
 | **Prefer HLS for Xtream live TV** | Use `.m3u8` instead of MPEG-TS for Xtream channels, where the provider allows it. Applies after the next refresh. |
-| **Details from TMDB** | Off unless you turn it on. Adds posters, ratings, cast, episode details and more to movies and series from TMDB, with **Rating** and **Last aired** sorts. Sends their names to TMDB, with your API key. See [Movies & series](Movies-and-Series.md#details-from-tmdb). |
-| **TMDB API key** | Your own key for TMDB, needed for details from TMDB: Tellycine doesn't come with one. It's checked with TMDB before it's kept, and stays on your device. Clear it and choose **Remove** to forget it. See [getting a key](Movies-and-Series.md#details-from-tmdb). |
+| **Details from TMDB** | Off unless you turn it on. Adds posters, ratings, cast, episode details and more to movies and series from TMDB, with **Rating** and **Last aired** sorts. Sends their names to TMDB. See [Movies & series](Movies-and-Series.md#details-from-tmdb). |
+| **TMDB API key** | Optional: a TMDB key of your own, used instead of Tellycine's. It's checked with TMDB before it's kept, and stays on your device. Clear it and choose **Remove** to go back to Tellycine's. See [getting a key](Movies-and-Series.md#details-from-tmdb). |
 | **Clear watch history** | Removes resume points and recently watched channels. |
 | **Open on the last channel** | TV only: starts the channel you watched last when Tellycine opens. |
 | **Match the TV's refresh rate** | TV only: switches the display to suit each video (for example 50 Hz for 25 and 50 fps channels). See [Android TV](Android-TV.md#tv-settings). |

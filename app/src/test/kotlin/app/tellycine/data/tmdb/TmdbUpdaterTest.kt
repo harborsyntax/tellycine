@@ -7,6 +7,7 @@ import app.tellycine.core.ContentKind
 import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.PlaylistType
 import app.tellycine.data.db.StreamEntity
+import app.tellycine.data.settings.SettingsRepository
 import app.tellycine.testing.FakeHttpServer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +36,8 @@ class TmdbUpdaterTest {
     private val requests: MutableList<String> = Collections.synchronizedList(ArrayList())
     private var whoNextAirs: String? = null
     private var busyFor = 0
+    private val rejectedKeys = Collections.synchronizedSet(mutableSetOf("rejected-key-000000000000000000"))
+    private val keysUsed: MutableList<String?> = Collections.synchronizedList(ArrayList())
 
     private fun series(id: Int, name: String, date: String) =
         """{"id":$id,"name":"$name","first_air_date":"$date","vote_average":8.0,"vote_count":100,"poster_path":"/$id.jpg"}"""
@@ -47,7 +50,8 @@ class TmdbUpdaterTest {
     private val server = FakeHttpServer { path, query ->
         val params = query.split("&").filter { it.isNotEmpty() }
             .associate { URLDecoder.decode(it.substringBefore('='), "UTF-8") to URLDecoder.decode(it.substringAfter('='), "UTF-8") }
-        if (params["api_key"] == "rejected-key-000000000000000000") throw FakeHttpServer.Status(401)
+        keysUsed += params["api_key"]
+        if (params["api_key"] in rejectedKeys) throw FakeHttpServer.Status(401)
         if (busyFor > 0) {
             busyFor--
             throw FakeHttpServer.Status(429)
@@ -287,6 +291,37 @@ class TmdbUpdaterTest {
     }
 
     @Test
+    fun tellycinesOwnKeyUnlessTheirOwnIsSet() {
+        val (one, _) = seed()
+        // The same settings, in a build with Tellycine's own key.
+        val settings = SettingsRepository(ApplicationProvider.getApplicationContext(), builtInTmdbKey = BUILT_IN)
+        val updater = TmdbUpdater(db, settings, client, MainScope(), clock = { now }, zone = ZoneOffset.UTC)
+        fun check(): Set<String?> {
+            keysUsed.clear()
+            runBlocking { updater.check() }
+            return keysUsed.toSet()
+        }
+
+        // Without a key of their own, it stays on, with Tellycine's.
+        runBlocking { settings.setTmdbApiKey("") }
+        assertEquals(true, runBlocking { settings.current().tmdb })
+        assertEquals(setOf(BUILT_IN), check())
+        assertEquals(1396, stream(one, ContentKind.SERIES, "bb").tmdbId)
+
+        // Theirs, once they add one.
+        runBlocking { settings.setTmdbApiKey(KEY) }
+        now += 8 * DAY
+        assertEquals(setOf(KEY), check())
+
+        // TMDB stops accepting Tellycine's: it says so, and what they can do.
+        runBlocking { settings.setTmdbApiKey("") }
+        rejectedKeys += BUILT_IN
+        now += 8 * DAY
+        check()
+        assertEquals(TmdbUpdater.BUILT_IN_KEY_REJECTED, updater.status.value.error)
+    }
+
+    @Test
     fun keysAndTokensAreSentTheirOwnWays(): Unit = runBlocking {
         assertEquals(TmdbClient.KeyCheck.WORKS, client.checkKey(KEY))
         assertEquals(TmdbClient.KeyCheck.REJECTED, client.checkKey("rejected-key-000000000000000000"))
@@ -303,6 +338,7 @@ class TmdbUpdaterTest {
 
     private companion object {
         const val KEY = "0123456789abcdef0123456789abcdef"
+        const val BUILT_IN = "fedcba9876543210fedcba9876543210"
         const val DAY = 24 * 60 * 60 * 1000L
     }
 }
