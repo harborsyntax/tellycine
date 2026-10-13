@@ -1,5 +1,7 @@
 package app.tellycine.ui.library
 
+import app.tellycine.data.db.artwork
+import app.tellycine.data.db.score
 import app.tellycine.data.settings.LibrarySort
 import app.tellycine.data.db.HistoryRow
 import androidx.compose.runtime.setValue
@@ -398,9 +400,9 @@ fun LibraryScreen(
                     ) { onLongClick ->
                         PosterCard(
                             title = s.name,
-                            poster = s.logo,
+                            poster = s.artwork,
                             meta = s.year,
-                            rating = s.rating,
+                            rating = s.score,
                             onClick = { onOpen(s) },
                             onLongClick = onLongClick,
                             modifier = Modifier.width(120.dp),

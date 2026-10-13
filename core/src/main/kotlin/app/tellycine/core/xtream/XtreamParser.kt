@@ -83,6 +83,7 @@ class XtreamParser {
                     genre = obj.str("genre"),
                     catchupDays = if (obj.int("tv_archive") == 1) obj.int("tv_archive_duration") else null,
                     backdrop = obj.backdrops().firstOrNull(),
+                    tmdbId = obj.tmdbId(),
                 )
             )
         }
@@ -144,6 +145,7 @@ class XtreamParser {
             trailer = YouTube.trailerUrl(info.str("youtube_trailer") ?: info.str("trailer")),
             seasons = seasons.toSortedMap(),
             episodes = episodes,
+            tmdbId = info.tmdbId(),
         )
     }
 
@@ -164,6 +166,7 @@ class XtreamParser {
             rating = info.double("rating"),
             trailer = YouTube.trailerUrl(info.str("youtube_trailer") ?: info.str("trailer")),
             containerExtension = data.str("container_extension"),
+            tmdbId = info.tmdbId() ?: data.tmdbId(),
         )
     }
 
@@ -251,3 +254,6 @@ internal fun Map<*, *>.int(key: String): Int? {
 }
 
 internal fun Map<*, *>.double(key: String): Double? = str(key)?.replace(',', '.')?.toDoubleOrNull()
+
+/** The TMDB id panels give as `tmdb` or `tmdb_id`, when it's a real one. */
+internal fun Map<*, *>.tmdbId(): Int? = (long("tmdb") ?: long("tmdb_id"))?.takeIf { it in 1..Int.MAX_VALUE }?.toInt()

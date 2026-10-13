@@ -92,6 +92,9 @@ data class CategoryEntity(
         Index(value = ["playlistId", "kind", "changedAt"]),
         Index(value = ["playlistId", "kind", "sortName"]),
         Index(value = ["playlistId", "kind", "aired"]),
+        Index(value = ["playlistId", "kind", "tmdbRating"]),
+        // Titles TMDB recommends, found in the playlists by their TMDB id.
+        Index(value = ["kind", "tmdbId"]),
     ],
 )
 data class StreamEntity(
@@ -138,8 +141,13 @@ data class StreamEntity(
      * or else first saw it. Worked out at each refresh ([app.tellycine.data.sync.FirstSeen]).
      */
     val changedAt: Long? = null,
-    /** For series, when its latest episode aired ("2025-05-01"), from TVmaze when that's turned on. */
+    /** For series, when its latest episode aired ("2025-05-01"), from TMDB while that's turned on. */
     val aired: String? = null,
+    /** The film's or series' id on TMDB: the provider's, or the one Tellycine matched. */
+    val tmdbId: Int? = null,
+    /** TMDB's score out of 10, and its poster (for titles without artwork), while TMDB is turned on. */
+    val tmdbRating: Double? = null,
+    val tmdbPoster: String? = null,
 ) {
     companion object {
         /** [name] as A–Z sorts it: without surrounding spaces and in lower case, so case doesn't matter. */
@@ -282,22 +290,40 @@ data class DownloadEntity(
     val completedAt: Long?,
 )
 
+/** A movie's or series' poster: the playlist's, or else TMDB's. */
+val StreamEntity.artwork: String? get() = logo ?: tmdbPoster
+
+/** A movie's or series' score out of 10: TMDB's, or else the playlist's. */
+val StreamEntity.score: Double? get() = tmdbRating ?: rating
+
 /**
- * What TVmaze says about a series, by its cleaned-up name and year ([showKey], from
- * [app.tellycine.core.ShowNames]), so playlists with the same series share one lookup. Kept across
- * refreshes; see [app.tellycine.data.tvmaze.TvmazeUpdater].
+ * What TMDB has on a film or series, by its cleaned-up name and year ([titleKey], see
+ * [app.tellycine.data.tmdb.TmdbUpdater.keyOf]), so playlists with the same title share one lookup.
+ * Kept across refreshes, refreshed well within the six months TMDB allows.
  */
-@Entity(tableName = "tvmaze_shows")
-data class TvmazeShowEntity(
-    @PrimaryKey val showKey: String,
-    /** TVmaze's id for the show, or null when none matched. */
-    val tvmazeId: Int?,
-    /** When TVmaze last changed the show (seconds), to tell from its list of changes whether to look again. */
-    val updated: Long?,
-    /** When the latest episode aired, and when the next one will: "2025-05-01". */
+@Entity(tableName = "tmdb_titles")
+data class TmdbTitleEntity(
+    @PrimaryKey val titleKey: String,
+    val kind: ContentKind,
+    /** TMDB's id for it, or null when none matched. */
+    val tmdbId: Int?,
+    /** Its score out of 10, when enough people have voted for it to mean something. */
+    val rating: Double?,
+    /** Its poster's path, as TMDB gives it ("/abc.jpg"). */
+    val poster: String?,
+    /** For a series: when the latest and next episodes air ("2025-05-01"), and whether it has finished. */
     val lastAired: String?,
     val nextAired: String?,
     val ended: Boolean,
-    /** When Tellycine last asked TVmaze about it. */
+    /** When Tellycine last asked TMDB about it. */
     val checkedAt: Long,
+)
+
+/** A title's page on TMDB as it was fetched (JSON), once someone has opened the title. */
+@Entity(tableName = "tmdb_pages", primaryKeys = ["kind", "tmdbId"])
+data class TmdbPageEntity(
+    val kind: ContentKind,
+    val tmdbId: Int,
+    val json: String,
+    val fetchedAt: Long,
 )

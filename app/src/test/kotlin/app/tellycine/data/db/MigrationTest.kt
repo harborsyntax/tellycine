@@ -8,6 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -65,11 +66,17 @@ class MigrationTest {
             assertEquals(2000L, series.second)
             assertEquals("2019", series.third)
             db.query("SELECT sortName FROM streams WHERE streamId = 'm1'").use { it.moveToFirst(); assertEquals("a film", it.getString(0)) }
-            // 1.11: a series' change date starts as its last update; there's nothing from TVmaze yet.
-            db.query("SELECT changedAt, aired FROM streams WHERE streamId = 's1'").use {
-                it.moveToFirst(); assertEquals(2000L, it.getLong(0)); assertNull(it.getString(1))
+            // 1.11: a series' change date starts as its last update; there's nothing from TMDB yet.
+            db.query("SELECT changedAt, aired, tmdbId, tmdbRating, tmdbPoster FROM streams WHERE streamId = 's1'").use {
+                it.moveToFirst()
+                assertEquals(2000L, it.getLong(0))
+                for (i in 1..4) assertTrue(it.isNull(i))
             }
-            db.query("SELECT COUNT(*) FROM tvmaze_shows").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+            // TMDB replaced TVmaze.
+            db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 't%' ORDER BY name").use { c ->
+                val tables = generateSequence { if (c.moveToNext()) c.getString(0) else null }.toList()
+                assertEquals(listOf("tmdb_pages", "tmdb_titles"), tables)
+            }
             db.query("SELECT COUNT(*) FROM favorites").use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
             db.query("SELECT name FROM playlists").use { it.moveToFirst(); assertEquals("Mine", it.getString(0)) }
             // Guides added before keep replacing the playlist's own.

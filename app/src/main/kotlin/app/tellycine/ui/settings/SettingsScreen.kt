@@ -1,13 +1,21 @@
 package app.tellycine.ui.settings
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -16,7 +24,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -24,30 +34,37 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.clickable
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.tellycine.AppContainer
 import app.tellycine.BuildConfig
+import app.tellycine.R
 import app.tellycine.data.settings.AppSettings
 import app.tellycine.data.settings.ThemeMode
 import app.tellycine.data.settings.TvTheme
+import app.tellycine.data.tmdb.TmdbClient
 import app.tellycine.ui.components.ListItem
 import app.tellycine.ui.components.TellycineLogo
 import app.tellycine.ui.components.tellycineViewModel
-import app.tellycine.ui.playlists.TvmazeText
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -66,7 +83,47 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun clearHistory() = viewModelScope.launch { container.content.clearHistory() }
     fun setStartOnLastChannel(v: Boolean) = viewModelScope.launch { repo.setStartOnLastChannel(v) }
     fun setMatchFrameRate(v: Boolean) = viewModelScope.launch { repo.setMatchFrameRate(v) }
-    fun setTvmazeAirDates(v: Boolean) = viewModelScope.launch { repo.setTvmazeAirDates(v) }
+    fun setTmdbEnabled(v: Boolean) = viewModelScope.launch { repo.setTmdbEnabled(v) }
+
+    /** Checking a TMDB key before keeping it. */
+    sealed interface KeyCheck {
+        data object Idle : KeyCheck
+        data object Checking : KeyCheck
+        data object Saved : KeyCheck
+        data class Failed(val message: String) : KeyCheck
+    }
+
+    private val _keyCheck = MutableStateFlow<KeyCheck>(KeyCheck.Idle)
+    val keyCheck: StateFlow<KeyCheck> = _keyCheck.asStateFlow()
+
+    /** Checks [key] with TMDB and keeps it if TMDB accepts it, turning details from TMDB on if [turnOn]. */
+    fun saveTmdbKey(key: String, turnOn: Boolean) {
+        val trimmed = key.trim()
+        if (trimmed.isEmpty()) {
+            removeTmdbKey()
+            _keyCheck.value = KeyCheck.Saved
+            return
+        }
+        _keyCheck.value = KeyCheck.Checking
+        viewModelScope.launch {
+            _keyCheck.value = when (container.tmdb.client.checkKey(trimmed)) {
+                TmdbClient.KeyCheck.WORKS -> {
+                    repo.setTmdbApiKey(trimmed)
+                    if (turnOn) repo.setTmdbEnabled(true)
+                    KeyCheck.Saved
+                }
+                TmdbClient.KeyCheck.REJECTED -> KeyCheck.Failed(TmdbText.KEY_REJECTED)
+                TmdbClient.KeyCheck.UNREACHABLE -> KeyCheck.Failed(TmdbText.KEY_UNREACHABLE)
+            }
+        }
+    }
+
+    /** Forgets the key, which turns details from TMDB off. */
+    fun removeTmdbKey() = viewModelScope.launch { repo.setTmdbApiKey("") }
+
+    fun resetKeyCheck() {
+        _keyCheck.value = KeyCheck.Idle
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,6 +135,9 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit) {
     var epgDialog by remember { mutableStateOf(false) }
     var clearDialog by remember { mutableStateOf(false) }
     var playerDialog by remember { mutableStateOf(false) }
+    /** The TMDB key dialog: open, and whether a saved key turns details from TMDB on. */
+    var keyDialog by remember { mutableStateOf<Boolean?>(null) }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -145,7 +205,18 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit) {
                 s.preferHls,
                 vm::setPreferHls,
             )
-            SwitchItem(TvmazeText.TITLE, TvmazeText.SETTING, s.tvmazeAirDates, vm::setTvmazeAirDates)
+            HorizontalDivider()
+
+            Header("Movies & series")
+            SwitchItem(TmdbText.TITLE, TmdbText.SETTING, s.tmdb) { on ->
+                // Turning it on needs a key first.
+                if (on && s.tmdbApiKey.isBlank()) keyDialog = true else vm.setTmdbEnabled(on)
+            }
+            ListItem(
+                headlineContent = { Text(TmdbText.KEY) },
+                supportingContent = { Text(TmdbText.keySummary(s.tmdbApiKey)) },
+                modifier = Modifier.clickable { keyDialog = false },
+            )
             HorizontalDivider()
 
             Header("Privacy")
@@ -173,10 +244,24 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                 )
+                TmdbCredit { context.openLink(TmdbText.SITE) }
             }
         }
     }
 
+    keyDialog?.let { turnOn ->
+        val check by vm.keyCheck.collectAsStateWithLifecycle()
+        TmdbKeyDialog(
+            current = s.tmdbApiKey,
+            check = check,
+            onSave = { vm.saveTmdbKey(it, turnOn) },
+            onOpenKeyPage = { context.openLink(TmdbText.KEY_PAGE) },
+            onDismiss = {
+                keyDialog = null
+                vm.resetKeyCheck()
+            },
+        )
+    }
     if (themeDialog) {
         ChoiceDialog(
             title = "Theme",
@@ -229,6 +314,77 @@ private fun Header(text: String) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 4.dp),
     )
+}
+
+/** TMDB's logo and the notice its terms ask for, with a link to its site. */
+@Composable
+private fun TmdbCredit(onOpenSite: () -> Unit) {
+    Column(
+        Modifier.padding(top = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        // Smaller than Tellycine's own logo, as TMDB asks.
+        Image(painterResource(R.drawable.tmdb_logo), contentDescription = "TMDB", modifier = Modifier.height(14.dp))
+        Text(
+            TmdbText.NOTICE,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        TextButton(onClick = onOpenSite) { Text(TmdbText.SITE_NAME) }
+    }
+}
+
+/** Typing a TMDB key, which is checked with TMDB before it's kept. Empty forgets the key. */
+@Composable
+private fun TmdbKeyDialog(
+    current: String,
+    check: SettingsViewModel.KeyCheck,
+    onSave: (String) -> Unit,
+    onOpenKeyPage: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var key by remember { mutableStateOf(current) }
+    LaunchedEffect(check) { if (check == SettingsViewModel.KeyCheck.Saved) onDismiss() }
+    val checking = check == SettingsViewModel.KeyCheck.Checking
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        // Its own margins rather than the platform's dialog width: with that, the focused text
+        // field kept the dialog laying itself out again (seen in Robolectric tests).
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier.padding(horizontal = 24.dp),
+        title = { Text(TmdbText.KEY) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(TmdbText.KEY_HELP, style = MaterialTheme.typography.bodyMedium)
+                TextButton(onClick = onOpenKeyPage, contentPadding = PaddingValues(0.dp)) { Text("Open TMDB's API settings") }
+                OutlinedTextField(
+                    value = key,
+                    onValueChange = { key = it },
+                    label = { Text("API key or read access token") },
+                    singleLine = true,
+                    enabled = !checking,
+                    isError = check is SettingsViewModel.KeyCheck.Failed,
+                    supportingText = (check as? SettingsViewModel.KeyCheck.Failed)?.let { failed -> { Text(failed.message) } },
+                    keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Ascii),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (checking) LinearProgressIndicator(Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(key) }, enabled = !checking && (key.isNotBlank() || current.isNotBlank())) {
+                Text(if (key.isBlank() && current.isNotBlank()) "Remove" else "Save")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/** Opens [url] in a browser, if there is one. */
+private fun Context.openLink(url: String) {
+    runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
 @Composable

@@ -28,6 +28,18 @@ class XtreamParserTest {
     }
 
     @Test
+    fun readsTheTmdbIdPanelsGive() {
+        val items = ArrayList<XtreamItem>()
+        parser.parseItems(
+            """[{"name":"A","stream_id":1,"tmdb":"603"},{"name":"B","series_id":2,"tmdb_id":1399},
+                {"name":"C","stream_id":3,"tmdb":""},{"name":"D","stream_id":4,"tmdb":"0"}]""".reader()
+        ) { items += it }
+        assertEquals(listOf(603, 1399, null, null), items.map { it.tmdbId })
+        assertEquals(27205, parser.parseVodInfo("""{"info":{"tmdb_id":"27205"},"movie_data":{}}""".reader()).tmdbId)
+        assertEquals(1396, parser.parseSeriesInfo("""{"info":{"tmdb":1396},"episodes":{}}""".reader()).tmdbId)
+    }
+
+    @Test
     fun parsesLooselyTypedStreams() {
         val items = ArrayList<XtreamItem>()
         parser.parseItems(

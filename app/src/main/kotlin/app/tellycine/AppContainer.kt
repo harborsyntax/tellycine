@@ -15,8 +15,9 @@ import app.tellycine.data.settings.SettingsRepository
 import app.tellycine.data.settings.TvTheme
 import app.tellycine.data.sync.PlaylistSyncer
 import app.tellycine.data.sync.SyncManager
-import app.tellycine.data.tvmaze.TvmazeClient
-import app.tellycine.data.tvmaze.TvmazeUpdater
+import app.tellycine.data.tmdb.TmdbClient
+import app.tellycine.data.tmdb.TmdbLookup
+import app.tellycine.data.tmdb.TmdbUpdater
 import app.tellycine.player.PhonePlayback
 import app.tellycine.player.TvPlayback
 import kotlinx.coroutines.CoroutineScope
@@ -35,9 +36,11 @@ class AppContainer(context: Context) {
     val database = TellycineDatabase.create(context)
     val settings = SettingsRepository(context)
     val downloader = Downloader(context, httpClient)
-    /** Air dates from TVmaze, when they're turned on. */
-    val tvmaze = TvmazeUpdater(database, settings, TvmazeClient(httpClient), appScope)
-    val syncManager = SyncManager(database, PlaylistSyncer(context, database, downloader), settings, appScope, onContentSynced = tvmaze::requestCheck)
+    /** Details from TMDB, when they're turned on: kept up to date for the lists, and fetched for a title's page. */
+    private val tmdbClient = TmdbClient(httpClient)
+    val tmdb = TmdbUpdater(database, settings, tmdbClient, appScope)
+    val tmdbLookup = TmdbLookup(database, settings, tmdbClient)
+    val syncManager = SyncManager(database, PlaylistSyncer(context, database, downloader), settings, appScope, onContentSynced = tmdb::requestCheck)
     val playlists = PlaylistRepository(context, database, settings, syncManager)
     val content = ContentRepository(database)
     val details = DetailsRepository(downloader)

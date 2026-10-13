@@ -336,6 +336,7 @@ class PlaylistSyncer(
         released = released,
         catchupDays = catchupDays,
         backdrop = backdrop,
+        tmdbId = tmdbId,
     )
 
     private inline fun readJson(file: File?, block: (java.io.Reader) -> Unit) {

@@ -37,7 +37,7 @@ Tellycine is a player only. It doesn't provide any channels or content; you add 
 - **Your sources:** M3U/M3U8 links, local M3U files, Xtream Codes accounts and Dispatcharr servers, with as many playlists as you like, browsed one at a time or all together.
 - **Live TV with a TV guide:** XMLTV guides, "on now" with progress, and a full schedule for each channel.
 - **Catch-up TV:** replay past programmes, or restart the current one. Works with Xtream timeshift and M3U `catchup` attributes.
-- **Movies & series:** poster grids sorted your way (date added, release date, latest episode, title, and optionally when episodes aired, from TVmaze), details with full backdrops and trailers, seasons and episodes, and resume where you left off.
+- **Movies & series:** poster grids sorted your way (date added, release date, latest episode, title), details with full backdrops and trailers, seasons and episodes, and resume where you left off. Optionally, with a TMDB API key of your own, details from TMDB: cast and crew, ratings, missing posters, episode details, collections and titles like the one you're looking at, and sorting by rating or when series last aired.
 - **Search:** find channels, programmes in the TV guide, movies and series across all your playlists in one place.
 - **Downloads:** save movies and episodes to watch offline, with a screen to manage them and a Wi-Fi only option.
 - **Library:** favourites, continue watching and recently watched, with sorting and grouping by category.
@@ -79,3 +79,7 @@ See the **[documentation](docs/Home.md)** for installation, adding playlists, ca
 ```
 
 Requires JDK 17 and the Android SDK. See [Development](docs/Development.md) for architecture, releases and signing.
+
+## Credits
+
+Movie and series details, when you turn them on with your own key, come from [TMDB](https://www.themoviedb.org). This product uses the TMDB API but is not endorsed or certified by TMDB.

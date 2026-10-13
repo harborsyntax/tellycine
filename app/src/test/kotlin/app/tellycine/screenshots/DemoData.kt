@@ -112,7 +112,7 @@ object DemoData {
         // Screenshots show the demo playlist in its own order, not the default (newest first).
         container.settings.setVodSort(ContentKind.MOVIE, VodOrder(VodSort.PROVIDER))
         container.settings.setVodSort(ContentKind.SERIES, VodOrder(VodSort.PROVIDER))
-        container.settings.setTvmazeAirDates(false)
+        container.settings.setTmdbEnabled(false)
         container.settings.setLibraryGroupByCategory(groupLibrary)
         val dao = db.content()
 

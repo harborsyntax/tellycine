@@ -1,9 +1,12 @@
 package app.tellycine.ui.detail
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.tellycine.AppContainer
 import app.tellycine.core.ContentKind
+import app.tellycine.core.tmdb.TmdbDetails
+import app.tellycine.core.tmdb.TmdbKind
 import app.tellycine.core.xtream.XtreamUrls
 import app.tellycine.data.db.DownloadEntity
 import app.tellycine.data.db.HistoryEntity
@@ -42,6 +45,8 @@ data class EpisodeUi(
     val image: String?,
     val durationSecs: Int?,
     val url: String,
+    /** When it first aired ("2019-05-19"), from TMDB. */
+    val airDate: String? = null,
 )
 
 data class DetailInfo(
@@ -53,7 +58,14 @@ data class DetailInfo(
     /** Wide artwork for behind the page, shown in turn when there's more than one. */
     val backdrops: List<String> = emptyList(),
     val plot: String? = null,
-    val meta: List<String> = emptyList(),
+    val year: String? = null,
+    /** How long a film runs: "2h 16m". */
+    val runtime: String? = null,
+    val genre: String? = null,
+    /** The age rating, from TMDB: "15", "TV-MA". */
+    val certification: String? = null,
+    /** A series' status, from TMDB: "Ended", "Returning series". */
+    val status: String? = null,
     val rating: Double? = null,
     val cast: String? = null,
     val director: String? = null,
@@ -66,7 +78,27 @@ data class DetailInfo(
     val source: String? = null,
     val episodes: List<EpisodeUi> = emptyList(),
     val error: String? = null,
-)
+    // From TMDB, while that's turned on.
+    val tagline: String? = null,
+    /** The title in its own language, when that's another. */
+    val originalTitle: String? = null,
+    /** Who made it: ("Director", "…"), ("Created by", "…"), ("Network", "…"). */
+    val credits: List<Pair<String, String>> = emptyList(),
+    val people: List<PersonUi> = emptyList(),
+    /** A series' next episode: "S3 E5 · Name · 12 Nov 2026". */
+    val nextEpisode: String? = null,
+    val seasonOverviews: Map<Int, String> = emptyMap(),
+    /** The other films of its collection, from the playlists. */
+    val collectionName: String? = null,
+    val collection: List<StreamEntity> = emptyList(),
+    /** What TMDB recommends instead, from the playlists. */
+    val similar: List<StreamEntity> = emptyList(),
+    val tmdbId: Int? = null,
+    val fromTmdb: Boolean = false,
+) {
+    /** The year, running time, age rating, genre and status, as the page lists them. */
+    val meta: List<String> get() = listOfNotNull(year, runtime, certification, genre, status).filter { it.isNotBlank() }
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DetailViewModel(
@@ -82,6 +114,10 @@ class DetailViewModel(
 
     private val _season = MutableStateFlow<Int?>(null)
     val selectedSeason: StateFlow<Int?> = _season.asStateFlow()
+
+    /** TMDB's details, once loaded, and the seasons whose episodes it has filled in. */
+    private var tmdb: TmdbDetails? = null
+    private val tmdbSeasons = HashSet<Int>()
 
     val isFavorite: StateFlow<Boolean> = content.isFavorite(playlistId, kind, streamId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
@@ -145,24 +181,26 @@ class DetailViewModel(
                 poster = stream.logo,
                 backdrops = listOfNotNull(stream.backdrop),
                 plot = stream.plot,
-                meta = listOfNotNull(stream.year, stream.genre),
+                year = stream.year,
+                genre = stream.genre,
                 rating = stream.rating,
             )
             _info.value = info
 
+            // The provider's TMDB id, from its details.
+            var providerTmdbId: Int? = null
             try {
                 info = when {
                     playlist.type == PlaylistType.XTREAM && kind == ContentKind.MOVIE -> {
                         val vod = container.details.vodInfo(playlist, streamId)
+                        providerTmdbId = vod.tmdbId
                         info.copy(
                             poster = vod.cover ?: info.poster,
                             backdrops = vod.backdrops.ifEmpty { info.backdrops },
                             plot = vod.plot ?: info.plot,
-                            meta = listOfNotNull(
-                                vod.releaseDate?.take(4) ?: stream.year,
-                                vod.durationSecs?.takeIf { it > 0 }?.let(::formatDuration),
-                                vod.genre ?: stream.genre,
-                            ),
+                            year = vod.releaseDate?.take(4) ?: stream.year,
+                            runtime = vod.durationSecs?.takeIf { it > 0 }?.let(::formatDuration),
+                            genre = vod.genre ?: stream.genre,
                             rating = vod.rating?.takeIf { it > 0 } ?: info.rating,
                             cast = vod.cast,
                             director = vod.director,
@@ -171,12 +209,14 @@ class DetailViewModel(
                     }
                     playlist.type == PlaylistType.XTREAM && kind == ContentKind.SERIES -> {
                         val series = container.details.seriesInfo(playlist, streamId)
+                        providerTmdbId = series.tmdbId
                         val urls = XtreamUrls(playlist.url, playlist.username, playlist.password)
                         info.copy(
                             poster = series.cover ?: info.poster,
                             backdrops = series.backdrops.ifEmpty { info.backdrops },
                             plot = series.plot ?: info.plot,
-                            meta = listOfNotNull(series.releaseDate?.take(4) ?: stream.year, series.genre ?: stream.genre),
+                            year = series.releaseDate?.take(4) ?: stream.year,
+                            genre = series.genre ?: stream.genre,
                             rating = series.rating?.takeIf { it > 0 } ?: info.rating,
                             cast = series.cast,
                             director = series.director,
@@ -216,11 +256,70 @@ class DetailViewModel(
                 _info.value = info.copy(loading = false, error = "Couldn't load details: ${e.message}")
             }
             if (_season.value == null) _season.value = _info.value.seasons.keys.firstOrNull()
+            loadTmdb(stream, providerTmdbId)
+        }
+    }
+
+    /** TMDB's details for the title, while that's turned on; then its collection and recommendations from the playlists. */
+    private suspend fun loadTmdb(stream: StreamEntity, providerTmdbId: Int?) {
+        val lookup = container.tmdbLookup
+        if (!lookup.enabled()) return
+        val details = try {
+            lookup.details(stream, providerTmdbId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // The playlist's details are enough; TMDB's are extra.
+            Log.w(TAG, "No details from TMDB", e)
+            null
+        } ?: return
+        tmdb = details
+        _info.update { it.withTmdb(details) }
+        _season.value?.let(::loadTmdbSeason)
+
+        val playlistIds = container.playlists.playlists.first().map { it.id }
+        val similar = lookup.inPlaylists(kind, details.recommendations.map { it.id }, playlistIds, playlistId)
+        val collection = details.collection?.let { c ->
+            runCatching { lookup.collection(c.id) }.getOrNull()
+        }
+        val parts = collection?.let { col ->
+            lookup.inPlaylists(ContentKind.MOVIE, col.parts.map { it.id }.filter { it != details.id }, playlistIds, playlistId)
+        }.orEmpty()
+        val partIds = parts.mapTo(HashSet()) { it.tmdbId }
+        _info.update { info ->
+            info.copy(
+                collectionName = collection?.name?.takeIf { parts.isNotEmpty() },
+                collection = parts,
+                similar = similar.filter { it.tmdbId != details.id && it.tmdbId !in partIds }.take(MAX_SIMILAR),
+            )
+        }
+    }
+
+    /** TMDB's details for [season]'s episodes, once per season. */
+    private fun loadTmdbSeason(season: Int) {
+        val details = tmdb?.takeIf { it.kind == TmdbKind.TV } ?: return
+        if (!tmdbSeasons.add(season)) return
+        viewModelScope.launch {
+            val tmdbSeason = try {
+                container.tmdbLookup.season(details.id, season)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                tmdbSeasons.remove(season)
+                null
+            } ?: return@launch
+            _info.update { info ->
+                info.copy(
+                    episodes = info.episodes.withTmdbSeason(tmdbSeason, info.title),
+                    seasonOverviews = tmdbSeason.overview?.let { info.seasonOverviews + (season to it) } ?: info.seasonOverviews,
+                )
+            }
         }
     }
 
     fun selectSeason(season: Int) {
         _season.value = season
+        loadTmdbSeason(season)
     }
 
     fun toggleFavorite() {
@@ -311,6 +410,9 @@ class DetailViewModel(
     }
 
     companion object {
+        private const val TAG = "DetailViewModel"
+        private const val MAX_SIMILAR = 20
+
         fun episodeLabel(e: EpisodeUi) = "S${e.season} · E${e.number} · ${e.title}"
     }
 }

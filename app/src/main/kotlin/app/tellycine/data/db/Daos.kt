@@ -427,31 +427,68 @@ interface DownloadDao {
 }
 
 
-/** A series as the TVmaze lookup needs it: what to look up, and where its air date goes. */
-data class SeriesRef(
+/** A film or series as the TMDB lookup needs it: what to look up, and where its details go. */
+data class TitleRef(
     val playlistId: Long,
+    val kind: ContentKind,
     val streamId: String,
     val name: String,
     val year: String?,
     val released: String?,
     val changedAt: Long?,
+    val tmdbId: Int?,
+    val tmdbRating: Double?,
+    val tmdbPoster: String?,
     val aired: String?,
 )
 
 @Dao
-interface TvmazeDao {
-    @Query("SELECT * FROM tvmaze_shows")
-    suspend fun shows(): List<TvmazeShowEntity>
+interface TmdbDao {
+    @Query("SELECT * FROM tmdb_titles")
+    suspend fun titles(): List<TmdbTitleEntity>
+
+    @Query("SELECT * FROM tmdb_titles WHERE titleKey = :key")
+    suspend fun title(key: String): TmdbTitleEntity?
 
     @Upsert
-    suspend fun upsert(show: TvmazeShowEntity)
+    suspend fun upsert(title: TmdbTitleEntity)
 
-    @Query("DELETE FROM tvmaze_shows WHERE showKey IN (:keys)")
+    @Query("DELETE FROM tmdb_titles WHERE titleKey IN (:keys)")
     suspend fun delete(keys: List<String>)
 
-    @Query("SELECT playlistId, streamId, name, year, released, changedAt, aired FROM streams WHERE kind = 'SERIES'")
-    suspend fun series(): List<SeriesRef>
+    @Query("SELECT * FROM tmdb_pages WHERE kind = :kind AND tmdbId = :tmdbId")
+    suspend fun page(kind: ContentKind, tmdbId: Int): TmdbPageEntity?
 
-    @Query("UPDATE streams SET aired = :aired WHERE playlistId = :playlistId AND kind = 'SERIES' AND streamId = :streamId")
-    suspend fun setAired(playlistId: Long, streamId: String, aired: String?)
+    @Upsert
+    suspend fun upsertPage(page: TmdbPageEntity)
+
+    /** Forgets what was fetched before [before]: TMDB allows keeping it for six months at most. */
+    @Query("DELETE FROM tmdb_titles WHERE checkedAt < :before")
+    suspend fun deleteTitlesBefore(before: Long)
+
+    @Query("DELETE FROM tmdb_pages WHERE fetchedAt < :before")
+    suspend fun deletePagesBefore(before: Long)
+
+    @Query(
+        "SELECT playlistId, kind, streamId, name, year, released, changedAt, tmdbId, tmdbRating, tmdbPoster, aired " +
+            "FROM streams WHERE kind != 'LIVE'"
+    )
+    suspend fun titlesToLookUp(): List<TitleRef>
+
+    @Query(
+        "UPDATE streams SET tmdbId = :tmdbId, tmdbRating = :rating, tmdbPoster = :poster, aired = :aired " +
+            "WHERE playlistId = :playlistId AND kind = :kind AND streamId = :streamId"
+    )
+    suspend fun setTmdb(playlistId: Long, kind: ContentKind, streamId: String, tmdbId: Int?, rating: Double?, poster: String?, aired: String?)
+
+    /** With TMDB turned off, titles show only what their playlists say. */
+    @Query(
+        "UPDATE streams SET tmdbRating = NULL, tmdbPoster = NULL, aired = NULL " +
+            "WHERE tmdbRating IS NOT NULL OR tmdbPoster IS NOT NULL OR aired IS NOT NULL"
+    )
+    suspend fun clearFromStreams()
+
+    /** The [kind] titles in [playlistIds] that are the TMDB titles [tmdbIds]. */
+    @Query("SELECT * FROM streams WHERE kind = :kind AND tmdbId IN (:tmdbIds) AND playlistId IN (:playlistIds)")
+    suspend fun streamsFor(kind: ContentKind, tmdbIds: List<Int>, playlistIds: List<Long>): List<StreamEntity>
 }

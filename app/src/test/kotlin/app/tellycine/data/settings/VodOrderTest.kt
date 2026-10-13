@@ -42,13 +42,20 @@ class VodOrderTest {
     }
 
     @Test
-    fun lastAiredOnlyWithAirDatesFromTvmaze() {
+    fun lastAiredAndRatingOnlyWithDetailsFromTmdb() {
         assert(VodSort.AIRED !in VodSort.choices(ContentKind.SERIES))
-        assert(VodSort.AIRED in VodSort.choices(ContentKind.SERIES, airDates = true))
-        assert(VodSort.AIRED !in VodSort.choices(ContentKind.MOVIE, airDates = true))
+        assert(VodSort.RATING !in VodSort.choices(ContentKind.MOVIE))
+        assert(VodSort.AIRED in VodSort.choices(ContentKind.SERIES, tmdb = true))
+        assert(VodSort.AIRED !in VodSort.choices(ContentKind.MOVIE, tmdb = true))
+        assert(VodSort.RATING in VodSort.choices(ContentKind.MOVIE, tmdb = true))
+        assert(VodSort.RATING in VodSort.choices(ContentKind.SERIES, tmdb = true))
+        assertEquals("highest first", VodOrder(VodSort.RATING).direction)
+        assertEquals("lowest first", VodOrder(VodSort.RATING, descending = false).direction)
         val aired = VodOrder(VodSort.AIRED)
-        assertEquals(aired, AppSettings(vodSorts = mapOf(ContentKind.SERIES to aired), tvmazeAirDates = true).vodSort(ContentKind.SERIES))
-        // Turned off, series go back to newest first.
-        assertEquals(VodOrder.DEFAULT, AppSettings(vodSorts = mapOf(ContentKind.SERIES to aired)).vodSort(ContentKind.SERIES))
+        val on = AppSettings(vodSorts = mapOf(ContentKind.SERIES to aired), tmdbEnabled = true, tmdbApiKey = "key")
+        assertEquals(aired, on.vodSort(ContentKind.SERIES))
+        // Turned off, or on without a key, series go back to newest first.
+        assertEquals(VodOrder.DEFAULT, on.copy(tmdbEnabled = false).vodSort(ContentKind.SERIES))
+        assertEquals(VodOrder.DEFAULT, on.copy(tmdbApiKey = "").vodSort(ContentKind.SERIES))
     }
 }

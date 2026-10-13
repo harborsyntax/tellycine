@@ -14,9 +14,12 @@ Open **Playlists → ⚙ Settings**. On a TV, choose **Settings** in the side me
 | **Refresh on launch** | Reloads playlists older than a day and guides older than 12 hours when the app starts. |
 | **Guide days** | How many days of upcoming programmes to keep (1, 2, 3, 5 or 7). Fewer days use less storage. |
 | **Prefer HLS for Xtream live TV** | Use `.m3u8` instead of MPEG-TS for Xtream channels, where the provider allows it. Applies after the next refresh. |
-| **Air dates from TVmaze** | Off unless you turn it on. Looks your series up on TVmaze.com, to sort them by when their latest episode aired (**Last aired**). Sends series names to TVmaze, nothing else. See [Movies & series](Movies-and-Series.md#air-dates-from-tvmaze). |
+| **Details from TMDB** | Off unless you turn it on. Adds posters, ratings, cast, episode details and more to movies and series from TMDB, with **Rating** and **Last aired** sorts. Sends their names to TMDB, with your API key. See [Movies & series](Movies-and-Series.md#details-from-tmdb). |
+| **TMDB API key** | Your own key for TMDB, needed for details from TMDB: Tellycine doesn't come with one. It's checked with TMDB before it's kept, and stays on your device. Clear it and choose **Remove** to forget it. See [getting a key](Movies-and-Series.md#details-from-tmdb). |
 | **Clear watch history** | Removes resume points and recently watched channels. |
 | **Open on the last channel** | TV only: starts the channel you watched last when Tellycine opens. |
 | **Match the TV's refresh rate** | TV only: switches the display to suit each video (for example 50 Hz for 25 and 50 fps channels). See [Android TV](Android-TV.md#tv-settings). |
+
+At the bottom, below the version, are TMDB's logo and notice: Tellycine uses the TMDB API but is not endorsed or certified by TMDB.
 
 On TV, **Theme** offers the TV's own colour themes instead (see [Android TV](Android-TV.md#tv-settings)), all of them dark, and **Dynamic colour** isn't offered.

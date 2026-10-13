@@ -20,7 +20,7 @@ class TellycineApp : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         container = AppContainer(this)
         container.syncManager.refreshStale()
-        container.tvmaze.start()
+        container.tmdb.start()
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader =

@@ -46,6 +46,8 @@ data class XtreamItem(
     val genre: String?,
     val catchupDays: Int?,
     val backdrop: String?,
+    /** The film's or series' id on TMDB, when the provider gives it. */
+    val tmdbId: Int? = null,
 )
 
 data class XtreamEpisode(
@@ -76,6 +78,7 @@ data class XtreamSeriesInfo(
     /** Season number to its display name/cover, if the panel provides one. */
     val seasons: Map<Int, XtreamSeason>,
     val episodes: List<XtreamEpisode>,
+    val tmdbId: Int? = null,
 )
 
 data class XtreamSeason(
@@ -99,6 +102,7 @@ data class XtreamVodInfo(
     /** The trailer's YouTube address, if the panel gives one. */
     val trailer: String?,
     val containerExtension: String?,
+    val tmdbId: Int? = null,
 )
 
 /** What a server offers of Xtream Codes' API ([XtreamParser.apiStatus]). */

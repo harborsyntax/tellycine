@@ -43,6 +43,8 @@ import androidx.tv.material3.RadioButton
 import androidx.tv.material3.Text
 import app.tellycine.data.db.HistoryEntity
 import app.tellycine.data.db.StreamEntity
+import app.tellycine.data.db.artwork
+import app.tellycine.data.db.score
 import app.tellycine.data.settings.LibrarySort
 import app.tellycine.player.play
 import app.tellycine.tv.components.RequestFocusOnStart
@@ -198,9 +200,9 @@ fun TvLibraryScreen(
                 ) { s, modifier ->
                     TvPosterCard(
                         title = s.name,
-                        poster = s.logo,
+                        poster = s.artwork,
                         meta = s.year,
-                        rating = s.rating,
+                        rating = s.score,
                         onClick = { onOpen(s) },
                         onLongClick = { remove = favouriteRemoval(s, vm, ::removed) },
                         modifier = modifier.width(130.dp),
