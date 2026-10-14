@@ -82,6 +82,8 @@ object ItemQueries {
         VodSort.RELEASED -> "s.released"
         VodSort.UPDATED -> "s.changedAt"
         VodSort.AIRED -> "s.aired"
+        // Not a date, but sorted the same way: titles without one last.
+        VodSort.RATING -> "s.tmdbRating"
         VodSort.NAME, VodSort.PROVIDER -> null
     }
 

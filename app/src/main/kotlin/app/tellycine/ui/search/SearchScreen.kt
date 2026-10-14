@@ -55,6 +55,7 @@ import app.tellycine.core.ContentKind
 import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.db.SyncState
+import app.tellycine.data.db.artwork
 import app.tellycine.data.repo.CatchupResolver
 import app.tellycine.data.repo.ProgrammeHit
 import app.tellycine.player.PlayRequest
@@ -289,7 +290,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.section(
             modifier = Modifier.clickable { onClick(s) },
             leadingContent = {
                 Artwork(
-                    url = s.logo,
+                    url = s.artwork,
                     fallbackText = s.name,
                     contentScale = if (s.kind == ContentKind.LIVE) ContentScale.Fit else ContentScale.Crop,
                     shape = RoundedCornerShape(10.dp),

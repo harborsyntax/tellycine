@@ -59,7 +59,7 @@ class VodViewModel(private val container: AppContainer, val kind: ContentKind) :
     /** The order titles are shown in, as last chosen for this tab, and the choices for it. */
     val sort: StateFlow<VodOrder> = container.settings.settings.map { it.vodSort(kind) }.distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.Eagerly, VodOrder.DEFAULT)
-    val sortChoices: StateFlow<List<VodSort>> = container.settings.settings.map { VodSort.choices(kind, it.tvmazeAirDates) }
+    val sortChoices: StateFlow<List<VodSort>> = container.settings.settings.map { VodSort.choices(kind, it.tmdb) }
         .distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, VodSort.choices(kind))
 
     /** Sorts by [choice], or turns the current order round when it's already the one: see [VodOrder.press]. */

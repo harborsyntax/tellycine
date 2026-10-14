@@ -1,0 +1,4 @@
+• Optional details from TMDB for movies and series: cast with photos, ratings, age ratings, trailers, episode details, collections and more like this
+• Sort by rating, and series by when they last aired
+• Turn it on in Settings → Movies & series. No account or key needed, or use your own TMDB key
+• Replaces air dates from TVmaze

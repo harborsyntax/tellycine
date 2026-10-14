@@ -17,8 +17,8 @@ Jetpack Compose with Material 3 (including the adaptive navigation suite), Compo
 - **Player:** `PlaybackEngine` holds what both players share (opening streams, retries, channel switching, Chromecast, resume points). On a TV it lives in `PlayerActivity`. On phones the app keeps it (`PhonePlayback`), so `MainActivity` shows it docked at the top in portrait, full screen in landscape and in picture-in-picture, through `PhonePlayerHost`, without the stream starting again.
 - **Settings:** stored in DataStore. Hidden categories are kept in their own table, so they survive refreshes.
 - **TV guides:** `GuideUrls` decides which XMLTV guides a playlist loads: the ones you added, the playlist's own (from the M3U header or the Xtream provider), or both. They're imported together, and `EpgMatcher` gives each channel one source and drops repeated programmes.
-- **Kept across refreshes:** a refresh replaces a playlist's titles, so `FirstSeen` carries over what Tellycine worked out: when titles were first seen, series' change dates (from the provider, or M3U episode counts) and air dates.
-- **Air dates (opt-in):** `TvmazeUpdater` looks series up on TVmaze's public API by cleaned-up name and year (`ShowNames`), keeping TVmaze's answers in their own table. After the first look-up it asks only about what's new or changed; see the class for the rules.
+- **Kept across refreshes:** a refresh replaces a playlist's titles, so `FirstSeen` carries over what Tellycine worked out: when titles were first seen, series' change dates (from the provider, or M3U episode counts), and what TMDB said about each title.
+- **Details from TMDB (opt-in):** with Tellycine's own TMDB key (`TmdbBuiltInKey`), or the user's if they add one. `TmdbUpdater` keeps the lists' TMDB ids, scores, posters and series air dates up to date: titles with the same cleaned-up name and year (`ShowNames`) share one lookup in `tmdb_titles`, a provider's TMDB id saves searching, and after the first look-up it asks only about what's due; see the class for the rules. `TmdbLookup` fetches a title's full page (credits, videos, images, age ratings, recommendations) when it's opened, kept in `tmdb_pages`. Nothing is kept longer than the six months TMDB's terms allow. `TmdbClient` spaces requests out and backs off when TMDB says it's busy; `core`'s `Tmdb` parses the answers.
 - **Dependencies:** a small hand-written `AppContainer`, with no DI framework.
 
 ## Building
@@ -65,6 +65,7 @@ The **Screenshots** workflow does both on GitHub Actions (run it from the Action
 
 ## Signing
 - **Secrets:** releases are signed with the permanent Tellycine key from the repository secrets `TELLYCINE_KEYSTORE_BASE64`, `TELLYCINE_KEYSTORE_PASSWORD`, `TELLYCINE_KEY_ALIAS` and `TELLYCINE_KEY_PASSWORD`.
+- **TMDB key:** Tellycine's own TMDB key comes from the repository secret `TMDB_API_KEY`, which the Release workflow and Android CI's APK builds pass in as an environment variable. The build scrambles it into `BuildConfig` so it isn't a readable string in the app (anyone who unpacks the app can still recover it, which is why people can use their own key instead). Without the secret, a build has no key of its own and asks people for theirs; the Release workflow warns when it's missing. Unit tests expect a build without it, so CI doesn't pass it to them.
 - **Safety check:** the Release workflow refuses to publish if the secrets are missing or the APK's or app bundle's certificate isn't the expected one.
 - **Keep the keystore backed up.** Losing it means future versions can't update existing installs.
 

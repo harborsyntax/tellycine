@@ -16,13 +16,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ManageSearch
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -66,12 +66,16 @@ import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.PlaylistType
 import app.tellycine.data.db.SyncState
 import app.tellycine.data.sync.SyncProgress
-import app.tellycine.data.tvmaze.TvmazeUpdater
+import app.tellycine.data.tmdb.TmdbUpdater
 import app.tellycine.ui.components.TellycineLogo
 import app.tellycine.ui.components.formatCount
 import app.tellycine.ui.components.formatDate
 import app.tellycine.ui.components.formatRelative
 import app.tellycine.ui.components.tellycineViewModel
+import app.tellycine.ui.settings.TmdbText
+import app.tellycine.ui.settings.details
+import app.tellycine.ui.settings.fraction
+import app.tellycine.ui.settings.headline
 import app.tellycine.ui.home.SessionState
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -82,11 +86,11 @@ import kotlinx.coroutines.launch
 class PlaylistsViewModel(private val container: AppContainer) : ViewModel() {
     val progress: StateFlow<Map<Long, SyncProgress>> = container.syncManager.progress
 
-    /** Air dates from TVmaze: whether they're turned on, and how looking series up is going. */
-    val airDates: StateFlow<Boolean> = container.settings.settings.map { it.tvmazeAirDates }
+    /** Details from TMDB: whether they're turned on, and how looking titles up is going. */
+    val tmdbOn: StateFlow<Boolean> = container.settings.settings.map { it.tmdb }
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
-    val tvmaze: StateFlow<TvmazeUpdater.Status> = container.tvmaze.status
-    fun checkTvmaze() = container.tvmaze.requestCheck()
+    val tmdb: StateFlow<TmdbUpdater.Status> = container.tmdb.status
+    fun checkTmdb() = container.tmdb.requestCheck()
 
     fun refresh(id: Long) = container.syncManager.sync(id)
     fun refreshGuide(id: Long) = container.syncManager.sync(id, content = false, epg = true)
@@ -110,8 +114,8 @@ fun PlaylistsScreen(
 ) {
     val vm = tellycineViewModel { c, _ -> PlaylistsViewModel(c) }
     val progress by vm.progress.collectAsStateWithLifecycle()
-    val airDates by vm.airDates.collectAsStateWithLifecycle()
-    val tvmaze by vm.tvmaze.collectAsStateWithLifecycle()
+    val tmdbOn by vm.tmdbOn.collectAsStateWithLifecycle()
+    val tmdb by vm.tmdb.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf<PlaylistEntity?>(null) }
 
     Scaffold(
@@ -173,8 +177,8 @@ fun PlaylistsScreen(
                     modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth(),
                 )
             }
-            if (airDates) {
-                item(key = "tvmaze") { TvmazeCard(tvmaze, vm::checkTvmaze, Modifier.widthIn(max = 720.dp).fillMaxWidth()) }
+            if (tmdbOn) {
+                item(key = "tmdb") { TmdbCard(tmdb, vm::checkTmdb, Modifier.widthIn(max = 720.dp).fillMaxWidth()) }
             }
         }
     }
@@ -196,15 +200,15 @@ fun PlaylistsScreen(
     }
 }
 
-/** How looking series up on TVmaze is going, below the playlists while air dates are turned on. */
+/** How looking movies and series up on TMDB is going, below the playlists while that's turned on. */
 @Composable
-private fun TvmazeCard(status: TvmazeUpdater.Status, onCheck: () -> Unit, modifier: Modifier = Modifier) {
+private fun TmdbCard(status: TmdbUpdater.Status, onCheck: () -> Unit, modifier: Modifier = Modifier) {
     OutlinedCard(modifier) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Event, null, tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.AutoMirrored.Filled.ManageSearch, null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(12.dp))
-                Text(TvmazeText.TITLE, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Text(TmdbText.TITLE, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 TextButton(onClick = onCheck, enabled = !status.running) { Text("Check now") }
             }
             Text(status.headline(), style = MaterialTheme.typography.bodyMedium)
@@ -220,7 +224,6 @@ private fun TvmazeCard(status: TvmazeUpdater.Status, onCheck: () -> Unit, modifi
                     color = if (status.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Text(TvmazeText.CREDIT, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

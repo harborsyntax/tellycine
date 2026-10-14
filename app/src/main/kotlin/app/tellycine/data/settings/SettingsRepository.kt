@@ -30,25 +30,28 @@ enum class TvTheme(val label: String, val description: String) {
 enum class LibrarySort { RECENT, NAME_ASC, NAME_DESC, PLAYLIST_ORDER }
 
 /**
- * What movies or series are sorted by. [UPDATED] and [AIRED] are for series only, and [AIRED] only
- * with air dates from TVmaze turned on ([choices]). Each starts in its usual direction: dates newest
- * first ([descendingFirst]), titles A–Z and the provider's order as listed.
+ * What movies or series are sorted by. [UPDATED] and [AIRED] are for series only, and [AIRED] and
+ * [RATING] only with details from TMDB turned on ([choices]). Each starts in its usual direction:
+ * dates newest and ratings highest first ([descendingFirst]), titles A–Z and the provider's order as
+ * listed.
  */
 enum class VodSort(val label: String, val descendingFirst: Boolean) {
     ADDED("Date added", true),
     RELEASED("Release date", true),
     UPDATED("Latest episode", true),
     AIRED("Last aired", true),
+    RATING("Rating", true),
     NAME("Title", false),
     PROVIDER("Provider order", false),
     ;
 
     companion object {
-        /** The orders offered for movies or series ([kind]), with or without [airDates] from TVmaze. */
-        fun choices(kind: ContentKind, airDates: Boolean = false): List<VodSort> = entries.filter {
+        /** The orders offered for movies or series ([kind]), with or without details from [tmdb]. */
+        fun choices(kind: ContentKind, tmdb: Boolean = false): List<VodSort> = entries.filter {
             when (it) {
                 UPDATED -> kind == ContentKind.SERIES
-                AIRED -> kind == ContentKind.SERIES && airDates
+                AIRED -> kind == ContentKind.SERIES && tmdb
+                RATING -> tmdb
                 else -> true
             }
         }
@@ -65,6 +68,7 @@ data class VodOrder(val sort: VodSort, val descending: Boolean = sort.descending
         get() = when (sort) {
             VodSort.NAME -> if (descending) "Z to A" else "A to Z"
             VodSort.PROVIDER -> if (descending) "reversed" else "as listed"
+            VodSort.RATING -> if (descending) "highest first" else "lowest first"
             else -> if (descending) "newest first" else "oldest first"
         }
 
@@ -73,8 +77,8 @@ data class VodOrder(val sort: VodSort, val descending: Boolean = sort.descending
         val DEFAULT = VodOrder(VodSort.ADDED)
 
         /** The order for [kind] from the [chosen] one, if it's offered there ([VodSort.choices]). */
-        fun of(kind: ContentKind, chosen: VodOrder?, airDates: Boolean = false): VodOrder =
-            chosen?.takeIf { it.sort in VodSort.choices(kind, airDates) } ?: DEFAULT
+        fun of(kind: ContentKind, chosen: VodOrder?, tmdb: Boolean = false): VodOrder =
+            chosen?.takeIf { it.sort in VodSort.choices(kind, tmdb) } ?: DEFAULT
     }
 }
 
@@ -119,10 +123,22 @@ data class AppSettings(
     val liveCategorySort: CategorySort = CategorySort.PROVIDER,
     /** The order of movies, and of series, as last chosen. */
     val vodSorts: Map<ContentKind, VodOrder> = emptyMap(),
-    /** Look series up on TVmaze for when their latest episode aired (opt-in: it sends their names there). */
-    val tvmazeAirDates: Boolean = false,
+    /** Look movies and series up on TMDB for their details (opt-in: it sends their names there). */
+    val tmdbEnabled: Boolean = false,
+    /** A TMDB API key (or read access token) of the user's own, used instead of Tellycine's. */
+    val tmdbApiKey: String = "",
+    /** Tellycine's own TMDB key, when this build has one. */
+    val tmdbBuiltInKey: String = "",
 ) {
-    fun vodSort(kind: ContentKind): VodOrder = VodOrder.of(kind, vodSorts[kind], tvmazeAirDates)
+    /** The key TMDB is asked with: the user's own, or else Tellycine's. */
+    val tmdbKey: String get() = tmdbApiKey.ifBlank { tmdbBuiltInKey }
+
+    val hasBuiltInTmdbKey: Boolean get() = tmdbBuiltInKey.isNotBlank()
+
+    /** Details from TMDB are turned on, with a key to ask for them. */
+    val tmdb: Boolean get() = tmdbEnabled && tmdbKey.isNotBlank()
+
+    fun vodSort(kind: ContentKind): VodOrder = VodOrder.of(kind, vodSorts[kind], tmdb)
 
     companion object {
         /** A section showing every playlist together. */
@@ -132,7 +148,14 @@ data class AppSettings(
 
 private val Context.dataStore by preferencesDataStore("settings")
 
-class SettingsRepository(private val context: Context) {
+private val TVMAZE_AIR_DATES = booleanPreferencesKey("tvmaze_air_dates")
+private val TVMAZE_CHECKED_AT = longPreferencesKey("tvmaze_checked_at")
+
+class SettingsRepository(
+    private val context: Context,
+    /** Tellycine's own TMDB key, if this build has one. */
+    private val builtInTmdbKey: String = "",
+) {
 
     private object Keys {
         val activePlaylist = longPreferencesKey("active_playlist")
@@ -155,11 +178,13 @@ class SettingsRepository(private val context: Context) {
         val liveCategorySort = stringPreferencesKey("live_category_sort")
         val vodSorts = listOf(ContentKind.MOVIE, ContentKind.SERIES).associateWith { stringPreferencesKey("sort_${it.name.lowercase()}") }
         val vodSortsDescending = listOf(ContentKind.MOVIE, ContentKind.SERIES).associateWith { booleanPreferencesKey("sort_${it.name.lowercase()}_descending") }
-        val tvmazeAirDates = booleanPreferencesKey("tvmaze_air_dates")
-        val tvmazeCheckedAt = longPreferencesKey("tvmaze_checked_at")
+        val tmdbEnabled = booleanPreferencesKey("tmdb_enabled")
+        val tmdbApiKey = stringPreferencesKey("tmdb_api_key")
     }
 
-    val settings: Flow<AppSettings> = context.dataStore.data.map { p ->
+    val settings: Flow<AppSettings> = context.dataStore.data.map(::read)
+
+    private fun read(p: Preferences): AppSettings =
         AppSettings(
             activePlaylistId = p[Keys.activePlaylist],
             themeMode = p[Keys.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
@@ -180,9 +205,10 @@ class SettingsRepository(private val context: Context) {
             sectionPlaylists = Keys.sectionPlaylists.mapNotNull { (kind, key) -> p[key]?.let { kind to it } }.toMap(),
             liveCategorySort = p[Keys.liveCategorySort]?.let { runCatching { CategorySort.valueOf(it) }.getOrNull() } ?: CategorySort.PROVIDER,
             vodSorts = Keys.vodSorts.keys.mapNotNull { kind -> vodOrder(p, kind)?.let { kind to it } }.toMap(),
-            tvmazeAirDates = p[Keys.tvmazeAirDates] ?: false,
+            tmdbEnabled = p[Keys.tmdbEnabled] ?: false,
+            tmdbApiKey = p[Keys.tmdbApiKey].orEmpty(),
+            tmdbBuiltInKey = builtInTmdbKey,
         )
-    }
 
     suspend fun current(): AppSettings = settings.first()
 
@@ -219,14 +245,29 @@ class SettingsRepository(private val context: Context) {
 
     /** Sorts [kind] by [choice], or turns its order round if it already is ([VodOrder.press]), in one step. */
     suspend fun pressVodSort(kind: ContentKind, choice: VodSort) = context.dataStore.edit { p ->
-        putVodOrder(p, kind, VodOrder.of(kind, vodOrder(p, kind), p[Keys.tvmazeAirDates] ?: false).press(choice))
+        putVodOrder(p, kind, VodOrder.of(kind, vodOrder(p, kind), read(p).tmdb).press(choice))
     }
 
-    suspend fun setTvmazeAirDates(enabled: Boolean) = context.dataStore.edit { it[Keys.tvmazeAirDates] = enabled }
+    suspend fun setTmdbEnabled(enabled: Boolean) = context.dataStore.edit {
+        it[Keys.tmdbEnabled] = enabled
+        // Air dates from TVmaze, which TMDB replaced.
+        it.remove(TVMAZE_AIR_DATES)
+        it.remove(TVMAZE_CHECKED_AT)
+    }
 
-    /** When TVmaze's list of changed shows was last read, to know how far back the next read goes. */
-    suspend fun tvmazeCheckedAt(): Long? = context.dataStore.data.first()[Keys.tvmazeCheckedAt]
-    suspend fun setTvmazeCheckedAt(at: Long) = context.dataStore.edit { it[Keys.tvmazeCheckedAt] = at }
+    /**
+     * Keeps [key] (trimmed), or forgets the user's key when it's blank: then Tellycine's own is used,
+     * or, without one, details from TMDB turn off.
+     */
+    suspend fun setTmdbApiKey(key: String) = context.dataStore.edit {
+        val trimmed = key.trim()
+        if (trimmed.isEmpty()) {
+            it.remove(Keys.tmdbApiKey)
+            if (builtInTmdbKey.isBlank()) it[Keys.tmdbEnabled] = false
+        } else {
+            it[Keys.tmdbApiKey] = trimmed
+        }
+    }
 
     private fun vodOrder(p: Preferences, kind: ContentKind): VodOrder? {
         val sort = Keys.vodSorts[kind]?.let { p[it] }?.let { runCatching { VodSort.valueOf(it) }.getOrNull() } ?: return null

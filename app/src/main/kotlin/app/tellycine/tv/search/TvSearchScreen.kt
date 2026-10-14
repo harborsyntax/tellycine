@@ -51,6 +51,8 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import androidx.compose.foundation.BorderStroke
 import app.tellycine.data.db.StreamEntity
+import app.tellycine.data.db.artwork
+import app.tellycine.data.db.score
 import app.tellycine.data.repo.ProgrammeHit
 import app.tellycine.player.play
 import app.tellycine.tv.TvPalette
@@ -172,13 +174,13 @@ fun TvSearchScreen(onOpen: (StreamEntity) -> Unit) {
                     }
                     resultRow("Movies", results.movies) { s ->
                         TvPosterCard(
-                            title = s.name, poster = s.logo, meta = s.year, rating = s.rating, onClick = { onOpen(s) },
+                            title = s.name, poster = s.artwork, meta = s.year, rating = s.score, onClick = { onOpen(s) },
                             modifier = Modifier.width(130.dp), source = sources[s.playlistId],
                         )
                     }
                     resultRow("Series", results.series) { s ->
                         TvPosterCard(
-                            title = s.name, poster = s.logo, meta = s.year, rating = s.rating, onClick = { onOpen(s) },
+                            title = s.name, poster = s.artwork, meta = s.year, rating = s.score, onClick = { onOpen(s) },
                             modifier = Modifier.width(130.dp), source = sources[s.playlistId],
                         )
                     }

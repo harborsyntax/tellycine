@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -66,12 +67,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tellycine.core.ContentKind
 import app.tellycine.data.db.HistoryEntity
+import app.tellycine.data.db.StreamEntity
+import app.tellycine.data.db.artwork
+import app.tellycine.data.db.score
 import app.tellycine.data.repo.ContentRepository
 import app.tellycine.player.openTrailer
 import app.tellycine.player.play
@@ -80,6 +86,7 @@ import app.tellycine.ui.components.DetailBackdrop
 import app.tellycine.ui.components.SourceLabel
 import app.tellycine.ui.components.artworkTint
 import app.tellycine.ui.components.formatDuration
+import app.tellycine.ui.components.formatIsoDate
 import app.tellycine.ui.components.progress
 import app.tellycine.ui.components.rememberArtworkColour
 import app.tellycine.ui.components.resumePosition
@@ -87,6 +94,7 @@ import app.tellycine.ui.components.tellycineViewModel
 import app.tellycine.ui.components.tintedBy
 import app.tellycine.ui.downloads.DownloadButton
 import app.tellycine.ui.downloads.downloadStatus
+import app.tellycine.ui.vod.PosterCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,6 +103,8 @@ fun DetailScreen(
     playlistId: Long,
     streamId: String,
     onBack: () -> Unit,
+    /** Opens another title: one from its collection, or one TMDB recommends. */
+    onOpen: (StreamEntity) -> Unit = {},
 ) {
     val vm = tellycineViewModel(key = "detail-$kind-$playlistId-$streamId") { c, _ ->
         DetailViewModel(c, kind, playlistId, streamId)
@@ -193,9 +203,14 @@ fun DetailScreen(
                                     }
                                 }
                                 info.plot?.let { plot -> ExpandableText(plot) }
+                                info.nextEpisode?.let { Credit("Next episode", it) }
+                                info.credits.forEach { (label, names) -> Credit(label, names) }
                                 info.director?.takeIf { it.isNotBlank() }?.let { Credit("Director", it) }
                                 info.cast?.takeIf { it.isNotBlank() }?.let { Credit("Cast", it) }
                             }
+                        }
+                        if (info.people.isNotEmpty()) {
+                            item(key = "people") { People(info.people) }
                         }
 
                         if (info.seasons.isNotEmpty()) {
@@ -223,6 +238,18 @@ fun DetailScreen(
                                         info.seasons[seasons.first()] ?: "Episodes",
                                         style = MaterialTheme.typography.titleMedium,
                                         modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 4.dp),
+                                    )
+                                }
+                            }
+                            info.seasonOverviews[season]?.let { overview ->
+                                item(key = "season-overview-$season") {
+                                    Text(
+                                        overview,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 4,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).widthIn(max = 900.dp),
                                     )
                                 }
                             }
@@ -254,6 +281,22 @@ fun DetailScreen(
                                     "No episodes found.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(16.dp),
+                                )
+                            }
+                        }
+                        if (info.collection.isNotEmpty()) {
+                            item(key = "collection") { TitleRow(info.collectionName ?: "Collection", info.collection, onOpen) }
+                        }
+                        if (info.similar.isNotEmpty()) {
+                            item(key = "similar") { TitleRow("More like this", info.similar, onOpen) }
+                        }
+                        if (info.fromTmdb) {
+                            item(key = "tmdb") {
+                                Text(
+                                    "Details from TMDB",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 20.dp),
                                 )
                             }
                         }
@@ -309,6 +352,12 @@ private fun Header(info: DetailInfo, wide: Boolean) {
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
+                info.originalTitle?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                info.tagline?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
                 MetaChips(info)
                 info.source?.let { SourceLabel(it) }
             }
@@ -368,6 +417,51 @@ private fun SeasonPosters(seasons: Map<Int, String>, covers: Map<Int, String>, s
                     color = if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+/** The cast, with their photos, from TMDB. */
+@Composable
+private fun People(people: List<PersonUi>) {
+    Column(Modifier.padding(top = 20.dp)) {
+        Text("Cast", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp))
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            items(people, key = { "${it.name}-${it.role}" }) { person ->
+                Column(Modifier.width(88.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Artwork(url = person.photo, fallbackText = person.name, shape = CircleShape, modifier = Modifier.size(72.dp))
+                    Text(person.name, style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                    person.role?.let {
+                        Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Titles from the playlists, such as the rest of a film's collection, to open. */
+@Composable
+private fun TitleRow(title: String, titles: List<StreamEntity>, onOpen: (StreamEntity) -> Unit) {
+    Column(Modifier.padding(top = 20.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp))
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(titles, key = { "${it.playlistId}:${it.streamId}" }) { s ->
+                PosterCard(
+                    title = s.name,
+                    poster = s.artwork,
+                    meta = s.year,
+                    rating = s.score,
+                    onClick = { onOpen(s) },
+                    modifier = Modifier.width(112.dp),
                 )
             }
         }
@@ -450,9 +544,9 @@ private fun EpisodeRow(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            ep.durationSecs?.takeIf { it > 0 }?.let {
-                Text(formatDuration(it), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            listOfNotNull(ep.durationSecs?.takeIf { it > 0 }?.let(::formatDuration), formatIsoDate(ep.airDate))
+                .takeIf { it.isNotEmpty() }
+                ?.let { Text(it.joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             ep.plot?.let {
                 Text(
                     it,

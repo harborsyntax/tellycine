@@ -18,16 +18,17 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         HistoryEntity::class,
         HiddenCategoryEntity::class,
         DownloadEntity::class,
-        TvmazeShowEntity::class,
+        TmdbTitleEntity::class,
+        TmdbPageEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class TellycineDatabase : RoomDatabase() {
     abstract fun playlists(): PlaylistDao
     abstract fun content(): ContentDao
     abstract fun downloads(): DownloadDao
-    abstract fun tvmaze(): TvmazeDao
+    abstract fun tmdb(): TmdbDao
 
     companion object {
         fun create(context: Context): TellycineDatabase =
@@ -85,6 +86,32 @@ abstract class TellycineDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+        /**
+         * 1.14: details from TMDB (opt-in) in place of air dates from TVmaze. Titles gain their TMDB
+         * id, score and poster, and TMDB's answers get tables of their own. Air dates came from
+         * TVmaze, so they're cleared until TMDB fills them in.
+         */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS `tvmaze_shows`")
+                db.execSQL("ALTER TABLE `streams` ADD COLUMN `tmdbId` INTEGER")
+                db.execSQL("ALTER TABLE `streams` ADD COLUMN `tmdbRating` REAL")
+                db.execSQL("ALTER TABLE `streams` ADD COLUMN `tmdbPoster` TEXT")
+                db.execSQL("UPDATE `streams` SET `aired` = NULL")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_streams_playlistId_kind_tmdbRating` ON `streams` (`playlistId`, `kind`, `tmdbRating`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_streams_kind_tmdbId` ON `streams` (`kind`, `tmdbId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tmdb_titles` (`titleKey` TEXT NOT NULL, `kind` TEXT NOT NULL, `tmdbId` INTEGER, " +
+                        "`rating` REAL, `poster` TEXT, `lastAired` TEXT, `nextAired` TEXT, `ended` INTEGER NOT NULL, " +
+                        "`checkedAt` INTEGER NOT NULL, PRIMARY KEY(`titleKey`))"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tmdb_pages` (`kind` TEXT NOT NULL, `tmdbId` INTEGER NOT NULL, `json` TEXT NOT NULL, " +
+                        "`fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`kind`, `tmdbId`))"
+                )
+            }
+        }
+
+        val MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
     }
 }

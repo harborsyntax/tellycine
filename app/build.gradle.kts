@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.security.MessageDigest
 
 plugins {
     alias(libs.plugins.android.application)
@@ -16,9 +17,20 @@ android {
         minSdk = 26
         // Google Play requires API 36 for new apps and updates from 31 August 2026.
         targetSdk = 36
-        versionCode = 21
-        versionName = "1.13.0"
+        versionCode = 22
+        versionName = "1.14.0"
         vectorDrawables.useSupportLibrary = true
+
+        // Tellycine's own TMDB key, used unless people add theirs. CI provides it through the
+        // TMDB_API_KEY environment variable (a repository secret), so it's never in the repository;
+        // builds without it ask for a key of the user's own. It goes in scrambled (TmdbBuiltInKey puts
+        // it back together), so it isn't a readable string in the app: obscured, not secret.
+        val tmdbKey = System.getenv("TMDB_API_KEY").orEmpty().trim().toByteArray(Charsets.US_ASCII)
+        val tmdbMask = MessageDigest.getInstance("SHA-512").digest("tellycine-$versionName".toByteArray())
+        val scrambled = tmdbKey.mapIndexed { i, b -> (b.toInt() xor tmdbMask[i % tmdbMask.size].toInt()) and 0xFF }
+        val mask = tmdbKey.indices.map { tmdbMask[it % tmdbMask.size].toInt() and 0xFF }
+        buildConfigField("int[]", "TMDB_KEY_DATA", scrambled.joinToString(",", "{", "}"))
+        buildConfigField("int[]", "TMDB_KEY_MASK", mask.joinToString(",", "{", "}"))
     }
 
     // Releases must always be signed with the same key, or Android refuses to update the app.

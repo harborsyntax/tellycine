@@ -78,6 +78,9 @@ class PhonePlayerTest {
         assertTrue(visible("City Sports 1"))
         assertEquals(listOf(true, true), asked)
 
+        // The controls hide after a few seconds; a tap on the player brings them back.
+        compose.runOnUiThread { compose.activity.playerView()!!.showController() }
+        compose.waitUntil(5_000) { shown("Stop playing") }
         compose.onNodeWithContentDescription("Stop playing").performClick()
         compose.waitUntil(5_000) { !shown("Stop playing") }
         assertNull(playback.engine)

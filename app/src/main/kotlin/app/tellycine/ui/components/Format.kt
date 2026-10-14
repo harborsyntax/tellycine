@@ -2,6 +2,9 @@ package app.tellycine.ui.components
 
 import android.text.format.DateUtils
 import java.text.DateFormat
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Date
 
 fun formatTime(ms: Long): String = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(ms))
@@ -15,6 +18,10 @@ fun formatRelative(ms: Long): String = DateUtils.getRelativeTimeSpanString(
 ).toString()
 
 fun formatDate(ms: Long): String = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(ms))
+
+/** A date such as "2019-05-19" in the device's style ("19 May 2019"), or null if it isn't one. */
+fun formatIsoDate(date: String?): String? =
+    date?.let { runCatching { LocalDate.parse(it).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)) }.getOrNull() }
 
 fun formatDuration(seconds: Int): String {
     val h = seconds / 3600

@@ -55,12 +55,12 @@ class VodSortTest {
 
     @Test
     fun seriesByWhenTheyLastAired() = runBlocking(Dispatchers.IO) {
-        val tvmaze = container.database.tvmaze()
-        tvmaze.setAired(demo, "sr3", "2025-06-01")
-        tvmaze.setAired(demo, "sr1", "2024-01-15")
-        tvmaze.setAired(demo, "sr5", "2025-06-01")
+        val tmdb = container.database.tmdb()
+        tmdb.setTmdb(demo, ContentKind.SERIES, "sr3", 3, null, null, "2025-06-01")
+        tmdb.setTmdb(demo, ContentKind.SERIES, "sr1", 1, null, null, "2024-01-15")
+        tmdb.setTmdb(demo, ContentKind.SERIES, "sr5", 5, null, null, "2025-06-01")
         val aired = names(listOf(demo), ContentKind.SERIES, Categories.ALL, VodOrder(VodSort.AIRED))
-        // Ties in the provider's order; those TVmaze didn't date come last, either way round.
+        // Ties in the provider's order; those TMDB didn't date come last, either way round.
         assertEquals(listOf("Cold Case Unit", "Flatmates", "Harbour Lane"), aired.take(3))
         val oldest = names(listOf(demo), ContentKind.SERIES, Categories.ALL, VodOrder(VodSort.AIRED, descending = false))
         assertEquals(listOf("Harbour Lane", "Cold Case Unit", "Flatmates"), oldest.take(3))

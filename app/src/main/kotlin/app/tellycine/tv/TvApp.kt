@@ -142,6 +142,7 @@ fun TvApp() {
                     kind = ContentKind.valueOf(args.getString("kind")!!),
                     playlistId = args.getLong("playlistId"),
                     streamId = args.getString("streamId")!!,
+                    onOpen = navigator::openDetail,
                 )
             }
             composable(

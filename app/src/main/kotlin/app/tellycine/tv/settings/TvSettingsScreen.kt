@@ -1,15 +1,19 @@
 package app.tellycine.tv.settings
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -18,24 +22,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import app.tellycine.BuildConfig
+import app.tellycine.R
+import app.tellycine.data.settings.TvTheme
 import app.tellycine.tv.components.TvChoiceDialog
 import app.tellycine.tv.components.TvConfirmDialog
 import app.tellycine.tv.components.TvHeader
+import app.tellycine.tv.components.TvMessageDialog
 import app.tellycine.tv.components.TvSectionLabel
 import app.tellycine.tv.components.TvSpacing
 import app.tellycine.tv.components.TvSwitchRow
+import app.tellycine.tv.components.TvTextInputDialog
 import app.tellycine.tv.components.TvValueRow
 import app.tellycine.ui.components.TellycineLogo
 import app.tellycine.ui.components.tellycineViewModel
-import app.tellycine.ui.playlists.TvmazeText
-import app.tellycine.data.settings.TvTheme
 import app.tellycine.ui.settings.SettingsViewModel
+import app.tellycine.ui.settings.TmdbText
 
 @Composable
 fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
@@ -45,6 +54,9 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
     var epgDialog by remember { mutableStateOf(false) }
     var themeDialog by remember { mutableStateOf(false) }
     var clearDialog by remember { mutableStateOf(false) }
+    /** Typing a TMDB key: whether a saved key turns details from TMDB on; null when not typing one. */
+    var keyInput by remember { mutableStateOf<Boolean?>(null) }
+    val keyCheck by vm.keyCheck.collectAsStateWithLifecycle()
     val first = remember { FocusRequester() }
 
     Column(Modifier.fillMaxSize()) {
@@ -115,7 +127,15 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
                         vm::setPreferHls,
                     )
                 }
-                item { TvSwitchRow(TvmazeText.TITLE, TvmazeText.SETTING, s.tvmazeAirDates, vm::setTvmazeAirDates) }
+
+                item { TvSectionLabel("Movies & series") }
+                item {
+                    TvSwitchRow(TmdbText.TITLE, TmdbText.setting(s.hasBuiltInTmdbKey), s.tmdb, onChange = { on ->
+                        // Turning it on needs a key first, in a build without one.
+                        if (on && s.tmdbKey.isBlank()) keyInput = true else vm.setTmdbEnabled(on)
+                    })
+                }
+                item { TvValueRow(TmdbText.KEY, TmdbText.keySummary(s.tmdbApiKey, s.hasBuiltInTmdbKey), onClick = { keyInput = false }) }
 
                 item { TvSectionLabel("Downloads") }
                 item {
@@ -136,8 +156,9 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
                 }
 
                 item {
+                    // Focusable, so Down from the last setting brings the version and credits into view.
                     Column(
-                        Modifier.fillMaxWidth().padding(28.dp),
+                        Modifier.fillMaxWidth().focusable().padding(28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -149,12 +170,45 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                         )
+                        // TMDB's logo (smaller than Tellycine's, as TMDB asks) and the notice its terms ask for.
+                        Image(
+                            painterResource(R.drawable.tmdb_logo),
+                            contentDescription = "TMDB",
+                            modifier = Modifier.padding(top = 16.dp).height(18.dp),
+                        )
+                        Text(
+                            "${TmdbText.NOTICE}\n${TmdbText.SITE_NAME}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
                     }
                 }
             }
         }
     }
 
+    keyInput?.let { turnOn ->
+        TvTextInputDialog(
+            title = TmdbText.KEY,
+            initial = s.tmdbApiKey,
+            hint = TmdbText.keyHelp(s.hasBuiltInTmdbKey) +
+                if (s.hasBuiltInTmdbKey) " Leave it empty to use Tellycine's key." else " Leave it empty to remove the key.",
+            placeholder = "API key or read access token",
+            keyboardType = KeyboardType.Ascii,
+            onDone = { key ->
+                keyInput = null
+                vm.saveTmdbKey(key, turnOn)
+            },
+            onDismiss = { keyInput = null },
+        )
+    }
+    when (val check = keyCheck) {
+        SettingsViewModel.KeyCheck.Checking -> TvMessageDialog(TmdbText.KEY, "Checking the key with TMDB…", onDismiss = vm::resetKeyCheck)
+        is SettingsViewModel.KeyCheck.Failed -> TvMessageDialog(TmdbText.KEY, check.message, onDismiss = vm::resetKeyCheck)
+        SettingsViewModel.KeyCheck.Saved -> LaunchedEffect(Unit) { vm.resetKeyCheck() }
+        SettingsViewModel.KeyCheck.Idle -> Unit
+    }
     if (playerDialog) {
         TvChoiceDialog(
             title = "Default player",

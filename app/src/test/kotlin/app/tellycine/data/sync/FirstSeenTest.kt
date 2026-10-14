@@ -101,11 +101,33 @@ class FirstSeenTest {
     }
 
     @Test
-    fun airDatesFromTvmazeLastAcrossRefreshes() {
+    fun whatTmdbSaidLastsAcrossRefreshes() {
         val pid = playlist(PlaylistType.XTREAM)
         refresh(pid, 1_000, series(pid, "s"))
-        runBlocking(Dispatchers.IO) { db.tvmaze().setAired(pid, "s", "2025-05-01") }
+        runBlocking(Dispatchers.IO) { db.tmdb().setTmdb(pid, ContentKind.SERIES, "s", 42, 7.9, "/p.jpg", "2025-05-01") }
         refresh(pid, 2_000, series(pid, "s"))
-        assertEquals("2025-05-01", stream(pid, ContentKind.SERIES, "s").aired)
+        with(stream(pid, ContentKind.SERIES, "s")) {
+            assertEquals("2025-05-01", aired)
+            assertEquals(42, tmdbId)
+            assertEquals(7.9, tmdbRating)
+            assertEquals("/p.jpg", tmdbPoster)
+        }
+    }
+
+    @Test
+    fun anotherTmdbIdFromTheProviderStartsAfresh() {
+        val pid = playlist(PlaylistType.XTREAM)
+        refresh(pid, 1_000, movie(pid, "m"))
+        runBlocking(Dispatchers.IO) { db.tmdb().setTmdb(pid, ContentKind.MOVIE, "m", 42, 7.9, "/p.jpg", null) }
+        // Still the same film by the provider's reckoning: kept.
+        refresh(pid, 2_000, movie(pid, "m").copy(tmdbId = 42))
+        assertEquals(7.9, stream(pid, ContentKind.MOVIE, "m").tmdbRating)
+        // Now another: TMDB's score and poster for the old one go.
+        refresh(pid, 3_000, movie(pid, "m").copy(tmdbId = 77))
+        with(stream(pid, ContentKind.MOVIE, "m")) {
+            assertEquals(77, tmdbId)
+            assertEquals(null, tmdbRating)
+            assertEquals(null, tmdbPoster)
+        }
     }
 }

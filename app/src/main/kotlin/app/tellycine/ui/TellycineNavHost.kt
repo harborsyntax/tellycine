@@ -97,6 +97,7 @@ fun TellycineNavHost(nav: NavHostController = rememberNavController()) {
                 playlistId = args.getLong("playlistId"),
                 streamId = args.getString("streamId")!!,
                 onBack = { nav.popBackStack() },
+                onOpen = { nav.navigate(Routes.detail(it)) },
             )
         }
         composable(

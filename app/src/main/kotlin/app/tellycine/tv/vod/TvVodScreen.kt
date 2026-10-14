@@ -38,6 +38,8 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import app.tellycine.core.ContentKind
 import app.tellycine.data.db.StreamEntity
+import app.tellycine.data.db.artwork
+import app.tellycine.data.db.score
 import app.tellycine.data.repo.Categories
 import app.tellycine.tv.components.RequestFocusOnStart
 import app.tellycine.tv.components.TvActionButton
@@ -157,9 +159,9 @@ fun TvVodScreen(kind: ContentKind, session: SessionState, onOpen: (StreamEntity)
                     } else {
                         TvPosterCard(
                             title = item.name,
-                            poster = item.logo,
+                            poster = item.artwork,
                             meta = listOfNotNull(item.year, item.genre?.substringBefore(',')).joinToString(" · "),
-                            rating = item.rating,
+                            rating = item.score,
                             onClick = { onOpen(item) },
                             source = vm.sourceOf(item),
                             modifier = Modifier

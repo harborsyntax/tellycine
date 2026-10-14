@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -72,6 +73,9 @@ import app.tellycine.core.ContentKind
 import app.tellycine.data.db.DownloadEntity
 import app.tellycine.data.db.DownloadStatus
 import app.tellycine.data.db.HistoryEntity
+import app.tellycine.data.db.StreamEntity
+import app.tellycine.data.db.artwork
+import app.tellycine.data.db.score
 import app.tellycine.data.repo.ContentRepository
 import app.tellycine.data.repo.DownloadRepository
 import app.tellycine.player.openTrailer
@@ -91,6 +95,7 @@ import app.tellycine.ui.components.Artwork
 import app.tellycine.ui.components.DetailBackdrop
 import app.tellycine.ui.components.artworkTint
 import app.tellycine.ui.components.formatDuration
+import app.tellycine.ui.components.formatIsoDate
 import app.tellycine.ui.components.progress
 import app.tellycine.ui.components.rememberArtworkColour
 import app.tellycine.ui.components.resumePosition
@@ -107,7 +112,7 @@ private const val TOP = "top"
 /** A movie or series: artwork, details, play/resume, favourite, download, and a series' episodes. */
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun TvDetailScreen(kind: ContentKind, playlistId: Long, streamId: String) {
+fun TvDetailScreen(kind: ContentKind, playlistId: Long, streamId: String, onOpen: (StreamEntity) -> Unit = {}) {
     val vm = tellycineViewModel(key = "detail-$kind-$playlistId-$streamId") { c, _ ->
         DetailViewModel(c, kind, playlistId, streamId)
     }
@@ -243,31 +248,36 @@ fun TvDetailScreen(kind: ContentKind, playlistId: Long, streamId: String) {
                     }
                     if (info.seasons.size > 1) {
                         item(key = "seasons") {
-                            if (info.seasonCovers.isNotEmpty()) {
-                                // The seasons' posters, when the provider has them.
-                                LazyRow(
-                                    horizontalArrangement = Arrangement.spacedBy(18.dp),
-                                    contentPadding = PaddingValues(vertical = 10.dp),
-                                    modifier = Modifier.focusRestorer().padding(top = 8.dp),
-                                ) {
-                                    items(info.seasons.entries.toList(), key = { it.key }) { (number, name) ->
-                                        TvPosterCard(
-                                            title = name,
-                                            poster = info.seasonCovers[number],
-                                            onClick = { vm.selectSeason(number) },
-                                            selected = number == season,
-                                            modifier = Modifier.width(104.dp),
-                                        )
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (info.seasonCovers.isNotEmpty()) {
+                                    // The seasons' posters, when the provider (or TMDB) has them.
+                                    LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(18.dp),
+                                        contentPadding = PaddingValues(vertical = 10.dp),
+                                        modifier = Modifier.focusRestorer().padding(top = 8.dp),
+                                    ) {
+                                        items(info.seasons.entries.toList(), key = { it.key }) { (number, name) ->
+                                            TvPosterCard(
+                                                title = name,
+                                                poster = info.seasonCovers[number],
+                                                onClick = { vm.selectSeason(number) },
+                                                selected = number == season,
+                                                modifier = Modifier.width(104.dp),
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.focusRestorer().padding(top = 8.dp)) {
+                                        items(info.seasons.entries.toList(), key = { it.key }) { (number, name) ->
+                                            FilterChip(selected = number == season, onClick = { vm.selectSeason(number) }) { Text(name) }
+                                        }
                                     }
                                 }
-                            } else {
-                                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.focusRestorer().padding(top = 8.dp)) {
-                                    items(info.seasons.entries.toList(), key = { it.key }) { (number, name) ->
-                                        FilterChip(selected = number == season, onClick = { vm.selectSeason(number) }) { Text(name) }
-                                    }
-                                }
+                                SeasonOverview(info.seasonOverviews[season])
                             }
                         }
+                    } else if (info.seasonOverviews[season] != null) {
+                        item(key = "season-overview") { SeasonOverview(info.seasonOverviews[season]) }
                     }
                     if (kind == ContentKind.SERIES && !info.loading && info.episodes.isEmpty()) {
                         item(key = "no-episodes") {
@@ -285,6 +295,12 @@ fun TvDetailScreen(kind: ContentKind, playlistId: Long, streamId: String) {
                             onPlay = { context.play(vm.episodePlayRequest(ep, h?.resumePosition() ?: 0L)) },
                             onMenu = { episodeMenu = ep },
                         )
+                    }
+                    if (info.collection.isNotEmpty()) {
+                        item(key = "collection") { TitleRow(info.collectionName ?: "Collection", info.collection, onOpen) }
+                    }
+                    if (info.similar.isNotEmpty()) {
+                        item(key = "similar") { TitleRow("More like this", info.similar, onOpen) }
                     }
                 }
             }
@@ -392,6 +408,12 @@ private fun Header(info: DetailInfo, showPoster: Boolean) {
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = textWidth),
             )
+            info.originalTitle?.let {
+                Text(it, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            info.tagline?.let {
+                Text(it, style = MaterialTheme.typography.titleMedium, fontStyle = FontStyle.Italic, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = textWidth))
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 info.rating?.takeIf { it > 0 }?.let { r ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -407,8 +429,52 @@ private fun Header(info: DetailInfo, showPoster: Boolean) {
             info.plot?.let {
                 Text(it, style = MaterialTheme.typography.bodyLarge, maxLines = 5, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = textWidth))
             }
+            info.nextEpisode?.let { Credit("Next episode", it, textWidth) }
+            info.credits.forEach { (label, names) -> Credit(label, names, textWidth) }
             info.director?.takeIf { it.isNotBlank() }?.let { Credit("Director", it, textWidth) }
-            info.cast?.takeIf { it.isNotBlank() }?.let { Credit("Cast", it, textWidth) }
+            val cast = info.people.take(8).joinToString(", ") { p -> p.role?.let { "${p.name} ($it)" } ?: p.name }.ifEmpty { info.cast }
+            cast?.takeIf { it.isNotBlank() }?.let { Credit("Cast", it, textWidth) }
+            if (info.fromTmdb) {
+                Text("Details from TMDB", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+/** A season's overview, from TMDB. */
+@Composable
+private fun SeasonOverview(overview: String?) {
+    overview ?: return
+    Text(
+        overview,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 3,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.widthIn(max = 900.dp),
+    )
+}
+
+/** Titles from the playlists, such as the rest of a film's collection, to open. */
+@Composable
+private fun TitleRow(title: String, titles: List<StreamEntity>, onOpen: (StreamEntity) -> Unit) {
+    Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, style = MaterialTheme.typography.titleLarge)
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            contentPadding = PaddingValues(vertical = 10.dp),
+            modifier = Modifier.focusRestorer(),
+        ) {
+            items(titles, key = { "${it.playlistId}:${it.streamId}" }) { s ->
+                TvPosterCard(
+                    title = s.name,
+                    poster = s.artwork,
+                    onClick = { onOpen(s) },
+                    meta = s.year,
+                    rating = s.score,
+                    modifier = Modifier.width(130.dp),
+                )
+            }
         }
     }
 }
@@ -441,7 +507,7 @@ private fun EpisodeRow(
         },
         supportingContent = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                val meta = listOfNotNull(episode.durationSecs?.takeIf { it > 0 }?.let(::formatDuration), downloadText).joinToString("  ·  ")
+                val meta = listOfNotNull(episode.durationSecs?.takeIf { it > 0 }?.let(::formatDuration), formatIsoDate(episode.airDate), downloadText).joinToString("  ·  ")
                 if (meta.isNotEmpty()) Text(meta, maxLines = 1)
                 episode.plot?.takeIf { it.isNotBlank() }?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis) }
                 history?.progress()?.takeIf { it > 0.01f }?.let { p ->
