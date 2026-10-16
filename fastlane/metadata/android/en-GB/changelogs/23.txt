@@ -1,0 +1,2 @@
+• Android TV guide: Left from what's on now goes straight to the channel names, and once more to the categories, instead of stepping back through the last two hours first
+• On channels with catch-up, Left still goes back through the programmes you can replay
