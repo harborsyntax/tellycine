@@ -154,7 +154,8 @@ fun rememberTvGuideState(window: GuideWindow): TvGuideState = remember { TvGuide
 
 /**
  * A traditional TV guide driven by the remote. The grid takes focus as a whole and moves a
- * highlight itself: left/right step through programmes (scrolling time), up/down change channel
+ * highlight itself: left/right step through programmes (scrolling time; left goes into the past
+ * only through programmes it can replay, then to the channel column), up/down change channel
  * keeping the time, OK plays or replays, and holding OK opens the channel's options. Left from the
  * channel column calls [onLeftEdge] (the Live TV screen opens its categories there).
  */
@@ -231,13 +232,17 @@ fun TvGuideGrid(
                 onLeftEdge?.invoke()
                 return onLeftEdge != null
             }
-            val list = state.programmesOf(currentRow())
+            val row = currentRow()
+            val list = state.programmesOf(row)
             val current = list?.firstOrNull { it.startMs <= state.timeMs && it.stopMs > state.timeMs }
             val boundary = current?.startMs ?: state.timeMs
             val previous = list?.lastOrNull { it.stopMs <= boundary && it.stopMs > window.startMs }
+            // Back in time only as far as there's something to watch: what's on now, and before that
+            // the programmes it can replay. Then on to the channel itself, a press from the categories.
             val target = when {
-                previous != null -> maxOf(previous.startMs, window.startMs)
-                boundary - SLOT >= window.startMs -> floorToSlot(boundary - 1)
+                previous != null ->
+                    if (previous.stopMs > now || (row != null && canReplay(row, previous))) maxOf(previous.startMs, window.startMs) else null
+                boundary - SLOT >= window.startMs && floorToSlot(boundary - 1) >= floorToSlot(now) -> floorToSlot(boundary - 1)
                 else -> null
             }
             if (target == null) {

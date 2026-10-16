@@ -26,7 +26,9 @@ import app.tellycine.tv.components.hold
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -61,6 +63,30 @@ class TvNavigationTest {
         assertNotNull(started)
         assertEquals(PlayerActivity::class.java.name, started.component?.className)
         assertEquals("https://example.com/live/1.m3u8", started.getStringExtra("url"))
+    }
+
+    @Test
+    fun leftGoesBackOnlyThroughWhatCanBeWatched() {
+        val d = ScreenshotDriver(compose)
+        d.launchTv()
+        fun onChannel() = compose.onAllNodesWithText("Press OK to watch", substring = true, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        // (The header describes the highlighted programme, once its channel's guide has loaded.)
+        d.waitForText("World Tonight: tonight's episode.")
+
+        // Metro News 24 has catch-up: Left goes back to the programme before, to replay it.
+        d.press(Key.DirectionLeft)
+        d.waitForText("Headlines at Ten: tonight's episode.")
+        assertFalse(onChannel())
+
+        // Channel Bright hasn't: there's nothing earlier to watch, so from what's on now one Left
+        // reaches the channel, and the next the categories.
+        d.press(Key.DirectionRight)
+        d.press(Key.DirectionDown, 5)
+        d.waitForText("Sunday Bakes: tonight's episode.")
+        d.press(Key.DirectionLeft)
+        assertTrue(onChannel())
+        d.press(Key.DirectionLeft)
+        compose.onNode(hasText("All channels") and hasText("12") and isFocused()).assertExists()
     }
 
     @Test

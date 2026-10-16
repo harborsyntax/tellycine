@@ -39,7 +39,7 @@ Live TV opens on the **guide**: channels down the side and time across the top. 
 | Press | To |
 | --- | --- |
 | Up / Down | Move between channels; hold to speed up. **CH+ / CH−** move a page at a time. |
-| Right / Left | Move through programmes. Left goes back in time, for catch-up. Keep pressing Left to reach the channel itself. |
+| Right / Left | Move through programmes. Left goes back in time only through programmes you can replay, on channels with catch-up; then on to the channel itself. On other channels, Left from what's on now goes straight to the channel. |
 | Left (on a channel) | Open the **categories**, tucked away as a thin edge (with a ‹) to the left of the channels. Up/Down choose one and OK shows its channels; Right or Back return without changing. With more than one playlist, the playlists come first: **All playlists** or one of them. The **Sort** button at the top of the categories puts them in the provider's order (**Provider order**) or alphabetically (**A–Z**): press OK to switch. |
 | OK | Watch what's on now, replay a past programme, or see the schedule for an upcoming one. |
 | Hold OK (or Menu) | The channel's **options and schedule**: watch live, watch from the start, favourite, open in another app, show the stream URL, and replay or record programmes. |
