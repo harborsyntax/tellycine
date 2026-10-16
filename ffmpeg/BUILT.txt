@@ -1,0 +1,13 @@
+libffmpegJNI.so, built by ffmpeg/natives/build.sh. See ffmpeg/README.md.
+
+FFmpeg n6.0.1 (c41ff724ede7da657762d61097e26fac296c53bf), LGPL 2.1 or later:
+  https://github.com/FFmpeg/FFmpeg/tree/n6.0.1
+Media3 1.6.1 decoder_ffmpeg JNI glue (Apache 2.0), in ffmpeg/natives
+NDK 26.3.11579264, API 26
+Decoders: ac3 eac3 dca truehd mlp mp1 mp2 mp3
+
+SHA-256:
+  ab18b95b8dba5eba4365abb87f06896654fd1f1d9729f844f29328b90f6f563c  arm64-v8a/libffmpegJNI.so
+  679f26b1151062b6422aeb4338d585b9c850ebad271d3818de2370029c5cb54e  armeabi-v7a/libffmpegJNI.so
+  bc7c2c8a1a5473621ac95491fc819ab4211021b46a706dc7e712a10e08e99017  x86/libffmpegJNI.so
+  b9113c5ad2942f403de03c459c0b0a363f6baf08913abb1fa7d4dc3eb04b85a4  x86_64/libffmpegJNI.so

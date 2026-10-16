@@ -31,6 +31,11 @@ Channels without a `tvg-id` are matched to the guide by name, and Tellycine uses
 **"This device can't decode the stream"**
 The stream uses a codec your phone doesn't support. Try an external player such as VLC.
 
+**No sound on some channels**
+- **"No sound: it's in …":** the channel's sound is in a format neither your device nor Tellycine can play, such as Dolby AC-4. Tap **Open with…** on the message to try another app. See [Player](Player.md#sound).
+- **No message:** check the volume, and that the channel isn't muted in multi-view. If the channel has more than one soundtrack, try another with the player's **settings** button (on a TV, **audio & subtitles**).
+- **On a TV with a soundbar or receiver:** Dolby goes straight to them. If they don't support it, try turning off surround sound (or setting it to stereo or PCM) in the TV box's sound settings.
+
 ## Casting
 **Cast button missing**
 Your phone needs Google Play services, and a Cast device must be on the same Wi-Fi.

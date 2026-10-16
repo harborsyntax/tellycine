@@ -42,7 +42,7 @@ Tellycine is a player only. It doesn't provide any channels or content; you add 
 - **Downloads:** save movies and episodes to watch offline, with a screen to manage them and a Wi-Fi only option.
 - **Library:** favourites, continue watching and recently watched, with sorting and grouping by category.
 - **Your choice of content:** hide categories per playlist, or turn off movies & series entirely.
-- **A capable player:** HLS, MPEG-TS, DASH and MP4, audio and subtitle tracks, channel switching, and picture-in-picture. On phones, it plays at the top of the app while you browse, and goes full screen when you turn it sideways.
+- **A capable player:** HLS, MPEG-TS, DASH and MP4, Dolby Digital, DTS and MP2 sound even on phones that can't play them, audio and subtitle tracks, channel switching, and picture-in-picture. On phones, it plays at the top of the app while you browse, and goes full screen when you turn it sideways.
 - **Chromecast**, plus **Open with…** any external player, or set one as your default.
 - **Dispatcharr:** DVR recordings (watch, schedule and delete), and sharing Dispatcharr or source stream URLs.
 - **Built for big playlists:** stream-parsed imports and paged lists keep huge playlists and guides fast.
@@ -83,3 +83,5 @@ Requires JDK 17 and the Android SDK. See [Development](docs/Development.md) for 
 ## Credits
 
 Movie and series details, when you turn them on, come from [TMDB](https://www.themoviedb.org). This product uses the TMDB API but is not endorsed or certified by TMDB.
+
+Dolby Digital, DTS and MPEG sound is played with [FFmpeg](https://ffmpeg.org), licensed under the [GNU LGPL 2.1](https://github.com/FFmpeg/FFmpeg/blob/n6.0.1/COPYING.LGPLv2.1) or later, through Media3's FFmpeg extension (Apache License 2.0). See [`ffmpeg`](ffmpeg/README.md) for its source and how it's built.

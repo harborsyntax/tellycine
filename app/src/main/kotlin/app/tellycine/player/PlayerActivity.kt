@@ -128,6 +128,7 @@ class PlayerActivity : FragmentActivity() {
                     onPlay = { engine.playPicked(it) },
                     stats = ::statsRows,
                     onMultiView = ::openMultiView,
+                    noSoundFormat = engine.unplayableAudioFormat,
                 )
             }
         }

@@ -24,3 +24,4 @@ rootProject.name = "Tellycine"
 
 include(":app")
 include(":core")
+include(":ffmpeg")

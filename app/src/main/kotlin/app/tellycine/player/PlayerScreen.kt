@@ -106,6 +106,10 @@ fun PlayerScreen(
     keepScreenOn: Boolean = true,
     onToggleFullScreen: () -> Unit = {},
     onClose: () -> Unit = onBack,
+    /** The format of the sound when this device can't play it ([unplayableAudio]). */
+    noSoundFormat: String? = null,
+    /** Hands the stream to another app, which may play its sound. */
+    onOpenWith: () -> Unit = {},
 ) {
     val toggleFullScreen by rememberUpdatedState(onToggleFullScreen)
     val isFullScreen by rememberUpdatedState(!docked)
@@ -237,6 +241,16 @@ fun PlayerScreen(
                 }
             }
 
+            var noSoundDismissed by remember(request) { mutableStateOf(false) }
+            if (noSoundFormat != null && !noSoundDismissed && castingTo == null && error == null && !inPip) {
+                NoSoundBanner(
+                    noSoundFormat,
+                    onOpenWith = onOpenWith,
+                    onDismiss = { noSoundDismissed = true },
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = if (docked) 8.dp else 72.dp),
+                )
+            }
+
             if (error != null) {
                 ErrorPanel(error, onRetry, onClose, docked, Modifier.align(Alignment.Center))
             }
@@ -321,6 +335,28 @@ private fun TopControls(
         IconButton(onClick = onToggleStats) { Icon(Icons.Filled.QueryStats, "Stats for nerds", tint = Color.White) }
         if (pipSupported) {
             IconButton(onClick = onEnterPip) { Icon(Icons.Filled.PictureInPictureAlt, "Picture in picture", tint = Color.White) }
+        }
+    }
+}
+
+/** Says the sound is in a [format] this device can't play, with another app as a way round. */
+@Composable
+private fun NoSoundBanner(format: String, onOpenWith: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        color = Color.Black.copy(alpha = 0.75f),
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier.padding(horizontal = 16.dp).widthIn(max = 520.dp),
+    ) {
+        Row(Modifier.padding(start = 14.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.AutoMirrored.Filled.VolumeOff, null, tint = Color(0xFFFFB74D))
+            Text(
+                "No sound: it's in $format, which this device can't play.",
+                color = Color.White,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f, fill = false).padding(horizontal = 12.dp),
+            )
+            TextButton(onClick = onOpenWith) { Text("Open with…", color = Color(0xFFFFB74D)) }
+            IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, "Dismiss", tint = Color.White) }
         }
     }
 }

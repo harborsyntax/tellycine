@@ -69,6 +69,8 @@ class TmdbSettingsTest {
         // TMDB's credit, as its terms ask.
         d.waitForText(TmdbText.NOTICE)
         d.waitForText(TmdbText.SITE_NAME)
+        // And FFmpeg's, as its licence asks.
+        d.waitForText(FfmpegText.NOTICE)
         d.waitForText(TmdbText.keySummary("", builtIn = false))
 
         // Without a key (tests build without Tellycine's own), turning it on asks for one first.

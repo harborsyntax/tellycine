@@ -14,6 +14,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -76,6 +77,9 @@ class PlaybackEngine(
     /** Why a movie's sound may not play on the Chromecast, shown while casting. */
     var castAudioNotice by mutableStateOf<String?>(null)
         private set
+    /** The format of the stream's sound when this device can't play any of it ([unplayableAudio]). */
+    var unplayableAudioFormat by mutableStateOf<String?>(null)
+        private set
 
     var request by mutableStateOf<PlayRequest?>(null)
         private set
@@ -121,6 +125,7 @@ class PlaybackEngine(
     private fun start(req: PlayRequest) {
         request = req
         error = null
+        unplayableAudioFormat = null
         liveRetries = 0
         val position = if (req.isLive) C.TIME_UNSET else req.startPositionMs
         val cast = castPlayer?.takeIf { it.isCastSessionAvailable && req.apiKey == null }
@@ -344,6 +349,11 @@ class PlaybackEngine(
                 error = null
             }
             if (state == Player.STATE_ENDED) saveProgress()
+        }
+
+        override fun onTracksChanged(tracks: Tracks) {
+            // (A Chromecast has its own decoders, and its own notice.)
+            unplayableAudioFormat = if (isCasting()) null else unplayableAudio(tracks)
         }
 
         override fun onVideoSizeChanged(videoSize: VideoSize) = this@PlaybackEngine.onVideoSizeChanged()
