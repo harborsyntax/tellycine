@@ -1,0 +1,2 @@
+• Sound on more channels: Dolby Digital, Dolby Digital Plus, DTS, TrueHD and MP2 sound now plays on phones and TV boxes that can't play it themselves
+• If a channel's sound still can't be played, the player says which format it is, with Open with… to try another app
