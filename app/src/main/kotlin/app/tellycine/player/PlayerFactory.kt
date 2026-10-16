@@ -79,6 +79,9 @@ class PlayerFactory(private val context: Context, httpClient: OkHttpClient) {
 
         val renderers = (if (multiView) MixableAudioRenderersFactory(context) else DefaultRenderersFactory(context))
             .setEnableDecoderFallback(true)
+            // FFmpeg's decoders (the :ffmpeg module) for sound the device has none for, such as
+            // Dolby Digital, DTS and MPEG Layer II; its own come first.
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
 
         return ExoPlayer.Builder(context, renderers)
             .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory, extractors))

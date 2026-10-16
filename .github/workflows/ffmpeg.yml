@@ -1,0 +1,57 @@
+name: FFmpeg decoders
+
+# Builds Media3's FFmpeg audio decoder (libffmpegJNI.so for each ABI) from FFmpeg's source with
+# ffmpeg/natives/build.sh, and commits the libraries and ffmpeg/BUILT.txt to the same branch.
+# Runs when the build script or its inputs change, or from the Actions tab.
+on:
+  workflow_dispatch:
+  push:
+    branches-ignore: [ main ]
+    paths:
+      - "ffmpeg/natives/**"
+      - ".github/workflows/ffmpeg.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ffmpeg-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      # The NDK Media3 1.6.1's FFmpeg build is tested with, rather than whichever the runner has.
+      - name: Install NDK r26
+        run: |
+          (yes || true) | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --install "ndk;26.3.11579264" > /dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.3.11579264" >> "$GITHUB_ENV"
+
+      - name: Build the decoders
+        run: ffmpeg/natives/build.sh
+
+      - name: Upload them
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-decoders
+          path: |
+            ffmpeg/src/main/jniLibs
+            ffmpeg/BUILT.txt
+
+      - name: Commit them
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ffmpeg/src/main/jniLibs ffmpeg/BUILT.txt
+          if git diff --cached --quiet; then
+            echo "FFmpeg decoders unchanged."
+          else
+            git commit -m "Build FFmpeg audio decoders"
+            # Another bot (screenshots) may have pushed meanwhile.
+            git pull --rebase
+            git push
+          fi
