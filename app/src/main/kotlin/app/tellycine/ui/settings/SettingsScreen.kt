@@ -245,6 +245,14 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit) {
                     textAlign = TextAlign.Center,
                 )
                 TmdbCredit { context.openLink(TmdbText.SITE) }
+                Text(
+                    FfmpegText.NOTICE,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                TextButton(onClick = { context.openLink(FfmpegText.SOURCE) }) { Text(FfmpegText.SOURCE_LINK) }
             }
         }
     }

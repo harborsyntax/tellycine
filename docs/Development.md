@@ -5,6 +5,7 @@
 | --- | --- |
 | `core` | Pure Kotlin/JVM: streaming M3U, XMLTV and Xtream JSON parsers, catch-up URL builders, Dispatcharr API parsing. Unit-tested. |
 | `app` | Android app: Room database, sync engine, Jetpack Compose UI (Material 3) for phones and tablets, the TV interface (`app.tellycine.tv`), Media3 player, Cast, DVR. |
+| `ffmpeg` | Media3's FFmpeg audio decoder, for Dolby, DTS and MPEG audio on devices with no decoder of their own: its Java classes, and `libffmpegJNI.so` built from FFmpeg's source. See [its README](../ffmpeg/README.md). |
 
 ## Key libraries
 Jetpack Compose with Material 3 (including the adaptive navigation suite), Compose for TV (`androidx.tv:tv-material`), Room with Paging 3, Media3 (ExoPlayer, HLS, DASH, Cast), Coil 3, OkHttp, DataStore, and Gson's streaming reader.
@@ -14,6 +15,7 @@ Jetpack Compose with Material 3 (including the adaptive navigation suite), Compo
 - **UI:** a single activity with Compose Navigation. `NavigationSuiteScaffold` gives a bottom bar on phones and a navigation rail on tablets. Lists are paged from Room.
 - **TV:** one APK serves phones and TVs. The manifest offers TV support without requiring it (`android.software.leanback` and touchscreen are optional) and adds `TvActivity` to the TV launcher with a banner; `MainActivity` hands over to it on a TV. The TV screens live in `app.tellycine.tv` and reuse the phone's ViewModels and data layer; `PlayerActivity` plays with `TvPlayerScreen`, driven by the remote. TV Material acts on the release of OK and fires its long press while OK is held, so TV items use `okClicks` (click and long press, both on release) and dialogs ignore stray OK releases.
 - **Add from phone:** `PhoneSetupServer` is a small HTTP server that only runs while the TV's Add from phone screen is open. It serves a form to the local network and needs the random token in the address shown on the TV.
+- **Sound:** `PlayerFactory` adds the `ffmpeg` module's renderer after the device's own decoders (`EXTENSION_RENDERER_MODE_ON`), so it's used only for sound the device can't play. When none of a stream's sound can be played, `unplayableAudio` names its format and the player says so.
 - **Player:** `PlaybackEngine` holds what both players share (opening streams, retries, channel switching, Chromecast, resume points). On a TV it lives in `PlayerActivity`. On phones the app keeps it (`PhonePlayback`), so `MainActivity` shows it docked at the top in portrait, full screen in landscape and in picture-in-picture, through `PhonePlayerHost`, without the stream starting again.
 - **Settings:** stored in DataStore. Hidden categories are kept in their own table, so they survive refreshes.
 - **TV guides:** `GuideUrls` decides which XMLTV guides a playlist loads: the ones you added, the playlist's own (from the M3U header or the Xtream provider), or both. They're imported together, and `EpgMatcher` gives each channel one source and drops repeated programmes.
@@ -47,6 +49,9 @@ The Google Play listing's screenshots and graphics come from the same UI at Play
 ```
 
 The **Screenshots** workflow does both on GitHub Actions (run it from the Actions tab) and commits the images back to the branch.
+
+## FFmpeg decoders
+`ffmpeg/src/main/jniLibs` holds `libffmpegJNI.so` for each ABI, built from a pinned FFmpeg release with only its LGPL parts and the audio decoders Tellycine needs. The **FFmpeg decoders** workflow builds them with `ffmpeg/natives/build.sh` when anything in `ffmpeg/natives` changes (or from the Actions tab) and commits them, with `ffmpeg/BUILT.txt`, back to the branch. To change the decoders or FFmpeg's version, edit `build.sh`. See [`ffmpeg/README.md`](../ffmpeg/README.md).
 
 ## CI and releases
 - **Android CI:** runs on every push and PR. It runs the core tests and builds debug and release APKs.

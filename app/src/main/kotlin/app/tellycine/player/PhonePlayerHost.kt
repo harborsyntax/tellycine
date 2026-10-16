@@ -80,6 +80,8 @@ fun PhonePlayerHost(
                         keepScreenOn = full || playback.isPlaying,
                         onToggleFullScreen = { onFullScreen(!full) },
                         onClose = playback::close,
+                        noSoundFormat = engine.unplayableAudioFormat,
+                        onOpenWith = { engine.request?.let { view.context.openExternally(it, chooser = true) } },
                     )
                 }
             }

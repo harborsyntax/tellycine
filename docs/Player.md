@@ -26,6 +26,11 @@ Tap the video to show the controls.
 
 Movies and episodes save your position as you watch, so you can resume later. Live streams that drop are retried automatically a few times.
 
+## Sound
+Many channels and movies have Dolby Digital (AC-3), Dolby Digital Plus (E-AC-3), DTS, Dolby TrueHD or MPEG audio (MP2, common on broadcast channels) sound, which not every phone or TV box can play. Tellycine plays these itself, with [FFmpeg](https://ffmpeg.org), when the device can't. Where it can, the device's own decoder is used, and Dolby is passed to your TV or receiver as before.
+
+A few formats, such as Dolby AC-4 and MPEG-H, Tellycine can't play either. On those channels you get the picture without sound, and the player says which format the sound is in. Use **Open with…** to try another app, such as VLC: on phones, it's on the message; on a TV, it's in the controls.
+
 ## External players
 - **One stream:** long-press a channel and choose **Open with…**, then pick any installed video app.
 - **Everything:** set **Settings → Default player → External app**. Android then asks which app to use, and you can choose one to always use.

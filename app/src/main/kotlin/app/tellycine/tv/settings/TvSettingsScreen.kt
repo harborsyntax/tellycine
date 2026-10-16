@@ -43,6 +43,7 @@ import app.tellycine.tv.components.TvTextInputDialog
 import app.tellycine.tv.components.TvValueRow
 import app.tellycine.ui.components.TellycineLogo
 import app.tellycine.ui.components.tellycineViewModel
+import app.tellycine.ui.settings.FfmpegText
 import app.tellycine.ui.settings.SettingsViewModel
 import app.tellycine.ui.settings.TmdbText
 
@@ -181,6 +182,13 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
+                        )
+                        Text(
+                            "${FfmpegText.NOTICE}\n${FfmpegText.SOURCE_NAME}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 16.dp),
                         )
                     }
                 }

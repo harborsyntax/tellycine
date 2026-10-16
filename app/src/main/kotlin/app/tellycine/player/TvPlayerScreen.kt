@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -156,6 +157,8 @@ fun TvPlayerScreen(
     stats: () -> List<Pair<String, String>>,
     /** Opens multi-view with the channel playing; null where it isn't offered. */
     onMultiView: (() -> Unit)? = null,
+    /** The format of the sound when this device can't play it ([unplayableAudio]). */
+    noSoundFormat: String? = null,
 ) {
     var showStats by remember { mutableStateOf(false) }
     var overlay by remember { mutableStateOf(TvOverlay.INFO) }
@@ -180,6 +183,15 @@ fun TvPlayerScreen(
         overlay = TvOverlay.NONE
     }
     // A new channel or title shows its banner.
+    // Why there's no sound: for a while once it's known, then with the info bar or the controls.
+    var noSoundNews by remember { mutableStateOf(false) }
+    LaunchedEffect(noSoundFormat, request?.url) {
+        noSoundNews = noSoundFormat != null
+        if (noSoundNews) {
+            delay(10_000)
+            noSoundNews = false
+        }
+    }
     LaunchedEffect(request?.url) {
         if (overlay == TvOverlay.NONE) overlay = TvOverlay.INFO
         lastKey = System.currentTimeMillis()
@@ -406,6 +418,27 @@ fun TvPlayerScreen(
                 modifier = Modifier.align(Alignment.TopEnd).padding(top = 32.dp, end = 48.dp),
             ) {
                 Text(digits, style = MaterialTheme.typography.displayMedium, color = Color.White, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            }
+        }
+
+        if (noSoundFormat != null && error == null && !inPip &&
+            (noSoundNews || overlay == TvOverlay.INFO || overlay == TvOverlay.CONTROLS)
+        ) {
+            // Not focusable, so the remote carries on as usual; Open with… is in the controls.
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                colors = SurfaceDefaults.colors(containerColor = Color.Black.copy(alpha = 0.75f)),
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 32.dp).widthIn(max = 720.dp),
+            ) {
+                Row(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.AutoMirrored.Filled.VolumeOff, null, tint = Color(0xFFFFB74D))
+                    Text(
+                        "No sound: it's in $noSoundFormat, which this device can't play. Open with… in the controls may play it in another app.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White,
+                        modifier = Modifier.padding(start = 14.dp),
+                    )
+                }
             }
         }
 
