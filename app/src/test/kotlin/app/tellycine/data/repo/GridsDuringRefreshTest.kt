@@ -1,6 +1,5 @@
 package app.tellycine.data.repo
 
-import androidx.paging.PagingSource
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.tellycine.TellycineApp
@@ -9,6 +8,7 @@ import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.db.TellycineDatabase
 import app.tellycine.data.settings.VodOrder
 import app.tellycine.screenshots.DemoData
+import app.tellycine.testing.firstPage
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -54,8 +54,7 @@ class GridsDuringRefreshTest {
 
     @Test
     fun moviesLoadWhileARefreshWrites() = duringRefresh {
-        val page = container.content.itemPages(listOf(demo), ContentKind.MOVIE, Categories.ALL, VodOrder.DEFAULT)
-            .load(PagingSource.LoadParams.Refresh(null, 500, false)) as PagingSource.LoadResult.Page
+        val page = firstPage { container.content.itemPages(listOf(demo), ContentKind.MOVIE, Categories.ALL, VodOrder.DEFAULT) }
         // What was there before the refresh started.
         assertEquals("Velocity", page.data.first().name)
         assertEquals(0, page.data.count { it.streamId == "new" })

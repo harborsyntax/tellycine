@@ -1,0 +1,2 @@
+• The app stays quick while big TV guides refresh, especially on TV boxes: guides load in the background and update in one quick step
+• A guide that hasn't changed isn't loaded again, and guides refresh when they're running out rather than every 12 hours

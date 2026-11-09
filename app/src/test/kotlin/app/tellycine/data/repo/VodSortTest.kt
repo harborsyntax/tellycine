@@ -8,6 +8,7 @@ import app.tellycine.core.ContentKind
 import app.tellycine.data.settings.VodOrder
 import app.tellycine.data.settings.VodSort
 import app.tellycine.screenshots.DemoData
+import app.tellycine.testing.firstPage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -22,8 +23,7 @@ class VodSortTest {
     private val second = SecondPlaylist.seed(container)
 
     private fun names(ids: List<Long>, kind: ContentKind, category: String, order: VodOrder): List<String> = runBlocking {
-        val source = container.content.itemPages(ids, kind, category, order)
-        (source.load(PagingSource.LoadParams.Refresh(null, 500, false)) as PagingSource.LoadResult.Page).data.map { it.name }
+        firstPage { container.content.itemPages(ids, kind, category, order) }.data.map { it.name }
     }
 
     private fun movies(order: VodOrder, category: String = Categories.ALL, ids: List<Long> = listOf(demo)) =
@@ -102,13 +102,18 @@ class VodSortTest {
         // Oldest first reads titles with the date, then those without: pages that span both.
         val both = listOf(demo, second)
         val order = VodOrder(VodSort.ADDED, descending = false)
-        val source = container.content.itemPages(both, ContentKind.MOVIE, Categories.ALL, order)
-        var page = source.load(PagingSource.LoadParams.Refresh(null, 5, false)) as PagingSource.LoadResult.Page
-        val paged = page.data.map { it.name }.toMutableList()
-        while (page.nextKey != null) {
-            page = source.load(PagingSource.LoadParams.Append(page.nextKey!!, 5, false)) as PagingSource.LoadResult.Page
-            paged += page.data.map { it.name }
+        // Null if the data changed meanwhile, as Paging would then start again.
+        suspend fun inFives(): List<String>? {
+            val source = container.content.itemPages(both, ContentKind.MOVIE, Categories.ALL, order)
+            var result = source.load(PagingSource.LoadParams.Refresh(null, 5, false))
+            val names = mutableListOf<String>()
+            while (true) {
+                val page = result as? PagingSource.LoadResult.Page ?: return null
+                names += page.data.map { it.name }
+                result = source.load(PagingSource.LoadParams.Append(page.nextKey ?: return names, 5, false))
+            }
         }
+        val paged = (1..10).firstNotNullOf { inFives() }
         val whole = movies(order, ids = both)
         assertEquals(whole, paged)
         assertEquals("Quiet Tide", whole.last())
