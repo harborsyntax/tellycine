@@ -17,8 +17,8 @@ android {
         minSdk = 26
         // Google Play requires API 36 for new apps and updates from 31 August 2026.
         targetSdk = 36
-        versionCode = 25
-        versionName = "1.16.0"
+        versionCode = 26
+        versionName = "1.16.1"
         vectorDrawables.useSupportLibrary = true
 
         // Tellycine's own TMDB key, used unless people add theirs. CI provides it through the

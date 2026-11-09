@@ -72,10 +72,10 @@ class VodSortMenuTest {
         // Another order starts in its usual direction, then turns round too.
         d.click("Title")
         compose.waitUntil(10_000) { compose.comesBefore("Double Shift", "Velocity") }
-        compose.onNodeWithContentDescription("A to Z").assertExists()
+        waitForDescription("A to Z")
         d.click("Title")
         compose.waitUntil(10_000) { compose.comesBefore("Velocity", "Double Shift") }
-        compose.onNodeWithContentDescription("Sort: Title, Z to A").assertExists()
+        waitForDescription("Sort: Title, Z to A")
         assertEquals(VodOrder(VodSort.NAME, descending = true), d.movieOrder())
     }
 }
