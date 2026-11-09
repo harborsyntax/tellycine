@@ -81,6 +81,14 @@ class MigrationTest {
             db.query("SELECT name FROM playlists").use { it.moveToFirst(); assertEquals("Mine", it.getString(0)) }
             // Guides added before keep replacing the playlist's own.
             db.query("SELECT epgCombine FROM playlists").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+            // 1.16: nothing known yet about what the guide was imported from, so the next refresh imports it.
+            db.query("SELECT epgCheckedAt, epgInputs, epgTrimmed, epgCoveredUntil FROM playlists").use {
+                it.moveToFirst()
+                assertTrue(it.isNull(0) && it.isNull(1) && it.isNull(3))
+                assertEquals(0, it.getInt(2))
+            }
+            db.query("SELECT COUNT(*) FROM programmes_staging").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+            db.query("SELECT COUNT(*) FROM guide_sources").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
         } finally {
             room.close()
         }

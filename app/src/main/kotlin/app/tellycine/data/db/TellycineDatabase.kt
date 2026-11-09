@@ -2,6 +2,7 @@ package app.tellycine.data.db
 
 import android.content.Context
 import androidx.room.Database
+import androidx.room.InvalidationTracker
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
@@ -20,8 +21,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         DownloadEntity::class,
         TmdbTitleEntity::class,
         TmdbPageEntity::class,
+        StagedProgrammeEntity::class,
+        GuideSourceEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class TellycineDatabase : RoomDatabase() {
@@ -30,7 +33,26 @@ abstract class TellycineDatabase : RoomDatabase() {
     abstract fun downloads(): DownloadDao
     abstract fun tmdb(): TmdbDao
 
+    /**
+     * Watches every table for as long as the app runs, so Room keeps track of changes to them all.
+     * Room starts tracking a table when the first thing watches it, and stops when the last stops,
+     * and needs the write lock for both: while a refresh was importing, a screen that was first to
+     * watch a table waited for the import to finish before it showed anything.
+     */
+    private val watchEverything = object : InvalidationTracker.Observer(WATCHED_TABLES) {
+        override fun onInvalidated(tables: Set<String>) = Unit
+    }
+
+    /** Starts watching every table ([watchEverything]): once, off the main thread, as the app starts. */
+    fun watchAllTables() = invalidationTracker.addObserver(watchEverything)
+
     companion object {
+        /** All the tables but the guide's staging table, which nothing watches: [watchAllTables] watches them. */
+        val WATCHED_TABLES = arrayOf(
+            "playlists", "categories", "streams", "episodes", "programmes", "favorites", "history",
+            "hidden_categories", "downloads", "tmdb_titles", "tmdb_pages", "guide_sources",
+        )
+
         fun create(context: Context): TellycineDatabase =
             Room.databaseBuilder(context, TellycineDatabase::class.java, "tellycine.db")
                 .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
@@ -112,6 +134,28 @@ abstract class TellycineDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+        /**
+         * 1.16: guides are imported into a table of their own first, then swapped in, and what they
+         * were imported from is kept, to skip guides that haven't changed and to tell how much is left.
+         */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `playlists` ADD COLUMN `epgCheckedAt` INTEGER")
+                db.execSQL("ALTER TABLE `playlists` ADD COLUMN `epgInputs` TEXT")
+                db.execSQL("ALTER TABLE `playlists` ADD COLUMN `epgTrimmed` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `playlists` ADD COLUMN `epgCoveredUntil` INTEGER")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `programmes_staging` (`playlistId` INTEGER NOT NULL, `channelId` TEXT NOT NULL, " +
+                        "`startMs` INTEGER NOT NULL, `stopMs` INTEGER NOT NULL, `title` TEXT NOT NULL, `description` TEXT, " +
+                        "`category` TEXT, PRIMARY KEY(`playlistId`, `channelId`, `startMs`))"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `guide_sources` (`playlistId` INTEGER NOT NULL, `url` TEXT NOT NULL, `etag` TEXT, " +
+                        "`lastModified` TEXT, `sha256` TEXT NOT NULL, PRIMARY KEY(`playlistId`, `url`))"
+                )
+            }
+        }
+
+        val MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
     }
 }

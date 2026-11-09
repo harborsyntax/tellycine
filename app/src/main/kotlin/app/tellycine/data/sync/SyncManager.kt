@@ -7,6 +7,7 @@ import app.tellycine.data.db.TellycineDatabase
 import app.tellycine.data.settings.SettingsRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 
 data class SyncProgress(val message: String, val fraction: Float?)
@@ -67,33 +69,33 @@ class SyncManager(
     }
 
     /**
-     * Refreshes playlists whose content is older than a day and guides older than 12 hours. They
-     * start a little after launch, so the first screen opens without a download and import
-     * competing with it, and the playlist in use goes first. (They run one at a time.)
+     * Refreshes playlists whose content is older than a day, and guides that are running out
+     * ([guideDue]). They start a little after launch, so the first screen opens without a download
+     * and import competing with it, and the playlist in use goes first. (They run one at a time.)
      */
     fun refreshStale() {
         scope.launch {
             dao.resetInterruptedSyncs()
             val prefs = settings.current()
             if (!prefs.refreshOnLaunch) return@launch
-            val stale = dao.getAll().filter { isStale(it) != null }.sortedByDescending { it.id == prefs.activePlaylistId }
+            val stale = dao.getAll().filter { due(it, prefs.epgDays) != null }.sortedByDescending { it.id == prefs.activePlaylistId }
             if (stale.isEmpty()) return@launch
             delay(LAUNCH_DELAY)
             for (listed in stale) {
                 // Unless it was refreshed (or removed) in the meantime.
                 val p = dao.get(listed.id) ?: continue
-                val contentStale = isStale(p) ?: continue
-                sync(p.id, content = contentStale, epg = true)
+                val (content, guide) = due(p, prefs.epgDays) ?: continue
+                sync(p.id, content = content, epg = guide)
             }
         }
     }
 
-    /** Whether [p] needs refreshing: null if not, else whether its content does (or only its guide). */
-    private fun isStale(p: PlaylistEntity): Boolean? {
+    /** What of [p] needs refreshing, its content and its guide, or null if neither does. */
+    private fun due(p: PlaylistEntity, guideDays: Int): Pair<Boolean, Boolean>? {
         val now = System.currentTimeMillis()
-        val contentStale = p.lastSyncedAt == null || now - p.lastSyncedAt > DAY
-        val epgStale = syncer.epgUrlsFor(p).isNotEmpty() && (p.epgSyncedAt == null || now - p.epgSyncedAt > DAY / 2)
-        return if (contentStale || epgStale) contentStale else null
+        val content = p.lastSyncedAt == null || now - p.lastSyncedAt > DAY
+        val guide = syncer.epgUrlsFor(p).isNotEmpty() && guideDue(p, guideDays, now)
+        return if (content || guide) content to guide else null
     }
 
     private suspend fun run(playlistId: Long, content: Boolean, epg: Boolean) {
@@ -101,6 +103,7 @@ class SyncManager(
         val prefs = settings.current()
         val report: ProgressReporter = { message, fraction -> setProgress(playlistId, SyncProgress(message, fraction)) }
 
+        var guide = epg
         if (content || playlist.lastSyncedAt == null) {
             val result = syncer.syncContent(playlist, prefs.preferHls, report)
             dao.setContentSynced(
@@ -118,13 +121,14 @@ class SyncManager(
             )
             playlist = dao.get(playlistId) ?: return
             onContentSynced()
+            // Its guide needs importing again for channels it didn't have before, even if it isn't due.
+            guide = guide || withContext(Dispatchers.IO) { syncer.guideInputs(playlist, prefs.epgDays) } != playlist.epgInputs
         }
 
         var epgError: String? = null
-        if (epg && syncer.epgUrlsFor(playlist).isNotEmpty()) {
+        if (guide && syncer.epgUrlsFor(playlist).isNotEmpty()) {
             try {
-                val count = syncer.syncEpg(playlist, prefs.epgDays, report)
-                dao.setEpgSynced(playlistId, System.currentTimeMillis(), count)
+                syncer.syncEpg(playlist, prefs.epgDays, report)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -142,6 +146,22 @@ class SyncManager(
     companion object {
         private const val TAG = "SyncManager"
         private const val DAY = 24 * 60 * 60 * 1000L
+
+        /**
+         * Whether [p]'s TV guide is due to be refreshed as the app starts, when [days] of guide are
+         * kept: when it's running out (less than a day left, or half the days kept when that's
+         * less), or two days after it was last refreshed, for changes to the schedule; but no more
+         * than every 12 hours. Without what's left (a guide imported by an older version), every 12
+         * hours.
+         */
+        fun guideDue(p: PlaylistEntity, days: Int, now: Long): Boolean {
+            val refreshed = p.epgCheckedAt ?: p.epgSyncedAt ?: return true
+            val age = now - refreshed
+            if (age < DAY / 2) return false
+            if (age >= 2 * DAY) return true
+            val coveredUntil = p.epgCoveredUntil ?: return true
+            return coveredUntil - now < minOf(DAY, days * DAY / 2)
+        }
 
         /** How long after launch stale playlists start refreshing. */
         private const val LAUNCH_DELAY = 10_000L
