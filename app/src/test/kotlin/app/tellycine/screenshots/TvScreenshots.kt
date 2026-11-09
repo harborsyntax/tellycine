@@ -32,7 +32,8 @@ class TvScreenshots {
         d.press(Key.DirectionRight)
         d.shot("tv-guide")
 
-        // Back opens the side menu.
+        // Back opens the categories, and again the side menu.
+        d.back()
         d.back()
         d.waitForText("Playlists")
         d.shot("tv-menu")
@@ -48,7 +49,7 @@ class TvScreenshots {
         d.pressUntil(Key.DirectionLeft, "Press OK to watch")
         d.press(Key.DirectionLeft)
         d.shot("tv-categories")
-        d.back()
+        d.press(Key.DirectionRight)
 
         d.tvClick("List")
         // The list's header names the playlist.

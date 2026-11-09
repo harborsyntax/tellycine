@@ -326,6 +326,22 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
         val row = stream?.let { content.channelPosition(ids, category, it) }
         return GuideStart(category, row)
     }
+
+    /**
+     * The row of [request]'s channel among the channels shown, or null if it isn't one of them:
+     * in the category selected, when it was played from that category or all channels are shown.
+     */
+    suspend fun rowOf(request: PlayRequest): Int? {
+        val ids = scope.value.ids
+        val start = guideStart(request, ids)
+        val row = start.row ?: return null
+        return when (_selected.value) {
+            start.category -> row
+            Categories.ALL -> content.getStream(request.playlistId, ContentKind.LIVE, request.streamId)
+                ?.let { content.channelPosition(ids, Categories.ALL, it) }
+            else -> null
+        }
+    }
 }
 
 /** Where a guide opens: a [category], and the [row] of the channel to start on (null for the top). */

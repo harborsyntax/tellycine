@@ -26,7 +26,7 @@ Updates install the same way, over the existing app.
 - **Fire TV:** Fire TV devices that run Fire OS (Android) work. Amazon's newer **Vega OS** devices (starting with the Fire TV Stick 4K Select) can't run Android apps, so Tellycine can't be installed on them.
 
 ## Getting around
-- The **side menu** (Search, Live TV, Movies, Series, Library, Playlists, Settings) is on the left. Press **Back** from any screen to open it, and **Back** again to leave Tellycine.
+- The **side menu** (Search, Live TV, Movies, Series, Library, Playlists, Settings) is on the left. Press **Back** from any screen to open it (from the guide, Back opens its categories first), and **Back** again to leave Tellycine.
 - **OK** chooses. **Hold OK** for more options: a channel's schedule and actions, removing a Library item, or deleting a download or recording.
 - Everything works with just the arrows, OK and Back, so any remote will do. Number and channel buttons are used when your remote has them.
 - In long lists (the guide, channels, categories, movies and series), **hold Up or Down** to scroll: it starts one row at a time and speeds up the longer you hold. Held, it stops at the top or bottom of the list; press again to move on from there.
@@ -34,20 +34,20 @@ Updates install the same way, over the existing app.
 <img src="images/screens/tv-menu.png" width="640" alt="The side menu">
 
 ## Live TV
-Live TV opens on the **guide**: channels down the side and time across the top. The guide uses the whole screen: the side menu stays hidden until you press **Back**.
+Live TV opens on the **guide**: channels down the side and time across the top. The guide uses the whole screen: **Back** opens its categories, and **Back** again the side menu. **Right** from the menu returns to the channel you were on.
 
 | Press | To |
 | --- | --- |
 | Up / Down | Move between channels; hold to speed up. **CH+ / CH−** move a page at a time. |
 | Right / Left | Move through programmes. Left goes back in time only through programmes you can replay, on channels with catch-up; then on to the channel itself. On other channels, Left from what's on now goes straight to the channel. |
-| Left (on a channel) | Open the **categories**, tucked away as a thin edge (with a ‹) to the left of the channels. Up/Down choose one and OK shows its channels; Right or Back return without changing. With more than one playlist, the playlists come first: **All playlists** or one of them. The **Sort** button at the top of the categories puts them in the provider's order (**Provider order**) or alphabetically (**A–Z**): press OK to switch. |
+| Left (on a channel) | Open the **categories**, tucked away as a thin edge (with a ‹) to the left of the channels. Up/Down choose one and OK shows its channels; Right returns without changing, and Back goes on to the side menu. With more than one playlist, the playlists come first: **All playlists** or one of them. The **Sort** button at the top of the categories puts them in the provider's order (**Provider order**) or alphabetically (**A–Z**): press OK to switch. |
 | OK | Watch what's on now, replay a past programme, or see the schedule for an upcoming one. |
 | Hold OK (or Menu) | The channel's **options and schedule**: watch live, watch from the start, favourite, open in another app, show the stream URL, and replay or record programmes. |
 | Up (from the first channel) | Reach the **Compact** and **List** buttons, at the top right. |
 
 The top of the screen describes the highlighted programme, and with more than one playlist, which playlist the channel is from. The two buttons at the top right are icons: **Compact** shrinks the rows to fit more channels on screen, and **Expand** makes them bigger again; **List** switches to a plain channel list with what's on now, and **Guide** switches back. In the list, the categories have a button of their own, with the same playlists and **Sort** button.
 
-When you go back to the guide from a live channel, it keeps playing in a **mini player** in the top corner. Press OK on the mini player, or **hold Back** anywhere in the guide, to return to it full screen. It stops when you leave the guide.
+When you go back to the guide from a live channel, it keeps playing in a **mini player** in the top corner, and the guide moves to that channel: the one you were watching, even if you changed channel in the player or Tellycine opened on it as it started. Press OK on the mini player, or **hold Back** anywhere in the guide, to return to it full screen. It stops when you leave the guide.
 
 <img src="images/screens/tv-channel-options.png" width="640" alt="A channel's options and schedule">
 

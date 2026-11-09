@@ -82,7 +82,8 @@ private val TuckedWidth = 16.dp
  * The guide's categories, as a column to the left of the channels. Tucked away it's a thin edge
  * with an arrow, so it's clear there is more to the left; Left from the channel column opens it
  * on the current category ([TvGuideCategoriesState.open]). OK picks a category and returns to
- * the channels, which [onSelect] changes; Right or Back return without changing. With more than
+ * the channels, which [onSelect] changes; Right returns without changing, and so does Back, which
+ * then calls [onClose] (the Live TV screen's guide opens the side menu). With more than
  * one playlist, the [playlists] to show come first, and picking one also returns to the channels.
  * Given a [sort], the categories start with a Sort button, which switches between the provider's
  * order and A–Z ([onSortChange]) and leaves the column open.

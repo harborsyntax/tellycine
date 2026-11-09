@@ -126,19 +126,25 @@ class ScreenshotDriver(private val compose: ComposeRule) {
         waitForText(text)
     }
 
-    /** Opens a screen from the TV side menu: Back opens the menu, then its item is chosen. */
+    /**
+     * Opens a screen from the TV side menu: Back opens the menu (from the guide, Back opens its
+     * categories first, and again the menu), then its item is chosen.
+     */
     fun tvTab(label: String, expect: String) {
         back()
+        if (compose.onAllNodes(tvControl(label)).fetchSemanticsNodes().isEmpty()) back()
         tvClick(label)
         waitForText(expect)
     }
+
+    private fun tvControl(text: String) = (hasText(text, substring = true) or hasContentDescription(text, substring = true)) and hasClickAction()
 
     /**
      * Activates a TV control by its text, or its label if it's an icon. TV controls answer the
      * remote, not touch, so this uses the click action.
      */
     fun tvClick(text: String) {
-        val control = (hasText(text, substring = true) or hasContentDescription(text, substring = true)) and hasClickAction()
+        val control = tvControl(text)
         waitFor(control, "a control labelled \"$text\"")
         compose.onAllNodes(control).onFirst().performSemanticsAction(SemanticsActions.OnClick)
         compose.waitForIdle()

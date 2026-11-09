@@ -210,9 +210,8 @@ private fun TvHome(navigator: TvNavigator) {
     val hideRail = fullWidth && tab == TvTab.LIVE
 
     // Back from a screen opens the menu; Back again (from the menu) leaves the app.
-    BackHandler(enabled = drawerState.currentValue == DrawerValue.Closed) {
-        runCatching { itemFocus.getValue(tab).requestFocus() }
-    }
+    val openMenu = { runCatching { itemFocus.getValue(tab).requestFocus() }; Unit }
+    BackHandler(enabled = drawerState.currentValue == DrawerValue.Closed, onBack = openMenu)
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -276,6 +275,7 @@ private fun TvHome(navigator: TvNavigator) {
                     onSelectPlaylist = home::select,
                     onOpenTab = { tab = it; focusContent++ },
                     onFullWidth = { fullWidth = it },
+                    onOpenMenu = openMenu,
                 )
             }
         }
@@ -290,10 +290,11 @@ private fun TvTabContent(
     onSelectPlaylist: (Long) -> Unit,
     onOpenTab: (TvTab) -> Unit,
     onFullWidth: (Boolean) -> Unit,
+    onOpenMenu: () -> Unit,
 ) {
     when (tab) {
         TvTab.SEARCH -> TvSearchScreen(onOpen = navigator::openDetail)
-        TvTab.LIVE -> TvLiveScreen(session, onAddPlaylist = { onOpenTab(TvTab.PLAYLISTS) }, onFullWidth = onFullWidth)
+        TvTab.LIVE -> TvLiveScreen(session, onAddPlaylist = { onOpenTab(TvTab.PLAYLISTS) }, onFullWidth = onFullWidth, onOpenMenu = onOpenMenu)
         TvTab.MOVIES -> TvVodScreen(ContentKind.MOVIE, session, onOpen = navigator::openDetail)
         TvTab.SERIES -> TvVodScreen(ContentKind.SERIES, session, onOpen = navigator::openDetail)
         TvTab.LIBRARY -> TvLibraryScreen(
