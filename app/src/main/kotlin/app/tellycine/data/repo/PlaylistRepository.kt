@@ -60,6 +60,10 @@ class PlaylistRepository(
                     detectedEpgUrl = existing?.detectedEpgUrl.orEmpty(),
                     lastSyncedAt = existing?.lastSyncedAt,
                     epgSyncedAt = existing?.epgSyncedAt,
+                    epgCheckedAt = existing?.epgCheckedAt,
+                    epgInputs = existing?.epgInputs,
+                    epgTrimmed = existing?.epgTrimmed ?: false,
+                    epgCoveredUntil = existing?.epgCoveredUntil,
                     liveCount = existing?.liveCount ?: 0,
                     movieCount = existing?.movieCount ?: 0,
                     seriesCount = existing?.seriesCount ?: 0,
@@ -89,6 +93,7 @@ class PlaylistRepository(
             content.deleteCategories(id)
             content.deleteEpisodes(id)
             content.deleteProgrammes(id)
+            content.deleteGuideSources(id)
             content.deleteFavorites(id)
             content.deleteHistory(id)
             content.deleteHiddenCategories(id)

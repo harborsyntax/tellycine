@@ -28,13 +28,14 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 /** Hand-rolled dependency graph; small enough not to need a DI framework. */
 class AppContainer(context: Context) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val httpClient = createHttpClient()
-    val database = TellycineDatabase.create(context)
+    val database = TellycineDatabase.create(context).also { db -> appScope.launch(Dispatchers.IO) { db.watchAllTables() } }
     val settings = SettingsRepository(context, builtInTmdbKey = TmdbBuiltInKey.value)
     val downloader = Downloader(context, httpClient)
     /** Details from TMDB, when they're turned on: kept up to date for the lists, and fetched for a title's page. */

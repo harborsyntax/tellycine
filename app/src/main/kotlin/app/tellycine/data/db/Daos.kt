@@ -82,8 +82,16 @@ interface PlaylistDao {
     @Query("UPDATE playlists SET dvrApiKey = :apiKey, dvrUsername = :username WHERE id = :id")
     suspend fun setDvrCredentials(id: Long, apiKey: String?, username: String?)
 
-    @Query("UPDATE playlists SET epgSyncedAt = :at, programmeCount = :count WHERE id = :id")
-    suspend fun setEpgSynced(id: Long, at: Long, count: Int)
+    /** A TV guide was imported: [inputs], [trimmed] and [coveredUntil] as on [PlaylistEntity]. */
+    @Query(
+        """UPDATE playlists SET epgSyncedAt = :at, epgCheckedAt = :at, programmeCount = :count, epgInputs = :inputs,
+           epgTrimmed = :trimmed, epgCoveredUntil = :coveredUntil WHERE id = :id"""
+    )
+    fun setGuideImported(id: Long, at: Long, count: Int, inputs: String?, trimmed: Boolean, coveredUntil: Long?)
+
+    /** A TV guide was refreshed but hadn't changed. */
+    @Query("UPDATE playlists SET epgCheckedAt = :at WHERE id = :id")
+    fun setGuideChecked(id: Long, at: Long)
 
     @Query("UPDATE playlists SET syncState = 'IDLE', syncMessage = NULL WHERE syncState = 'SYNCING'")
     suspend fun resetInterruptedSyncs()
@@ -119,6 +127,41 @@ interface ContentDao {
 
     @Query("DELETE FROM programmes WHERE playlistId = :playlistId")
     fun deleteProgrammes(playlistId: Long)
+
+    // A guide is imported into programmes_staging first, then swapped in: see PlaylistSyncer.
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun stageProgrammes(items: List<StagedProgrammeEntity>)
+
+    @Query("DELETE FROM programmes_staging")
+    fun clearStagedProgrammes()
+
+    /** The swap, first: removes the playlist's programmes that the staged guide doesn't have as they are. */
+    @Query(
+        """DELETE FROM programmes WHERE playlistId = :playlistId AND NOT EXISTS (
+             SELECT 1 FROM programmes_staging s WHERE s.playlistId = programmes.playlistId AND s.channelId = programmes.channelId
+               AND s.startMs = programmes.startMs AND s.stopMs = programmes.stopMs AND s.title = programmes.title
+               AND s.description IS programmes.description AND s.category IS programmes.category)"""
+    )
+    fun deleteUnstagedProgrammes(playlistId: Long)
+
+    /** Then adds the staged programmes it doesn't have yet. */
+    @Query(
+        """INSERT INTO programmes (playlistId, channelId, startMs, stopMs, title, description, category)
+           SELECT playlistId, channelId, startMs, stopMs, title, description, category FROM programmes_staging s
+           WHERE s.playlistId = :playlistId AND NOT EXISTS (
+             SELECT 1 FROM programmes p WHERE p.playlistId = s.playlistId AND p.channelId = s.channelId AND p.startMs = s.startMs)"""
+    )
+    fun insertStagedProgrammes(playlistId: Long)
+
+    @Query("SELECT * FROM guide_sources WHERE playlistId = :playlistId")
+    fun guideSources(playlistId: Long): List<GuideSourceEntity>
+
+    @Query("DELETE FROM guide_sources WHERE playlistId = :playlistId")
+    fun deleteGuideSources(playlistId: Long)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertGuideSources(items: List<GuideSourceEntity>)
 
     @Query("DELETE FROM favorites WHERE playlistId = :playlistId")
     fun deleteFavorites(playlistId: Long)

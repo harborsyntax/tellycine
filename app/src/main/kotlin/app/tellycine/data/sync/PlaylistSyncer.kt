@@ -1,6 +1,7 @@
 package app.tellycine.data.sync
 
 import android.content.Context
+import android.os.Process
 import android.util.Log
 import android.util.Xml
 import app.tellycine.core.ContentKind
@@ -15,17 +16,21 @@ import app.tellycine.core.xtream.XtreamAccount
 import app.tellycine.core.xtream.XtreamItem
 import app.tellycine.core.xtream.XtreamParser
 import app.tellycine.core.xtream.XtreamUrls
+import app.tellycine.data.db.CatchupWindow
 import app.tellycine.data.db.CategoryEntity
 import app.tellycine.data.db.EpisodeEntity
+import app.tellycine.data.db.GuideSourceEntity
 import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.PlaylistType
-import app.tellycine.data.db.ProgrammeEntity
+import app.tellycine.data.db.StagedProgrammeEntity
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.db.TellycineDatabase
 import app.tellycine.data.net.Downloader
+import app.tellycine.data.net.FileVersion
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -35,6 +40,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import java.util.concurrent.Executors
 
 typealias ProgressReporter = (message: String, fraction: Float?) -> Unit
 
@@ -46,12 +52,25 @@ data class ContentSyncResult(
     val account: XtreamAccount?,
 )
 
+/** What refreshing a playlist's TV guide did. */
+sealed interface GuideRefresh {
+    /** It was imported: [programmes] of them. */
+    data class Imported(val programmes: Int) : GuideRefresh
+
+    /** It hadn't changed since it was last imported, for the same channels, so it wasn't imported again. */
+    data object Unchanged : GuideRefresh
+
+    /** There was nothing to import: no guide, or no channels with a guide id. */
+    data object None : GuideRefresh
+}
+
 /**
  * Downloads and imports playlists and EPG data.
  *
- * Large sources are first downloaded to a temporary file and then imported in a single
- * database transaction. Thanks to WAL mode the UI keeps showing the previous data until
- * the import commits, and a failed import never leaves a half-empty playlist behind.
+ * Large sources are first downloaded to a temporary file and then imported. A playlist is
+ * imported in a single database transaction: thanks to WAL mode the UI keeps showing the previous
+ * data until the import commits, and a failed import never leaves a half-empty playlist behind.
+ * A guide, often far bigger, is staged first and then swapped in, in a short transaction ([syncEpg]).
  */
 class PlaylistSyncer(
     private val context: Context,
@@ -60,6 +79,18 @@ class PlaylistSyncer(
 ) {
     private val dao = db.content()
     private val tempDir get() = File(context.cacheDir, "sync").apply { mkdirs() }
+
+    /**
+     * Where refreshes read what they downloaded and write it to the database: a thread of their
+     * own at background priority, so the app and the player get the processor first. (On a TV box,
+     * reading a big guide can keep a core busy for minutes.) Refreshes run one at a time.
+     */
+    private val importer = Executors.newSingleThreadExecutor { work ->
+        Thread({
+            Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND)
+            work.run()
+        }, "tellycine-import").apply { isDaemon = true }
+    }.asCoroutineDispatcher()
 
     // ------------------------------------------------------------------------------------
     // Content
@@ -82,7 +113,7 @@ class PlaylistSyncer(
             }
             report("Importing channels…", null)
             val job = currentCoroutineContext().job
-            return importM3u(playlist, file, job, report)
+            return withContext(importer) { importM3u(playlist, file, job, report) }
         } finally {
             file.delete()
         }
@@ -257,7 +288,7 @@ class PlaylistSyncer(
             val counts = IntArray(ContentKind.entries.size)
             val pid = playlist.id
 
-            db.runInTransaction {
+            withContext(importer) { db.runInTransaction {
                 val firstSeen = FirstSeen(db, pid)
                 dao.deleteStreams(pid)
                 dao.deleteCategories(pid)
@@ -295,7 +326,7 @@ class PlaylistSyncer(
                     report("Imported ${"%,d".format(counts[kind.ordinal])} ${kind.label()}", null)
                 }
                 firstSeen.restore()
-            }
+            } }
 
             return ContentSyncResult(
                 live = counts[ContentKind.LIVE.ordinal],
@@ -351,46 +382,122 @@ class PlaylistSyncer(
     fun epgUrlsFor(playlist: PlaylistEntity): List<String> =
         GuideUrls.toLoad(own = playlist.epgUrl, supplied = playlist.detectedEpgUrl, combine = playlist.epgCombine)
 
-    /** @return number of programmes stored */
-    suspend fun syncEpg(playlist: PlaylistEntity, days: Int, report: ProgressReporter): Int = withContext(Dispatchers.IO) {
+    /**
+     * What importing [playlist]'s guide depends on besides the guides themselves, as a fingerprint:
+     * its channels' guide ids and catch-up, the [days] kept, and which guides it loads. The guide
+     * needs importing again when this changes ([PlaylistEntity.epgInputs]).
+     */
+    fun guideInputs(playlist: PlaylistEntity, days: Int): String =
+        guideInputs(playlist, days, dao.epgChannelIds(playlist.id), dao.catchupWindows(playlist.id))
+
+    private fun guideInputs(playlist: PlaylistEntity, days: Int, wanted: Collection<String>, catchup: List<CatchupWindow>): String {
+        val text = buildString {
+            append("import $GUIDE_IMPORT_VERSION, $days days\n")
+            epgUrlsFor(playlist).forEach { append(it).append('\n') }
+            append("channels\n")
+            wanted.sorted().forEach { append(it).append('\n') }
+            append("catch-up\n")
+            catchup.sortedBy { it.epgChannelId }.forEach { append(it.epgChannelId).append('=').append(it.days).append('\n') }
+        }
+        return MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
+    }
+
+    /**
+     * Refreshes [playlist]'s TV guide. Guides that haven't changed since they were last imported,
+     * for the same channels, aren't imported again: the server is asked whether they have changed
+     * where it said how to ask, and the rest are compared with what was imported before.
+     */
+    suspend fun syncEpg(playlist: PlaylistEntity, days: Int, report: ProgressReporter): GuideRefresh = withContext(Dispatchers.IO) {
+        val pid = playlist.id
         val sources = epgUrlsFor(playlist)
-        if (sources.isEmpty()) return@withContext 0
-        val wanted = dao.epgChannelIds(playlist.id).toHashSet()
-        if (wanted.isEmpty()) return@withContext 0
-        val catchupDays = dao.catchupWindows(playlist.id).associate { it.epgChannelId to it.days }
+        if (sources.isEmpty()) return@withContext GuideRefresh.None
+        val wanted = dao.epgChannelIds(pid).toHashSet()
+        val playlists = db.playlists()
+        if (wanted.isEmpty()) {
+            playlists.setGuideImported(pid, System.currentTimeMillis(), 0, null, false, null)
+            return@withContext GuideRefresh.None
+        }
+        val windows = dao.catchupWindows(pid)
+        val catchupDays = windows.associate { it.epgChannelId to it.days }
+        val inputs = guideInputs(playlist, days, wanted, windows)
+        val before = dao.guideSources(pid).associateBy { it.url }
+        // Whether the guide imported last time can still be the one these would import.
+        val maybeUnchanged = playlist.epgInputs == inputs && !playlist.epgTrimmed && sources.all { it in before }
 
         val files = ArrayList<File>()
         try {
-            sources.forEachIndexed { index, url ->
-                val file = File(tempDir, "epg-${playlist.id}-$index.xml")
+            val downloads = LinkedHashMap<String, GuideSourceEntity>()
+            /**
+             * Downloads the [index]th guide, unless the server says it hasn't changed when [ask]ed:
+             * then false. Null if it couldn't be downloaded, when there are others.
+             */
+            suspend fun fetch(index: Int, url: String, ask: Boolean): Boolean? {
+                val file = File(tempDir, "epg-$pid-$index.xml")
                 val label = if (sources.size > 1) "TV guide ${index + 1}/${sources.size}" else "TV guide"
-                try {
-                    downloader.download(url, file, playlist.userAgent) { read, total ->
+                val since = before[url]?.takeIf { ask }?.let { FileVersion(it.etag, it.lastModified) }
+                return try {
+                    val got = downloader.download(url, file, playlist.userAgent, since) { read, total ->
                         report("Downloading $label… ${formatBytes(read)}", total?.let { read.toFloat() / it })
-                    }
+                    } ?: return false
                     files += file
+                    downloads[url] = GuideSourceEntity(pid, url, got.version.etag, got.version.lastModified, got.sha256)
+                    true
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     Log.w(TAG, "EPG download failed: $url", e)
                     file.delete()
                     if (sources.size == 1) throw IOException("TV guide download failed: ${e.message}", e)
+                    null
                 }
             }
+
+            // Each guide, or the server's word that it hasn't changed since last time.
+            val notModified = sources.withIndex().filter { (index, url) -> fetch(index, url, ask = maybeUnchanged) == false }.map { it.value }
+            val unchanged = maybeUnchanged && sources.all { url ->
+                url in notModified || downloads[url]?.sha256 == before.getValue(url).sha256
+            }
+            if (unchanged) {
+                playlists.setGuideChecked(pid, System.currentTimeMillis())
+                return@withContext GuideRefresh.Unchanged
+            }
+            // Others have, so these are needed after all.
+            sources.forEachIndexed { index, url -> if (url in notModified) fetch(index, url, ask = false) }
             if (files.isEmpty()) throw IOException("No TV guide could be downloaded")
 
             report("Importing TV guide…", null)
             val job = currentCoroutineContext().job
-            importEpg(playlist.id, files, wanted, catchupDays, days, job, report)
+            val staged = withContext(importer) { stageEpg(pid, files, wanted, catchupDays, days, job, report) }
+
+            // Swapped in at normal priority, as the rest of the app waits for it.
+            report("Updating TV guide…", null)
+            if (!job.isActive) throw CancellationException("Sync cancelled")
+            db.runInTransaction {
+                dao.deleteUnstagedProgrammes(pid)
+                dao.insertStagedProgrammes(pid)
+                dao.deleteGuideSources(pid)
+                dao.insertGuideSources(downloads.values.toList())
+                playlists.setGuideImported(pid, System.currentTimeMillis(), staged.programmes, inputs, staged.trimmed, staged.coveredUntil)
+            }
+            GuideRefresh.Imported(staged.programmes)
         } finally {
             files.forEach { it.delete() }
+            dao.clearStagedProgrammes()
         }
     }
 
-    private fun importEpg(
+    /** What [stageEpg] staged. */
+    private class StagedGuide(val programmes: Int, val trimmed: Boolean, val coveredUntil: Long?)
+
+    /**
+     * Reads the guides in [files] into programmes_staging, a few thousand programmes at a time,
+     * each lot committed on its own: nothing waits for the database for long while a big guide is
+     * read, and the guide shown stays as it was until the staged one is swapped in.
+     */
+    private fun stageEpg(
         pid: Long, files: List<File>, wanted: Set<String>, catchupDays: Map<String, Int>, days: Int, job: Job,
         report: ProgressReporter,
-    ): Int {
+    ): StagedGuide {
         val now = System.currentTimeMillis()
         val defaultFrom = now - 6 * HOUR
         val to = now + days * 24 * HOUR
@@ -401,56 +508,64 @@ class PlaylistSyncer(
         }
         // Which XMLTV channel feeds each playlist channel, and which programmes were already stored.
         val matcher = EpgMatcher(wanted)
-        val batch = ArrayList<ProgrammeEntity>(BATCH)
+        val batch = ArrayList<StagedProgrammeEntity>(BATCH)
+        // When each channel's last programme ends.
+        val ends = HashMap<String, Long>()
+        var trimmed = false
         var stored = 0
 
-        db.runInTransaction {
-            dao.deleteProgrammes(pid)
-            for (file in files) {
-                try {
-                    file.inputStream().gunzipIfNeeded().use { input ->
-                        XmltvParser { Xml.newPullParser() }.parse(
-                            input,
-                            onChannel = { ch -> matcher.onChannel(ch.id, ch.displayNames) },
-                            acceptProgramme = accept@{ channel, start, stop ->
-                                if (!job.isActive) throw CancellationException("Sync cancelled")
-                                if (start >= to) return@accept false
-                                matcher.targetsFor(channel).any { stop > fromFor(it) }
-                            },
-                        ) { prog ->
-                            for (target in matcher.targetsFor(prog.channelId)) {
-                                if (prog.stopMs <= fromFor(target) || !matcher.isNew(target, prog.startMs)) continue
-                                batch += ProgrammeEntity(
-                                    playlistId = pid,
-                                    channelId = target,
-                                    startMs = prog.startMs,
-                                    stopMs = prog.stopMs,
-                                    title = prog.title,
-                                    description = prog.description,
-                                    category = prog.category,
-                                )
+        dao.clearStagedProgrammes()
+        for (file in files) {
+            try {
+                file.inputStream().gunzipIfNeeded().use { input ->
+                    XmltvParser { Xml.newPullParser() }.parse(
+                        input,
+                        onChannel = { ch -> matcher.onChannel(ch.id, ch.displayNames) },
+                        acceptProgramme = accept@{ channel, start, stop ->
+                            if (!job.isActive) throw CancellationException("Sync cancelled")
+                            val targets = matcher.targetsFor(channel)
+                            if (start >= to) {
+                                if (targets.isNotEmpty()) trimmed = true
+                                return@accept false
                             }
-                            if (batch.size >= BATCH) {
-                                dao.insertProgrammes(batch)
-                                stored += batch.size
-                                batch.clear()
-                                if (stored % (BATCH * 10) == 0) report("Importing TV guide… ${"%,d".format(stored)} programmes", null)
-                            }
+                            targets.any { stop > fromFor(it) }
+                        },
+                    ) { prog ->
+                        for (target in matcher.targetsFor(prog.channelId)) {
+                            if (prog.stopMs <= fromFor(target) || !matcher.isNew(target, prog.startMs)) continue
+                            batch += StagedProgrammeEntity(
+                                playlistId = pid,
+                                channelId = target,
+                                startMs = prog.startMs,
+                                stopMs = prog.stopMs,
+                                title = prog.title,
+                                description = prog.description,
+                                category = prog.category,
+                            )
+                            if (prog.stopMs > (ends[target] ?: 0L)) ends[target] = prog.stopMs
+                        }
+                        if (batch.size >= BATCH) {
+                            dao.stageProgrammes(batch)
+                            stored += batch.size
+                            batch.clear()
+                            if (stored % (BATCH * 10) == 0) report("Importing TV guide… ${"%,d".format(stored)} programmes", null)
                         }
                     }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    // Keep everything parsed up to a malformed section rather than discarding it all.
-                    Log.w(TAG, "EPG parse error in ${file.name}", e)
                 }
-            }
-            if (batch.isNotEmpty()) {
-                dao.insertProgrammes(batch)
-                stored += batch.size
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Keep everything parsed up to a malformed section rather than discarding it all.
+                Log.w(TAG, "EPG parse error in ${file.name}", e)
             }
         }
-        return stored
+        if (batch.isNotEmpty()) {
+            dao.stageProgrammes(batch)
+            stored += batch.size
+        }
+        // Until when three in four channels with a guide have one.
+        val coveredUntil = ends.values.sorted().let { it.getOrNull(it.size / 4) }
+        return StagedGuide(stored, trimmed, coveredUntil)
     }
 
     private fun ContentKind.label() = when (this) {
@@ -478,6 +593,9 @@ class PlaylistSyncer(
     companion object {
         private const val TAG = "PlaylistSyncer"
         private const val BATCH = 2000
+
+        /** Goes up when importing a guide changes, so guides are imported again rather than found unchanged. */
+        private const val GUIDE_IMPORT_VERSION = 1
         private const val HOUR = 60 * 60 * 1000L
         const val UNCATEGORIZED = "Uncategorized"
 

@@ -9,6 +9,7 @@ import kotlin.concurrent.thread
 /**
  * A pretend web server on this machine: [answer] gets each request's path and query string and
  * returns the body to send, or null for "404 Not Found", or throws [Status] for another status.
+ * The request's headers are the last of [headers] while it answers.
  */
 class FakeHttpServer(private val answer: (path: String, query: String) -> String?) : AutoCloseable {
     /** Throw from the answer to reply with [code], such as 401 or 429, and no body. */
@@ -19,6 +20,10 @@ class FakeHttpServer(private val answer: (path: String, query: String) -> String
 
     /** Each request's headers, in order, with their names in lower case. */
     val headers: MutableList<Map<String, String>> = Collections.synchronizedList(ArrayList())
+
+    /** Headers sent with each body, such as an ETag. */
+    @Volatile
+    var replyHeaders: Map<String, String> = emptyMap()
 
     init {
         thread(isDaemon = true, name = "fake-http-server") {
@@ -41,10 +46,11 @@ class FakeHttpServer(private val answer: (path: String, query: String) -> String
         val (status, body) = try {
             answer(target.substringBefore('?'), target.substringAfter('?', ""))?.let { "200 OK" to it.toByteArray() } ?: ("404 Not Found" to null)
         } catch (e: Status) {
-            "${e.code} Error" to null
+            "${e.code} ${if (e.code == 304) "Not Modified" else "Error"}" to null
         }
+        val extra = if (body != null) replyHeaders.entries.joinToString("") { (name, value) -> "$name: $value\r\n" } else ""
         val out = client.getOutputStream()
-        out.write("HTTP/1.1 $status\r\nContent-Length: ${body?.size ?: 0}\r\nConnection: close\r\n\r\n".toByteArray())
+        out.write("HTTP/1.1 $status\r\n${extra}Content-Length: ${body?.size ?: 0}\r\nConnection: close\r\n\r\n".toByteArray())
         body?.let(out::write)
         out.flush()
     }

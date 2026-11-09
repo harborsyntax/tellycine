@@ -31,7 +31,17 @@ data class PlaylistEntity(
     val userAgent: String = "",
     val createdAt: Long = System.currentTimeMillis(),
     val lastSyncedAt: Long? = null,
+    /** When its TV guide was last imported. */
     val epgSyncedAt: Long? = null,
+    /** When its TV guide was last refreshed: imported, or found unchanged. */
+    val epgCheckedAt: Long? = null,
+    /** What the guide was last imported for (channels, catch-up, days kept and guides; see PlaylistSyncer). */
+    val epgInputs: String? = null,
+    /** Whether that import left out programmes beyond the days kept, which a later one would add. */
+    @ColumnInfo(defaultValue = "0")
+    val epgTrimmed: Boolean = false,
+    /** Until when most of its channels have programmes, as of that import. */
+    val epgCoveredUntil: Long? = null,
     val syncState: SyncState = SyncState.IDLE,
     val syncMessage: String? = null,
     val liveCount: Int = 0,
@@ -185,6 +195,34 @@ data class ProgrammeEntity(
     val title: String,
     val description: String?,
     val category: String?,
+)
+
+/**
+ * A guide being imported: its programmes are written here a few thousand at a time, and then
+ * [programmes] take the ones that changed in one short transaction, so a refresh doesn't keep the
+ * rest of the app waiting for the database while it reads the guide (see PlaylistSyncer).
+ */
+@Entity(tableName = "programmes_staging", primaryKeys = ["playlistId", "channelId", "startMs"])
+data class StagedProgrammeEntity(
+    val playlistId: Long,
+    val channelId: String,
+    val startMs: Long,
+    val stopMs: Long,
+    val title: String,
+    val description: String?,
+    val category: String?,
+)
+
+/** A guide a playlist's TV guide was last imported from, to tell next time whether it has changed. */
+@Entity(tableName = "guide_sources", primaryKeys = ["playlistId", "url"])
+data class GuideSourceEntity(
+    val playlistId: Long,
+    val url: String,
+    /** What the server said identifies this version of it, if anything: its ETag and Last-Modified. */
+    val etag: String?,
+    val lastModified: String?,
+    /** SHA-256 of the file. */
+    val sha256: String,
 )
 
 @Entity(tableName = "favorites", primaryKeys = ["playlistId", "kind", "streamId"])

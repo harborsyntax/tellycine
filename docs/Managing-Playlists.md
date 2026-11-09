@@ -22,9 +22,9 @@ A movie or series page, and a channel's details, say which playlist it's from wh
 ## Refreshing
 - **Refresh** reloads the playlist and its TV guide. **Stop** cancels a refresh in progress.
 - **⋮ → Update TV guide only** reloads just the guide.
-- **Automatic refresh:** when the app starts, playlists older than a day and guides older than 12 hours are refreshed. You can turn this off in [Settings](Settings.md).
+- **Automatic refresh:** when the app starts, playlists older than a day are refreshed, and TV guides that are running out (less than a day left) or are two days old. You can turn this off in [Settings](Settings.md).
 
-A refresh replaces the playlist in a single step. You keep seeing the old channels until the new ones are ready, and a failed refresh never leaves a half-empty playlist.
+A refresh replaces the playlist in a single step. You keep seeing the old channels until the new ones are ready, and a failed refresh never leaves a half-empty playlist. The same goes for TV guides, which are read in the background, at low priority, so the app stays quick while they update. A guide that hasn't changed since it was last loaded isn't loaded again, and a playlist refresh updates the guide only when the playlist has new channels.
 
 ## Details from TMDB
 With **Details from TMDB** turned on in [Settings](Settings.md), a section below the playlists shows how looking movies and series up is going: how many it has done while it works, then how many TMDB found, when it last checked and how many it didn't find. **Check now** checks again straight away. If TMDB stops accepting your key, it says so here; check the key in Settings. See [Movies & series](Movies-and-Series.md#details-from-tmdb).

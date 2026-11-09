@@ -10,6 +10,7 @@ import app.tellycine.data.settings.CategorySort
 import app.tellycine.data.settings.VodOrder
 import app.tellycine.data.settings.VodSort
 import app.tellycine.screenshots.DemoData
+import app.tellycine.testing.firstPage
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -26,14 +27,12 @@ class CombinedPlaylistsTest {
     private val dao = container.database.content()
     private val now = System.currentTimeMillis()
 
-    private fun <T : Any> page(source: PagingSource<Int, T>): List<T> = runBlocking {
-        (source.load(PagingSource.LoadParams.Refresh(null, 500, false)) as PagingSource.LoadResult.Page).data
-    }
+    private fun <T : Any> page(source: () -> PagingSource<Int, T>): List<T> = runBlocking { firstPage(source = source).data }
 
     @Test
     fun channelsComeOnePlaylistAfterAnother() {
-        val all = page(container.content.channelPages(ids, Categories.ALL) { now })
-        val demoCount = page(dao.pagedChannels(demo)).size
+        val all = page { container.content.channelPages(ids, Categories.ALL) { now } }
+        val demoCount = page { dao.pagedChannels(demo) }.size
         assertEquals(demoCount + 2, all.size)
         assertEquals("Metro News 24", all.first().stream.name)
         assertEquals(listOf("Second News HD", "Second Football"), all.takeLast(2).map { it.stream.name })
@@ -45,11 +44,11 @@ class CombinedPlaylistsTest {
 
     @Test
     fun aPlaylistsPagesSayWhatsOnNowToo() {
-        val channels = page(container.content.channelPages(listOf(demo), Categories.ALL) { now })
+        val channels = page { container.content.channelPages(listOf(demo), Categories.ALL) { now } }
         assertEquals("World Tonight", channels.first().nowTitle)
         assertTrue(channels.first().nowStop!! > now)
         // Only the page is looked up: the list's own query (which Room also counts) leaves it out.
-        assertEquals(null, page(dao.pagedChannels(demo)).first().nowTitle)
+        assertEquals(null, page { dao.pagedChannels(demo) }.first().nowTitle)
     }
 
     @Test
@@ -72,9 +71,9 @@ class CombinedPlaylistsTest {
         assertEquals("Football", categories.last().name)
         assertEquals(
             listOf("Metro News 24", "Global Report", "Second News HD"),
-            page(dao.pagedChannelsInNamedCategory(ids, "news")).map { it.stream.name },
+            page { dao.pagedChannelsInNamedCategory(ids, "news") }.map { it.stream.name },
         )
-        val dramas = page(container.content.itemPages(ids, ContentKind.MOVIE, Categories.named("drama"), VodOrder(VodSort.PROVIDER))).map { it.name }
+        val dramas = page { container.content.itemPages(ids, ContentKind.MOVIE, Categories.named("drama"), VodOrder(VodSort.PROVIDER)) }.map { it.name }
         assertTrue(dramas.containsAll(listOf("Midnight Harbor", "Northern Lights", "Quiet Tide")))
         assertEquals("Quiet Tide", dramas.last())
     }
@@ -85,10 +84,12 @@ class CombinedPlaylistsTest {
         val channel = content.getStream(second, ContentKind.LIVE, "ch0")!!
         content.toggleFavorite(second, ContentKind.LIVE, "ch0")
         for (category in listOf(Categories.ALL, Categories.named("news"), Categories.FAVORITES)) {
-            val source = when (category) {
-                Categories.ALL -> dao.pagedChannelsIn(ids)
-                Categories.FAVORITES -> dao.pagedFavoriteChannelsIn(ids)
-                else -> dao.pagedChannelsInNamedCategory(ids, "news")
+            val source = {
+                when (category) {
+                    Categories.ALL -> dao.pagedChannelsIn(ids)
+                    Categories.FAVORITES -> dao.pagedFavoriteChannelsIn(ids)
+                    else -> dao.pagedChannelsInNamedCategory(ids, "news")
+                }
             }
             val expected = page(source).indexOfFirst { it.stream.playlistId == second && it.stream.streamId == "ch0" }
             assertEquals(category, expected, content.channelPosition(ids, category, channel))
@@ -112,18 +113,18 @@ class CombinedPlaylistsTest {
     @Test
     fun hiddenCategoriesStayHiddenWhenCombined() = runBlocking {
         container.content.setCategoriesVisible(second, ContentKind.LIVE, listOf("7"), visible = false)
-        assertEquals(listOf("Metro News 24", "Global Report"), page(dao.pagedChannelsInNamedCategory(ids, "news")).map { it.stream.name })
-        assertTrue(page(dao.pagedChannelsIn(ids)).none { it.stream.name == "Second News HD" })
+        assertEquals(listOf("Metro News 24", "Global Report"), page { dao.pagedChannelsInNamedCategory(ids, "news") }.map { it.stream.name })
+        assertTrue(page { dao.pagedChannelsIn(ids) }.none { it.stream.name == "Second News HD" })
     }
 
     @Test
     fun favouritesFromEveryPlaylist() = runBlocking {
         container.content.toggleFavorite(second, ContentKind.LIVE, "ch1")
         container.content.toggleFavorite(second, ContentKind.MOVIE, "mv0")
-        val channels = page(dao.pagedFavoriteChannelsIn(ids)).map { it.stream.name }
+        val channels = page { dao.pagedFavoriteChannelsIn(ids) }.map { it.stream.name }
         assertEquals("Second Football", channels.first())
         assertTrue(channels.size > 1)
-        assertEquals("Quiet Tide", page(container.content.itemPages(ids, ContentKind.MOVIE, Categories.FAVORITES, VodOrder(VodSort.PROVIDER))).first().name)
+        assertEquals("Quiet Tide", page { container.content.itemPages(ids, ContentKind.MOVIE, Categories.FAVORITES, VodOrder(VodSort.PROVIDER)) }.first().name)
     }
 
     @Test
