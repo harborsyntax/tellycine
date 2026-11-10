@@ -1,0 +1,5 @@
+• Sports Hub: better at telling live coverage from replays and highlights
+• Fewer magazine shows and news taken for events
+• Matches named from descriptions, and from more event channel names, in UK and US time
+• Settings › Sports › Sport found shows what was found in each guide, with Look again
+• On TV, the Sports tab says it's loading rather than staying blank

@@ -6,6 +6,7 @@ import app.tellycine.AppContainer
 import app.tellycine.core.sports.Sport
 import app.tellycine.core.sports.SportCatalogue
 import app.tellycine.core.sports.SportNames
+import app.tellycine.data.db.SportsStatus
 import app.tellycine.data.repo.CatchupResolver
 import app.tellycine.data.settings.AppSettings
 import app.tellycine.data.sports.SportEvent
@@ -108,6 +109,10 @@ class SportsViewModel(private val container: AppContainer) : ViewModel() {
 
     /** Whether sport is being looked for in the guides right now. */
     val indexing: StateFlow<Boolean> = container.sportsIndexer.working
+
+    /** What was found in each playlist, and when. */
+    val status: StateFlow<List<SportsStatus>> = container.sports.status()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val state: StateFlow<SportsHubState> = combine(events, settings, _filter, clock, container.playlists.playlists) { events, prefs, filter, now, playlists ->
         hubState(events, prefs, filter, now, playlists.size)
@@ -242,6 +247,9 @@ class SportsViewModel(private val container: AppContainer) : ViewModel() {
     fun setReplays(enabled: Boolean) {
         viewModelScope.launch { container.settings.setSportsReplays(enabled) }
     }
+
+    /** Looks through every playlist's guide again. */
+    fun lookAgain() = container.sportsIndexer.refreshAll()
 
     fun setEventChannels(enabled: Boolean) {
         viewModelScope.launch { container.settings.setSportsEventChannels(enabled) }

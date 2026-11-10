@@ -12,6 +12,7 @@ import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.data.db.SportAiringEntity
 import app.tellycine.data.db.StreamEntity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -70,6 +71,22 @@ class SportsIndexerTest {
         // The same as looking through all of it.
         indexer.index(pid, full = true)
         assertEquals(refreshed, airings(pid))
+
+        // What it found, to say so in Settings and when the hub is empty.
+        val status = app.container.sports.status().first().single { it.playlistId == pid }
+        assertEquals("Sport", status.name)
+        assertEquals(4, status.programmes)
+        assertEquals(1, status.eventChannels)
+        assertTrue(status.indexedAt!! > 0)
+        assertEquals(null, status.error)
+    }
+
+    @Test
+    fun aPlaylistNotLookedThroughSaysSo() = runBlocking(Dispatchers.IO) {
+        val pid = db.playlists().insert(PlaylistEntity(name = "New", type = PlaylistType.M3U_URL, url = "x"))
+        val status = app.container.sports.status().first().single { it.playlistId == pid }
+        assertEquals(null, status.indexedAt)
+        assertEquals(0, status.programmes)
     }
 
     private companion object {

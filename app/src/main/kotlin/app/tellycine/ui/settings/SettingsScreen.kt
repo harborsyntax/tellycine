@@ -88,6 +88,12 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setSportsReplays(v: Boolean) = viewModelScope.launch { repo.setSportsReplays(v) }
     fun setSportsEventChannels(v: Boolean) = viewModelScope.launch { repo.setSportsEventChannels(v) }
 
+    /** What the Sports Hub found in each playlist, and whether it's looking now. */
+    val sportsStatus: StateFlow<List<app.tellycine.data.db.SportsStatus>> = container.sports.status()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val sportsWorking: StateFlow<Boolean> = container.sportsIndexer.working
+    fun lookForSportAgain() = container.sportsIndexer.refreshAll()
+
     /** Checking a TMDB key before keeping it. */
     sealed interface KeyCheck {
         data object Idle : KeyCheck
@@ -232,6 +238,13 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit, onOpenSports
                 )
                 SwitchItem("Replays and highlights", SportsText.replays(s.sportsReplays), s.sportsReplays, vm::setSportsReplays)
                 SwitchItem("Event channels", SportsText.EVENT_CHANNELS, s.sportsEventChannels, vm::setSportsEventChannels)
+                val status by vm.sportsStatus.collectAsStateWithLifecycle()
+                val working by vm.sportsWorking.collectAsStateWithLifecycle()
+                ListItem(
+                    headlineContent = { Text("Sport found") },
+                    supportingContent = { Text(SportsText.found(status, working).ifEmpty { "No playlists yet" }) },
+                    trailingContent = { TextButton(onClick = { vm.lookForSportAgain() }, enabled = !working) { Text("Look again") } },
+                )
             }
             Text(
                 SportsText.ABOUT,

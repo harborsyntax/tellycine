@@ -610,6 +610,15 @@ interface SportsDao {
         clearIndexStates()
     }
 
+    /** What was found in each playlist, kept up to date. */
+    @Query(
+        """SELECT p.id AS playlistId, p.name AS name, i.indexedAt AS indexedAt, i.error AS error,
+             (SELECT COUNT(*) FROM sport_airings a WHERE a.playlistId = p.id AND a.streamId IS NULL) AS programmes,
+             (SELECT COUNT(*) FROM sport_airings a WHERE a.playlistId = p.id AND a.streamId IS NOT NULL) AS eventChannels
+           FROM playlists p LEFT JOIN sport_index i ON i.playlistId = p.id ORDER BY p.createdAt"""
+    )
+    fun observeStatus(): Flow<List<SportsStatus>>
+
     /** The playlists whose sport was found with [version]'s rules. */
     @Query("SELECT playlistId FROM sport_index WHERE version = :version")
     fun indexedWith(version: Int): List<Long>

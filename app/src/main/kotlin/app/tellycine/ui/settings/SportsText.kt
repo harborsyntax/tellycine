@@ -1,7 +1,9 @@
 package app.tellycine.ui.settings
 
 import app.tellycine.core.sports.Sport
+import app.tellycine.data.db.SportsStatus
 import app.tellycine.data.settings.AppSettings
+import app.tellycine.ui.components.formatRelative
 
 /** What Settings says about the Sports Hub, on phones and on TV. */
 object SportsText {
@@ -16,4 +18,24 @@ object SportsText {
         val sports = if (s.sports.containsAll(Sport.FOLLOWABLE)) "All sports" else Sport.FOLLOWABLE.filter { it in s.sports }.joinToString(", ") { it.label }
         return if (s.sportsTeams.isEmpty()) sports else "$sports · ${s.sportsTeams.joinToString(", ")}"
     }
+
+    /**
+     * What was found in each playlist, a line each: "Demo IPTV: 312 sport programmes and 40 event
+     * channels, looked 5 minutes ago", or that it hasn't looked yet, or couldn't.
+     */
+    fun found(status: List<SportsStatus>, working: Boolean): String = buildString {
+        if (working) append("Looking through your guides now…")
+        for (s in status) {
+            if (isNotEmpty()) append('\n')
+            append(s.name).append(": ")
+            when {
+                s.error != null -> append("couldn't look through its guide (").append(s.error.take(120)).append(")")
+                s.indexedAt == null || s.indexedAt == 0L -> append("not looked through yet")
+                else -> append(count(s.programmes, "sport programme")).append(" and ").append(count(s.eventChannels, "event channel"))
+                    .append(", looked ").append(formatRelative(s.indexedAt))
+            }
+        }
+    }
+
+    private fun count(n: Int, what: String) = "%,d %s%s".format(n, what, if (n == 1) "" else "s")
 }

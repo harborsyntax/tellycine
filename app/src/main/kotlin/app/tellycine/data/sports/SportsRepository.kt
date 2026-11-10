@@ -4,9 +4,11 @@ import app.tellycine.core.sports.AiringKind
 import app.tellycine.core.sports.Follows
 import app.tellycine.core.sports.Sport
 import app.tellycine.core.sports.SportCatalogue
+import app.tellycine.core.sports.SportClassifier
 import app.tellycine.core.sports.SportNames
 import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.SportAiringEntity
+import app.tellycine.data.db.SportsStatus
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.db.TellycineDatabase
 import kotlinx.coroutines.Dispatchers
@@ -71,14 +73,17 @@ class SportsRepository(private val db: TellycineDatabase) {
         val kinds = if (replays) listOf(AiringKind.LIVE, AiringKind.EVENT, AiringKind.HIGHLIGHTS, AiringKind.REPLAY) else listOf(AiringKind.LIVE, AiringKind.EVENT)
         val follows = Follows(teams)
         return combine(dao.observeBetween(fromMs, toMs, Sport.entries, kinds), db.playlists().observeAll()) { airings, playlists -> airings to playlists }
-            .mapLatest { (airings, playlists) -> build(airings.filter { eventChannels || !it.isEventChannel }, playlists, follows) }
+            .mapLatest { (airings, playlists) -> build(airings.filter { eventChannels || !it.isEventChannel }, playlists, follows, replays) }
             .flowOn(Dispatchers.IO)
     }
+
+    /** What was found in each playlist, and when. */
+    fun status(): Flow<List<SportsStatus>> = dao.observeStatus()
 
     /** Teams and players in the events found, for suggestions while choosing what to follow. */
     suspend fun sideNames(): List<String> = dao.sideNames()
 
-    private suspend fun build(airings: List<SportAiringEntity>, playlists: List<PlaylistEntity>, follows: Follows): List<SportEvent> {
+    private suspend fun build(airings: List<SportAiringEntity>, playlists: List<PlaylistEntity>, follows: Follows, replays: Boolean): List<SportEvent> {
         val byId = playlists.associateBy { it.id }
         // Each airing's channels: those with its guide id, or the event channel, if they're not hidden.
         val sources = ArrayList<SportSource>()
@@ -97,7 +102,7 @@ class SportsRepository(private val db: TellycineDatabase) {
                 for (s in streams) sources += SportSource(playlist, s, a)
             }
         }
-        return group(sources, follows)
+        return group(unmarkedAsReplays(sources, replays), follows)
     }
 
     companion object {
@@ -106,6 +111,41 @@ class SportsRepository(private val db: TellycineDatabase) {
         /** How far apart the same event can start on different channels: build-up starts earlier on some. */
         private const val SAME_EVENT_MS = 4 * 60 * 60 * 1000L
         private const val SAME_SHOW_MS = 60 * 60 * 1000L
+
+        /** A broadcaster's sports channels that say "Live" this often in a playlist's guide say it of all their live coverage. */
+        private const val MARKS_LIVE = 3
+
+        /**
+         * UK sports broadcasters (Sky Sports, TNT Sports, Premier Sports) say "Live" on their live
+         * coverage, and show matches again under plain names ("The Emirates FA Cup"). So where a
+         * broadcaster's sports channels in a playlist say "Live", their coverage that doesn't is
+         * shown again: left out, or with [replays], shown as replays. Channels that aren't sports
+         * channels (ITV4's snooker) and broadcasters that never say "Live" are as they were.
+         */
+        fun unmarkedAsReplays(sources: List<SportSource>, replays: Boolean): List<SportSource> {
+            val classifier = SportClassifier()
+            val sportsChannel = HashMap<String, Boolean>()
+            fun onSportsChannel(s: SportSource) = !s.airing.isEventChannel && sportsChannel.getOrPut(s.stream.name) { classifier.channel(s.stream.name).isSport }
+            fun broadcaster(s: SportSource) = s.playlist.id to broadcasterOf(s.stream.name)
+            val marked = sources.filter { it.airing.kind == AiringKind.LIVE && onSportsChannel(it) }
+                .distinctBy { Triple(it.playlist.id, it.airing.channelId, it.airing.startMs) }
+                .groupingBy(::broadcaster).eachCount()
+                .filterValues { it >= MARKS_LIVE }.keys
+            if (marked.isEmpty()) return sources
+            return sources.mapNotNull { s ->
+                val shownAgain = s.airing.kind == AiringKind.EVENT && onSportsChannel(s) && broadcaster(s) in marked
+                when {
+                    !shownAgain -> s
+                    replays -> s.copy(airing = s.airing.copy(kind = AiringKind.REPLAY))
+                    else -> null
+                }
+            }
+        }
+
+        private val COUNTRY_PREFIX = Regex("^\\s*(?:[\\[(|]?\\s*[A-Za-z]{2,3}\\s*[\\])|:]\\s*)+")
+
+        /** Who a channel belongs to, by the first word of its name: "TNT Sports 4 HD" and "UK: TNT Sports 1" are both "tnt". */
+        fun broadcasterOf(name: String): String = SportNames.key(name.replace(COUNTRY_PREFIX, "")).substringBefore(' ')
 
         /** [sources] gathered into events, soonest first. */
         fun group(sources: List<SportSource>, follows: Follows): List<SportEvent> {

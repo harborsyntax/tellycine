@@ -17,7 +17,7 @@ object SportNames {
      * "Atlético Madrid" and "Atletico Madrid" are both "atletico madrid", "Man Utd" is "man united".
      */
     fun key(name: String): String {
-        val plain = marks.replace(Normalizer.normalize(name, Normalizer.Form.NFD), "")
+        val plain = plain(name)
             .lowercase(Locale.ROOT)
             .replace("&", " and ")
             .replace("ß", "ss")
@@ -27,6 +27,23 @@ object SportNames {
             .let { list -> if (list.size > 1) list.filterNot { it in clubWords } else list }
             .joinToString(" ")
     }
+
+    /**
+     * [name] with look-alike letters as plain ones and without accents: "ᴴᴰ" is "HD", "ᴸᶦᵛᵉ" is
+     * "Live", "Atlético" is "Atletico".
+     */
+    fun plain(name: String): String {
+        if (name.all { it.code < 128 }) return name
+        val decomposed = marks.replace(Normalizer.normalize(name, Normalizer.Form.NFKD), "")
+        // Small capitals, which decomposing leaves as they are ("ᶦ" is "ɪ").
+        return if (decomposed.none { it in SMALL_CAPITALS }) decomposed else decomposed.map { SMALL_CAPITALS[it] ?: it }.joinToString("")
+    }
+
+    private val SMALL_CAPITALS: Map<Char, Char> = mapOf(
+        'ᴀ' to 'a', 'ʙ' to 'b', 'ᴄ' to 'c', 'ᴅ' to 'd', 'ᴇ' to 'e', 'ꜰ' to 'f', 'ɢ' to 'g', 'ʜ' to 'h', 'ɪ' to 'i', 'ᴊ' to 'j',
+        'ᴋ' to 'k', 'ʟ' to 'l', 'ᴍ' to 'm', 'ɴ' to 'n', 'ᴏ' to 'o', 'ᴘ' to 'p', 'ʀ' to 'r', 'ꜱ' to 's', 'ᴛ' to 't', 'ᴜ' to 'u',
+        'ᴠ' to 'v', 'ᴡ' to 'w', 'ʏ' to 'y', 'ᴢ' to 'z',
+    )
 
     /** Up to three letters for a side without a code of its own: "Luke Littler" is "LL", "Inter" is "INT". */
     fun monogram(name: String): String {
@@ -54,7 +71,7 @@ data class SportFigure(
     /** Other names it goes by in guides. */
     val aliases: List<String> = emptyList(),
 ) {
-    val keys: List<String> get() = (listOf(name) + aliases).map(SportNames::key).distinct()
+    val keys: List<String> = (listOf(name) + aliases).map(SportNames::key).distinct()
 
     /**
      * Teams and drivers in motor racing take part in every race, so following one follows its
@@ -346,9 +363,12 @@ object SportCatalogue {
     /** The team or player [name] is, if it's one the Sports Hub knows. */
     fun find(name: String): SportFigure? = byKey[SportNames.key(name)]
 
+    private val bySportAndKey: Map<Pair<Sport, String>, SportFigure> = buildMap {
+        for (figure in figures) for (key in figure.keys) putIfAbsent(figure.sport to key, figure)
+    }
+
     /** The team or player [name] is, among those of [sport]. */
-    fun find(name: String, sport: Sport): SportFigure? =
-        find(name)?.takeIf { it.sport == sport } ?: SportNames.key(name).let { key -> figures.firstOrNull { it.sport == sport && key in it.keys } }
+    fun find(name: String, sport: Sport): SportFigure? = bySportAndKey[sport to SportNames.key(name)]
 
     /** Teams and players whose name starts with what's typed, or has a word that does, best first. */
     fun suggest(typed: String, limit: Int = 8): List<SportFigure> {
