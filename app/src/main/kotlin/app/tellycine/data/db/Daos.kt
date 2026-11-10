@@ -560,7 +560,12 @@ interface SportsDao {
     @Query("SELECT id, substr(description, 1, 300) AS description FROM programmes WHERE id IN (:ids)")
     fun descriptions(ids: List<Long>): List<ProgrammeDescription>
 
-    @Query("SELECT streamId, name, epgChannelId FROM streams WHERE playlistId = :playlistId AND kind = 'LIVE' ORDER BY sortOrder")
+    /** The playlist's live channels, with the name of the category each is in (radio stations' say so). */
+    @Query(
+        """SELECT s.streamId, s.name, s.epgChannelId, c.name AS category FROM streams s
+        LEFT JOIN categories c ON c.playlistId = s.playlistId AND c.kind = 'LIVE' AND c.categoryId = s.categoryId
+        WHERE s.playlistId = :playlistId AND s.kind = 'LIVE' ORDER BY s.sortOrder""",
+    )
     fun liveChannels(playlistId: Long): List<LiveChannelName>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

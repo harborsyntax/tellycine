@@ -212,12 +212,12 @@ private fun TvHome(navigator: TvNavigator) {
     LaunchedEffect(vodEnabled, session.sportsHub) {
         if (tab !in tabs) tab = TvTab.LIVE
     }
-    // A live channel left with Back plays on in the guide's mini player, which only the guide shows:
-    // played from anywhere else (Sports, Search, Library), it stops.
+    // A live channel left with Back plays on in the mini player, which the guide and Sports show:
+    // played from anywhere else (Search, Library), it stops.
     val playback = LocalContext.current.container.tvPlayback
     val mini = playback.mini
     LaunchedEffect(mini, tab) {
-        if (mini != null && tab != TvTab.LIVE) playback.stopMini()
+        if (mini != null && tab != TvTab.LIVE && tab != TvTab.SPORTS) playback.stopMini()
     }
     // First run: go straight to playlist setup.
     LaunchedEffect(session.loaded, session.playlists.isEmpty()) {

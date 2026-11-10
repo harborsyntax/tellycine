@@ -1,6 +1,8 @@
 package app.tellycine.data.sports
 
 import app.tellycine.core.sports.AiringKind
+import app.tellycine.core.sports.Competition
+import app.tellycine.core.sports.Competitions
 import app.tellycine.core.sports.Follows
 import app.tellycine.core.sports.Sport
 import app.tellycine.core.sports.SportCatalogue
@@ -45,6 +47,8 @@ data class SportEvent(
     val stopMs: Long,
     /** Where it's on, those on now first. */
     val sources: List<SportSource>,
+    /** The competition it's in, as the hub files it, for filtering by country and league. */
+    val league: Competition? = null,
     /** The teams and players followed that it's for. */
     val followed: List<String>,
 ) {
@@ -221,8 +225,17 @@ class SportsRepository(private val db: TellycineDatabase) {
                     compareBy<SportSource>({ it.airing.startMs.takeIf { s -> s != 0L } ?: start }, { it.playlist.createdAt }, { it.stream.sortOrder })
                 ),
                 followed = followed,
+                league = leagueOf(sources, a.sport),
             )
         }
+
+        /**
+         * The competition [sources]' event is in: what the guide says it is, or what a programme's
+         * title or an event channel's name does ("EPL 03: Arsenal v Chelsea").
+         */
+        private fun leagueOf(sources: List<SportSource>, sport: Sport): Competition? =
+            sources.firstNotNullOfOrNull { s -> s.airing.competition?.let { Competitions.of(it, sport) } }
+                ?: sources.firstNotNullOfOrNull { s -> Competitions.find(s.airing.programmeTitle, sport) }
 
         private fun side(name: String, sport: Sport): SportSide {
             val figure = SportCatalogue.find(name, sport)

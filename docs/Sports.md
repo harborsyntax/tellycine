@@ -9,7 +9,8 @@ The **Sports** tab shows the sport on now and coming up in your playlists: footb
 </p>
 
 ## What it shows
-- **Filters** along the top: **For you** (the sports you follow, and your teams and players), **All** (every sport found, other sports too), and one for each sport you follow.
+- **Filters** along the top: **For you** (the sports you follow, and your teams and players), **All** (every sport found, other sports too), **Live** (what your TV guides say is live, now and to come, in every sport), and one for each sport you follow.
+- **Countries and competitions:** in a sport, a second row chooses between the competitions on, such as **Premier League**, **Champions League** or **LaLiga**, and a country with more than one, such as **England** for all of its. Football goes by country, UK first; tennis, golf, darts and snooker by tour and event.
 - **Live now:** what's on now, with how long it's been on and the channel it's on ("City Sports 1 · 2 more" when it's on more than one).
 - **Your teams:** each team or player you follow, with their next event in your guides.
 - **Coming up:** what's on later, day by day, as far ahead as your TV guides go.
@@ -36,6 +37,8 @@ Everything comes from your own playlists, on your device:
 
 The same match on several channels, or in several playlists, is one event with every channel it's on.
 
+Episodes of series ("S05 E12"), films, and radio and music channels aren't taken for sport, whatever they're called: The Simpsons' "Tennis the Menace" isn't tennis. On a sports channel, a series is a magazine or documentary, and stays out too.
+
 Sport is found after each refresh of a playlist or its guide, in the background. Only what's new in the guide is looked through again.
 
 ### Getting the best results
@@ -61,8 +64,10 @@ The empty Sports tab, and **Settings → Sports → Sport found**, say what was 
 <img src="images/screens/tv-sports.png" width="640" alt="Sports on TV">
 
 - Rows of cards: **Live now**, **Your teams**, then each day's events.
-- **OK** on a live event plays it. On one coming up, or held on a live one, it opens the event's panel: where to watch it, from the start, and following its sides.
+- **OK** on a live event plays it. On one coming up, or held on a live one, it opens the event's panel: where to watch it, from the start, **Record** (where the playlist can record, as in the guide), **Multi-view** (when it's on now), and following its sides.
+- **Hold OK** on a channel in the event's panel for that channel's options and schedule, as in the guide: favourites, Multi-view, Open with…, its stream URL, and watching or recording its programmes. **Back** returns to the event.
 - **Your sports** at the top chooses what you follow.
+- Back from a live channel, it plays on in a **mini player** at the top, as in the guide. OK on it, or **holding Back**, returns it to full screen; it stops when you leave Sports.
 - **Back** goes to the filters, **Back** again opens the side menu, and **Back** from the menu asks whether to leave Tellycine.
 
 <img src="images/screens/tv-sports-event.png" width="640" alt="An event on TV">

@@ -3,6 +3,8 @@ package app.tellycine.ui.sports
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.tellycine.AppContainer
+import app.tellycine.core.sports.AiringKind
+import app.tellycine.core.sports.Competitions
 import app.tellycine.core.sports.Sport
 import app.tellycine.core.sports.SportCatalogue
 import app.tellycine.core.sports.SportNames
@@ -31,19 +33,41 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
+import java.util.Locale
 
-/** Which events the hub shows: those of the sports and teams followed, all of them, or one sport's. */
+/**
+ * Which events the hub shows: those of the sports and teams followed, all of them, those the
+ * guides say are live, or one sport's.
+ */
 sealed interface SportsFilter {
     data object ForYou : SportsFilter
     data object All : SportsFilter
+    data object Live : SportsFilter
     data class Only(val sport: Sport) : SportsFilter
 
     val label: String
         get() = when (this) {
             ForYou -> "For you"
             All -> "All"
+            Live -> "Live"
             is Only -> sport.label
         }
+}
+
+/**
+ * Within a sport, a country's or region's competitions ([competition] null), or one competition:
+ * "England", "Premier League", "Champions League".
+ */
+data class LeagueFilter(val label: String, val region: String?, val competition: String?) {
+    fun matches(e: SportEvent): Boolean {
+        val league = e.league ?: return false
+        return if (competition != null) league.name == competition && league.region == region else league.region == region
+    }
+
+    companion object {
+        /** "All football": every competition in [sport], the first choice within it. */
+        fun allOf(sport: Sport): String = "All ${sport.label.lowercase(Locale.ROOT)}"
+    }
 }
 
 /** A team or player followed, and their next event, if one is in the guides. */
@@ -56,6 +80,9 @@ data class SportsHubState(
     val loaded: Boolean = false,
     val filters: List<SportsFilter> = listOf(SportsFilter.ForYou, SportsFilter.All),
     val filter: SportsFilter = SportsFilter.ForYou,
+    /** Within a sport, its countries and competitions, when there's a choice; none chosen is all of them. */
+    val leagues: List<LeagueFilter> = emptyList(),
+    val league: LeagueFilter? = null,
     val live: List<SportEvent> = emptyList(),
     val teams: List<TeamCard> = emptyList(),
     val days: List<SportDay> = emptyList(),
@@ -106,6 +133,8 @@ class SportsViewModel(private val container: AppContainer) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val _filter = MutableStateFlow<SportsFilter>(SportsFilter.ForYou)
+    private val _league = MutableStateFlow<LeagueFilter?>(null)
+    private val chosen = combine(_filter, _league) { f, l -> f to l }
 
     /** Whether sport is being looked for in the guides right now. */
     val indexing: StateFlow<Boolean> = container.sportsIndexer.working
@@ -114,32 +143,50 @@ class SportsViewModel(private val container: AppContainer) : ViewModel() {
     val status: StateFlow<List<SportsStatus>> = container.sports.status()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val state: StateFlow<SportsHubState> = combine(events, settings, _filter, clock, container.playlists.playlists) { events, prefs, filter, now, playlists ->
-        hubState(events, prefs, filter, now, playlists.size)
+    val state: StateFlow<SportsHubState> = combine(events, settings, chosen, clock, container.playlists.playlists) { events, prefs, (filter, league), now, playlists ->
+        hubState(events, prefs, filter, league, now, playlists.size)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SportsHubState())
 
     fun select(filter: SportsFilter) {
+        if (filter != _filter.value) _league.value = null
         _filter.value = filter
     }
 
-    private fun hubState(events: List<SportEvent>?, prefs: AppSettings, chosen: SportsFilter, now: Long, playlists: Int): SportsHubState {
-        val filters = listOf(SportsFilter.ForYou, SportsFilter.All) + Sport.FOLLOWABLE.filter { it in prefs.sports }.map { SportsFilter.Only(it) }
+    /** Within the sport chosen, a country or competition; null for all of them. */
+    fun selectLeague(league: LeagueFilter?) {
+        _league.value = league
+    }
+
+    private fun hubState(
+        events: List<SportEvent>?,
+        prefs: AppSettings,
+        chosen: SportsFilter,
+        chosenLeague: LeagueFilter?,
+        now: Long,
+        playlists: Int,
+    ): SportsHubState {
+        val filters = listOf(SportsFilter.ForYou, SportsFilter.All, SportsFilter.Live) +
+            Sport.FOLLOWABLE.filter { it in prefs.sports }.map { SportsFilter.Only(it) }
         val filter = chosen.takeIf { it in filters } ?: SportsFilter.ForYou
         val all = events.orEmpty().filter { it.stopMs > now }
-        val shown = all.filter { e ->
+        val inFilter = all.filter { e ->
             when (filter) {
                 SportsFilter.ForYou -> e.sport in prefs.sports || e.isFollowed
                 SportsFilter.All -> true
+                SportsFilter.Live -> e.kind == AiringKind.LIVE
                 is SportsFilter.Only -> e.sport == filter.sport
             }
         }
+        val leagues = if (filter is SportsFilter.Only) leaguesOf(inFilter) else emptyList()
+        val league = chosenLeague?.takeIf { it in leagues }
+        val shown = if (league == null) inFilter else inFilter.filter(league::matches)
         val live = shown.filter { it.isLive(now) }.sortedWith(compareBy({ !it.isFollowed }, { Sport.entries.indexOf(it.sport) }, { it.startMs }))
         val upcoming = shown.filter { !it.isLive(now) && it.startMs > now }
         val zone = ZoneId.systemDefault()
         val days = upcoming.groupBy { Instant.ofEpochMilli(it.startMs).atZone(zone).toLocalDate() }
             .map { (day, list) -> SportDay(day.atStartOfDay(zone).toInstant().toEpochMilli(), list) }
             .sortedBy { it.dayStartMs }
-        val teams = if (filter == SportsFilter.All) emptyList() else prefs.sportsTeams.mapNotNull { name ->
+        val teams = if (filter == SportsFilter.All || filter == SportsFilter.Live) emptyList() else prefs.sportsTeams.mapNotNull { name ->
             val figure = SportCatalogue.find(name)
             if (filter is SportsFilter.Only && figure != null && figure.sport != filter.sport) return@mapNotNull null
             val next = all.firstOrNull { name in it.followed && (it.isLive(now) || it.startMs > now) }
@@ -155,6 +202,8 @@ class SportsViewModel(private val container: AppContainer) : ViewModel() {
             loaded = events != null,
             filters = filters,
             filter = filter,
+            leagues = leagues,
+            league = league,
             live = live,
             teams = teams,
             days = days,
@@ -166,6 +215,29 @@ class SportsViewModel(private val container: AppContainer) : ViewModel() {
             ask = !prefs.sportsAsked,
             now = now,
         )
+    }
+
+    /**
+     * The countries and competitions [events] are in, to choose between: UK first, then Europe and
+     * international competitions, then other countries by how much is on in them. A country with
+     * more than one competition comes before them, for all of its; none, when there's no choice.
+     */
+    private fun leaguesOf(events: List<SportEvent>): List<LeagueFilter> {
+        val counts = events.mapNotNull { it.league }.groupingBy { it }.eachCount()
+        if (counts.isEmpty() || (counts.size == 1 && events.all { it.league != null })) return emptyList()
+        val byRegion = counts.keys.groupBy { it.region }
+        val regions = byRegion.keys.sortedWith(
+            compareBy<String?>(
+                { r -> if (r == null) Int.MAX_VALUE else Competitions.FIRST_REGIONS.indexOf(r).takeIf { it >= 0 } ?: Competitions.FIRST_REGIONS.size },
+                { r -> -byRegion.getValue(r).sumOf { counts.getValue(it) } },
+                { it.orEmpty() },
+            ),
+        )
+        return regions.flatMap { region ->
+            val competitions = byRegion.getValue(region).sortedWith(compareBy({ Competitions.rank(it) }, { -counts.getValue(it) }, { it.name }))
+            val all = if (region != null && competitions.size > 1) listOf(LeagueFilter(region, region, null)) else emptyList()
+            all + competitions.map { LeagueFilter(it.name, it.region, it.name) }
+        }
     }
 
     // ---- An event ----

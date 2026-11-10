@@ -15,6 +15,7 @@ import app.tellycine.data.db.ChannelRow
 import app.tellycine.data.db.NowPlaying
 import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.ProgrammeEntity
+import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.repo.Categories
 import app.tellycine.data.repo.CatchupResolver
 import app.tellycine.data.repo.PlaylistFilter
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -157,6 +159,18 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
+    /**
+     * The options and schedule of [stream]'s channel, opened from somewhere other than the guide
+     * (an event's channel in the Sports Hub): with what's on now and whether it's a favourite.
+     */
+    fun showSchedule(stream: StreamEntity) {
+        viewModelScope.launch {
+            val favorite = content.isFavorite(stream.playlistId, ContentKind.LIVE, stream.streamId).first()
+            val row = content.withNowPlaying(listOf(ChannelRow(stream, null, null, null, favorite)), System.currentTimeMillis()).first()
+            showSchedule(row)
+        }
+    }
+
     // ---- Grid guide ----
 
     /** Whether the user chose the grid guide for landscape. */
@@ -238,7 +252,8 @@ class LiveViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    private fun refreshRecordings(row: ChannelRow) {
+    /** Brings [row]'s playlist's recordings up to date, when they're more than a minute old. */
+    fun refreshRecordings(row: ChannelRow) {
         val p = playlistOf(row)?.takeIf { it.hasDvr } ?: return
         val loadedAt = container.dvr.state.value[p.id]?.loadedAt ?: 0
         if (System.currentTimeMillis() - loadedAt > 60_000) viewModelScope.launch { container.dvr.refresh(p) }

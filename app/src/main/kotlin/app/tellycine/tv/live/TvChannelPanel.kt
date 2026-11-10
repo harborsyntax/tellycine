@@ -1,5 +1,7 @@
 package app.tellycine.tv.live
 
+import android.widget.Toast
+import androidx.compose.runtime.LaunchedEffect
 import app.tellycine.player.multiview.MultiViewActivity
 import app.tellycine.container
 import androidx.compose.material.icons.filled.GridView
@@ -56,6 +58,7 @@ import app.tellycine.player.play
 import app.tellycine.tv.components.RequestFocusOnStart
 import app.tellycine.tv.components.TvActionButton
 import app.tellycine.tv.components.TvDialog
+import app.tellycine.tv.components.TvQrDialog
 import app.tellycine.tv.components.TvSidePanel
 import app.tellycine.tv.components.TvSourceLabel
 import app.tellycine.tv.components.fasterWhenHeld
@@ -64,6 +67,33 @@ import app.tellycine.ui.components.formatDay
 import app.tellycine.ui.components.formatTime
 import app.tellycine.ui.live.LiveViewModel
 import app.tellycine.ui.live.ScheduleState
+
+/**
+ * The channel options [vm] has open ([LiveViewModel.showSchedule]), with what they open in turn: a
+ * Dispatcharr channel's sources to choose from, a stream URL's QR code, and their messages. The
+ * guide and the Sports Hub both show them so.
+ */
+@Composable
+fun TvChannelOptions(vm: LiveViewModel) {
+    val context = LocalContext.current
+    val schedule by vm.schedule.collectAsStateWithLifecycle()
+    val recordings by vm.recordings.collectAsStateWithLifecycle()
+    var share by remember { mutableStateOf<Pair<String, String>?>(null) }
+    schedule?.let { state ->
+        TvChannelPanel(state = state, vm = vm, recordings = recordings, onShare = { label, url -> share = label to url })
+    }
+    val sources by vm.sources.collectAsStateWithLifecycle()
+    sources?.let { list -> TvSourcePicker(list, onPick = vm::pickSource) }
+    share?.let { (label, url) ->
+        TvQrDialog(title = label, url = url, note = "This link includes your login details.", onDismiss = { share = null })
+    }
+    LaunchedEffect(vm) {
+        vm.events.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+    }
+    LaunchedEffect(vm) {
+        vm.shareRequests.collect { (label, url) -> share = label to url }
+    }
+}
 
 /**
  * A channel's options and full schedule: watch, replay from the start, favourite, open in another

@@ -17,17 +17,25 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.outlined.FiberManualRecord
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +56,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Border
 import androidx.tv.material3.Card
@@ -59,10 +69,13 @@ import androidx.tv.material3.ListItem
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Switch
 import androidx.tv.material3.Text
+import app.tellycine.container
+import app.tellycine.data.db.ChannelRow
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.sports.SportEvent
 import app.tellycine.data.sports.SportSide
 import app.tellycine.data.sports.SportSource
+import app.tellycine.player.multiview.MultiViewActivity
 import app.tellycine.player.play
 import app.tellycine.tv.LocalTvMenuOpen
 import app.tellycine.tv.TvPalette
@@ -73,8 +86,12 @@ import app.tellycine.tv.components.TvHeader
 import app.tellycine.tv.components.TvSidePanel
 import app.tellycine.tv.components.TvSpacing
 import app.tellycine.tv.components.okClicks
+import app.tellycine.tv.live.TvChannelOptions
+import app.tellycine.tv.live.TvMiniPlayer
 import app.tellycine.ui.components.Artwork
 import app.tellycine.ui.components.formatTime
+import app.tellycine.ui.live.LiveViewModel
+import app.tellycine.ui.sports.LeagueFilter
 import app.tellycine.ui.sports.Monogram
 import app.tellycine.ui.sports.SportsFilter
 import app.tellycine.ui.sports.SportsHubState
@@ -103,6 +120,8 @@ import app.tellycine.ui.settings.SportsText
 @Composable
 fun TvSportsScreen(onAddPlaylist: () -> Unit) {
     val vm = tellycineViewModel { c, _ -> SportsViewModel(c) }
+    // The guide's channel options, for an event's channels: its own, so the guide's stay as they were.
+    val channels = tellycineViewModel(key = "sports-channels") { c, _ -> LiveViewModel(c) }
     val state by vm.state.collectAsStateWithLifecycle()
     val indexing by vm.indexing.collectAsStateWithLifecycle()
     val opened by vm.opened.collectAsStateWithLifecycle()
@@ -123,12 +142,29 @@ fun TvSportsScreen(onAddPlaylist: () -> Unit) {
         if (request != null) context.play(request) else vm.open(e)
     }
 
+    // A live channel left with Back plays on above the hub, as in the guide; OK (or holding Back)
+    // returns it to full screen. Only while the hub is on screen.
+    val playback = context.container.tvPlayback
+    val mini = playback.mini
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { playback.stopMini() }
+    DisposableEffect(playback) { onDispose { playback.stopMini() } }
+
     Column(Modifier.fillMaxSize()) {
-        TvHeader(
-            title = "Sports",
-            subtitle = (if (state.multiplePlaylists) "All playlists" else "Your playlist") + if (state.liveCount > 0) " · ${state.liveCount} live now" else "",
-            actions = { TvActionButton("Your sports", onClick = { follow = true }, icon = Icons.Filled.Tune) },
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (mini != null) {
+                TvMiniPlayer(
+                    mini,
+                    onOpen = { context.startActivity(mini.request.toIntent(context)) },
+                    modifier = Modifier.padding(start = TvSpacing.screenStart, top = TvSpacing.screenTop).height(MiniHeight),
+                )
+            }
+            TvHeader(
+                title = "Sports",
+                subtitle = (if (state.multiplePlaylists) "All playlists" else "Your playlist") + if (state.liveCount > 0) " · ${state.liveCount} live now" else "",
+                actions = { TvActionButton("Your sports", onClick = { follow = true }, icon = Icons.Filled.Tune) },
+                modifier = Modifier.weight(1f),
+            )
+        }
         LazyRow(
             contentPadding = PaddingValues(start = TvSpacing.screenStart, end = TvSpacing.screenEnd, top = 2.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -140,11 +176,32 @@ fun TvSportsScreen(onAddPlaylist: () -> Unit) {
                     onClick = { vm.select(f) },
                     leadingIcon = when (f) {
                         SportsFilter.ForYou -> { { Icon(Icons.Filled.Star, null, Modifier.size(18.dp)) } }
+                        SportsFilter.Live -> { { Box(Modifier.size(9.dp).clip(CircleShape).background(MaterialTheme.colorScheme.error)) } }
                         is SportsFilter.Only -> { { Icon(f.sport.icon, null, Modifier.size(18.dp)) } }
                         SportsFilter.All -> null
                     },
                     modifier = if (f == state.filter) Modifier.focusRequester(chips) else Modifier,
                 ) { Text(f.label) }
+            }
+        }
+        // Within a sport: its countries and competitions.
+        val sport = (state.filter as? SportsFilter.Only)?.sport
+        if (sport != null && state.leagues.isNotEmpty()) {
+            LazyRow(
+                contentPadding = PaddingValues(start = TvSpacing.screenStart, end = TvSpacing.screenEnd, bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.focusRestorer(),
+            ) {
+                item(key = "all") {
+                    FilterChip(selected = state.league == null, onClick = { vm.selectLeague(null) }) { Text(LeagueFilter.allOf(sport)) }
+                }
+                items(state.leagues, key = { "${it.region}|${it.competition}" }) { l ->
+                    FilterChip(
+                        selected = l == state.league,
+                        onClick = { vm.selectLeague(l) },
+                        leadingIcon = if (l.competition == null) { { Icon(Icons.Filled.Public, null, Modifier.size(18.dp)) } } else null,
+                    ) { Text(l.label) }
+                }
             }
         }
         when {
@@ -166,27 +223,36 @@ fun TvSportsScreen(onAddPlaylist: () -> Unit) {
                     indexing && !state.anyEvents -> "Finding sport in your guides…" to "This takes a moment after a playlist or its TV guide is refreshed."
                     !state.anyEvents -> "No sport found yet" to
                         "Sport shows here from your playlists' TV guides, and from event channels' names. Guides that give programmes categories work best."
-                    else -> "Nothing on in ${state.filter.label}" to "Try All, or another sport. Events show here as far ahead as your TV guides go."
+                    state.filter == SportsFilter.Live -> "Nothing said to be live" to
+                        "Live shows what your TV guides say is live, now and to come. Guides don't always say: try All."
+                    else -> "Nothing on in ${state.league?.label ?: state.filter.label}" to "Try All, or another sport. Events show here as far ahead as your TV guides go."
                 }
                 TvEmptyState(Icons.Filled.EmojiEvents, title, if (found.isBlank()) message else "$message\n\n$found")
                 RequestFocusOnStart(chips)
             }
             else -> {
+                // Another filter starts from the top, where what's on now is.
+                val list = rememberLazyListState()
+                LaunchedEffect(state.filter, state.league) { list.scrollToItem(0) }
                 LazyColumn(
                     Modifier.fillMaxSize(),
+                    state = list,
                     contentPadding = PaddingValues(bottom = TvSpacing.screenBottom),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     rows(state, now, first, play, open)
                 }
-                RequestFocusOnStart(first, key = state.filter)
+                RequestFocusOnStart(first, key = state.filter to state.league)
             }
         }
     }
 
     opened?.let { event ->
-        TvEventPanel(event, now, vm, followed = settings.sportsTeams, multiplePlaylists = state.multiplePlaylists, onDismiss = vm::close)
+        TvEventPanel(event, now, vm, channels, followed = settings.sportsTeams, multiplePlaylists = state.multiplePlaylists, onDismiss = vm::close)
     }
+    // Over the event's panel: Back returns to it.
+    TvChannelOptions(channels)
+    DisposableEffect(channels) { onDispose { channels.dismissSchedule() } }
     if (follow) TvFollowPanel(vm, onDismiss = { follow = false })
 }
 
@@ -266,6 +332,9 @@ private fun cardColors(container: androidx.compose.ui.graphics.Color = TvPalette
 )
 
 private val CardShape = RoundedCornerShape(16.dp)
+
+/** The mini player above the hub: smaller than the guide's, which has a programme's details beside it. */
+private val MiniHeight = 96.dp
 
 @Composable
 private fun LivePill() {
@@ -411,12 +480,18 @@ private fun TvEventPanel(
     event: SportEvent,
     now: Long,
     vm: SportsViewModel,
+    channels: LiveViewModel,
     followed: List<String>,
     multiplePlaylists: Boolean,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val focus = remember { FocusRequester() }
+    // Recording, where a channel's playlist can: on the first channel it's on that can record it.
+    val recordings by channels.recordings.collectAsStateWithLifecycle()
+    val recordable = event.sources.firstOrNull { it.airing.startMs != 0L && it.airing.stopMs > now && channels.canRecord(it.row()) }
+    LaunchedEffect(recordable?.stream?.streamId) { recordable?.let { channels.refreshRecordings(it.row()) } }
+    val onNow = event.sources.firstOrNull { it.isOn(now) }.takeIf { event.isLive(now) }
     TvSidePanel(onDismiss = onDismiss, width = 520.dp) {
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             item {
@@ -463,7 +538,10 @@ private fun TvEventPanel(
                 )
             }
             itemsIndexed(event.sources, key = { _, s -> "${s.playlist.id}:${s.stream.streamId}:${s.airing.startMs}" }) { i, source ->
-                SourceItem(source, now, multiplePlaylists, if (i == 0) Modifier.focusRequester(focus) else Modifier) {
+                SourceItem(
+                    source, now, multiplePlaylists, if (i == 0) Modifier.focusRequester(focus) else Modifier,
+                    onLongClick = { channels.showSchedule(source.stream) },
+                ) {
                     context.play(vm.playRequest(source, now))
                     onDismiss()
                 }
@@ -480,6 +558,35 @@ private fun TvEventPanel(
                         supportingContent = { Text("Catch-up on ${source.stream.name}") },
                         leadingContent = { Icon(Icons.Filled.Replay, null) },
                     )
+                }
+            }
+            // After where to watch it, so OK as the panel opens plays it.
+            if (recordable != null || onNow != null) {
+                item(key = "actions") {
+                    Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (recordable != null) {
+                            val row = recordable.row()
+                            val programme = recordable.airing.programme()
+                            val recording = channels.recordingFor(row, programme, recordings)
+                            TvActionButton(
+                                if (recording != null) "Recording" else "Record",
+                                onClick = { channels.toggleRecording(row, programme) },
+                                icon = if (recording != null) Icons.Filled.FiberManualRecord else Icons.Outlined.FiberManualRecord,
+                            )
+                        }
+                        if (onNow != null) {
+                            TvActionButton(
+                                "Multi-view",
+                                onClick = {
+                                    // The mini player lets go of its connection first.
+                                    context.container.tvPlayback.stopMini()
+                                    context.startActivity(MultiViewActivity.intent(context, vm.playRequest(onNow, now)))
+                                    onDismiss()
+                                },
+                                icon = Icons.Filled.GridView,
+                            )
+                        }
+                    }
                 }
             }
             val home = event.home
@@ -502,7 +609,8 @@ private fun TvEventPanel(
             }
         }
         Text(
-            "Back returns to the hub · " + if (event.sources.all { it.airing.isEventChannel }) "From the channel's name" else "From your TV guide",
+            "Hold OK on a channel for its options and schedule · " +
+                if (event.sources.all { it.airing.isEventChannel }) "From the channel's name" else "From your TV guide",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -521,7 +629,7 @@ private fun BigSide(side: SportSide, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun SourceItem(source: SportSource, now: Long, multiplePlaylists: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun SourceItem(source: SportSource, now: Long, multiplePlaylists: Boolean, modifier: Modifier, onLongClick: () -> Unit, onClick: () -> Unit) {
     val a = source.airing
     val detail = listOfNotNull(
         when {
@@ -538,6 +646,10 @@ private fun SourceItem(source: SportSource, now: Long, multiplePlaylists: Boolea
         supportingContent = { Text(detail, maxLines = 1) },
         leadingContent = { ChannelTile(source.stream, 48.dp, 32.dp) },
         trailingContent = { Icon(Icons.Filled.PlayArrow, null) },
-        modifier = modifier,
+        // Held, the channel's options, as in the guide.
+        modifier = modifier.okClicks(onClick, onLongClick),
     )
 }
+
+/** [SportSource]'s channel as the guide's options take it. */
+private fun SportSource.row() = ChannelRow(stream, null, null, null, false)

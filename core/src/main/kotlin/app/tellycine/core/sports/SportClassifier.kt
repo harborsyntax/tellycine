@@ -17,7 +17,8 @@ class SportClassifier {
     /**
      * What a channel's name says about its sport: one sport ("Sky Sports F1"), or sport in general;
      * whether it's a news channel ("Sky Sports News"), whose programmes are news unless they say
-     * who's playing; and whether it's a club's own channel (MUTV), which shows its matches again.
+     * who's playing; whether it's a club's own channel (MUTV), which shows its matches again; and
+     * whether it's a radio or music channel, whose songs and shows are never sport.
      */
     data class ChannelHint(
         val sport: Sport?,
@@ -26,16 +27,22 @@ class SportClassifier {
         val club: Boolean = false,
         /** Its name is a sport the hub doesn't name ("Sky Sports NFL"): its football isn't football. */
         val otherSport: Boolean = false,
+        /** A radio station or music channel: "LOSE MY MIND (from F1 The Movie)" is a song. */
+        val radio: Boolean = false,
     ) {
         companion object {
             val NONE = ChannelHint(null, false)
         }
     }
 
-    /** What [name], a channel's name, says about the sport it shows. */
-    fun channel(name: String?): ChannelHint {
+    /**
+     * What [name], a channel's name, says about the sport it shows; and [group], the name of the
+     * playlist's category it's in, whether it's a radio station.
+     */
+    fun channel(name: String?, group: String? = null): ChannelHint {
         if (name.isNullOrBlank()) return ChannelHint.NONE
         val w = Words(name)
+        if (isRadio(w) || group?.let { Words(it).hasAny(RADIO_GROUPS) } == true) return ChannelHint(null, false, radio = true)
         val sport = when {
             w.hasAny(OTHER_IN_MAIN) -> null
             w.hasAny(CHANNEL_F1) -> Sport.F1
@@ -57,6 +64,7 @@ class SportClassifier {
      * channel. Only these are worth reading the description of for [classify].
      */
     fun isCandidate(title: String, category: String?, channel: ChannelHint): Boolean {
+        if (channel.radio) return false
         if (channel.isSport) return true
         val cat = category?.let(::Words)
         if (cat != null && (cat.hasAny(SPORTY_CATEGORY) || sportOf(cat) != null)) return true
@@ -79,6 +87,7 @@ class SportClassifier {
         month: Int? = null,
         year: Int? = null,
     ): SportMatch? {
+        if (channel.radio) return null
         // Superscript and other look-alike letters as plain ones: "ᴸᶦᵛᵉ" is "Live".
         val title = SportNames.plain(title)
         val description = description?.let(SportNames::plain)
@@ -88,6 +97,7 @@ class SportClassifier {
         val sporty = categoryWords?.hasAny(SPORTY_CATEGORY) == true
         // Films, dramas and the like aren't sport, whatever they're about.
         if (!sporty && categoryWords != null && categoryWords.hasAny(NOT_SPORT_CATEGORY) && sportOf(categoryWords) == null) return null
+        if (titleWords.hasAny(NOT_SPORT_TITLE)) return null
 
         val parts = TitleParts.of(title)
         val descSides = if (parts.home == null && description != null) TitleParts.knownSides(firstSentences(description)) else null
@@ -109,7 +119,13 @@ class SportClassifier {
 
         val kind = kindOf(title, titleWords, descWords, categoryWords, year)
         val session = sessionOf(parts.rest, sport)
+        // An episode of a series ("S05 E12 Tennis the Menace"), unless it's live or says who's playing:
+        // on a sports channel, a magazine or documentary series; anywhere else, not sport at all.
+        val episode = home == null && kind != AiringKind.LIVE &&
+            (EPISODE.containsMatchIn(title) || description?.let { EPISODE.containsMatchIn(firstSentences(it)) } == true)
+        if (episode && !channel.isSport) return null
         val finalKind = when {
+            episode -> AiringKind.MAGAZINE
             // A news channel's programmes are news, unless they say who's playing.
             channel.news && home == null -> AiringKind.MAGAZINE
             // Only the description, category or channel says it's sport: unless it says it's live,
@@ -211,6 +227,13 @@ class SportClassifier {
         if (title.hasAny(BOXING_CONTEXT) && desc?.otherSport() != true) return Sport.BOXING
         return null
     }
+
+    /**
+     * A radio station or music channel, by its name: "BBC Radio 5 Live", "Capital FM", "Music Choice
+     * Pop Hits". Not "ICI Radio-Canada Télé", a TV channel.
+     */
+    private fun isRadio(w: Words): Boolean =
+        (w.has("radio") && !w.hasAny(TV_WORDS)) || w.has("fm") || w.has("dab") || w.has("music") || w.has("musique")
 
     /** Football when both sides are teams the catalogue knows, or a sport's players when both are its. */
     private fun sidesSport(home: String?, away: String?): Sport? {
@@ -435,6 +458,19 @@ class SportClassifier {
         val SEASON = Regex("(?<![\\d/])((?:19|20)?\\d{2})[/-]((?:19|20)?\\d{2})(?![\\d/])")
         val YEAR = Regex("(?<!\\d)(?:19[5-9]\\d|20\\d\\d)(?!\\d)")
         val GENERIC_TITLE_WORDS = setOf("sport", "sports", "news", "live", "today", "tonight", "update", "the")
+        /**
+         * A series' episode: "S05 E12", "S5E12", "Series 3, Episode 4", "Episode 12", "Ep. 4". Seasons
+         * named by their year ("S2026 E10") aren't, as some guides number sport that way too.
+         */
+        val EPISODE = Regex(
+            "\\b[Ss]\\d{1,2}\\s?[Ee][Pp]?\\d{1,3}\\b|\\b(?:series|season)\\s+\\d{1,2},?\\s+(?:episode|ep\\.?)\\s*\\d+|\\bepisode\\s+\\d+\\b|\\bep\\.?\\s?\\d+\\b",
+            RegexOption.IGNORE_CASE,
+        )
+
+        /** Films and songs from them: "F1 The Movie", "LOSE MY MIND (from F1 The Movie)". */
+        val NOT_SPORT_TITLE = Phrases(listOf("the movie", "the film", "the musical", "from the motion picture", "original soundtrack"))
+        val RADIO_GROUPS = Phrases(listOf("radio", "radios", "music", "musique"))
+        val TV_WORDS = Phrases(listOf("tv", "tele", "television", "radio canada"))
         val CLUB_CHANNELS = Phrases(listOf("mutv", "lfctv", "lfc tv", "chelsea tv", "barca tv", "barca one", "real madrid tv", "rangers tv", "celtic tv", "city plus"))
 
         val MOTOGP_WORDS = Phrases(listOf("motogp", "moto gp", "moto2", "moto3"))
