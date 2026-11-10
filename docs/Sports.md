@@ -58,7 +58,7 @@ In **Settings → Sports** (on phones and TV):
 - Rows of cards: **Live now**, **Your teams**, then each day's events.
 - **OK** on a live event plays it. On one coming up, or held on a live one, it opens the event's panel: where to watch it, from the start, and following its sides.
 - **Your sports** at the top chooses what you follow.
-- **Back** goes to the filters, and **Back** again opens the side menu.
+- **Back** goes to the filters, **Back** again opens the side menu, and **Back** from the menu asks whether to leave Tellycine.
 
 <img src="images/screens/tv-sports-event.png" width="640" alt="An event on TV">
 

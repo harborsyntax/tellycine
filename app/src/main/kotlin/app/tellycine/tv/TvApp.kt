@@ -1,5 +1,8 @@
 package app.tellycine.tv
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
@@ -25,6 +28,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -65,6 +70,7 @@ import app.tellycine.R
 import app.tellycine.container
 import app.tellycine.core.ContentKind
 import app.tellycine.data.db.StreamEntity
+import app.tellycine.tv.components.TvConfirmDialog
 import app.tellycine.tv.detail.TvDetailScreen
 import app.tellycine.tv.downloads.TvDownloadsScreen
 import app.tellycine.tv.library.TvLibraryScreen
@@ -107,6 +113,19 @@ private object TvRoutes {
     fun edit(id: Long?) = "playlist/edit?id=${id ?: -1}"
     fun categories(id: Long) = "playlist/$id/categories"
     fun recordings(id: Long) = "playlist/$id/recordings"
+}
+
+/**
+ * Whether the side menu has the focus: screens leave Back to it then, so Back from the menu asks
+ * to leave Tellycine rather than going back into the screen.
+ */
+val LocalTvMenuOpen = compositionLocalOf { false }
+
+/** The activity [this] context belongs to, if any. */
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 /** Width of the collapsed side menu, which the screens leave room for. */
@@ -221,9 +240,26 @@ private fun TvHome(navigator: TvNavigator) {
     var fullWidth by remember { mutableStateOf(false) }
     val hideRail = fullWidth && tab == TvTab.LIVE
 
-    // Back from a screen opens the menu; Back again (from the menu) leaves the app.
+    // Back from a screen opens the menu; Back again (from the menu) asks, then leaves the app.
+    // Screens' own Back (the guide's categories, Sports' filters) steps aside while the menu is open.
+    val menuOpen = drawerState.currentValue == DrawerValue.Open
     val openMenu = { runCatching { itemFocus.getValue(tab).requestFocus() }; Unit }
-    BackHandler(enabled = drawerState.currentValue == DrawerValue.Closed, onBack = openMenu)
+    BackHandler(enabled = !menuOpen, onBack = openMenu)
+    var confirmLeave by remember { mutableStateOf(false) }
+    BackHandler(enabled = menuOpen) { confirmLeave = true }
+    if (confirmLeave) {
+        val activity = LocalContext.current.findActivity()
+        TvConfirmDialog(
+            title = "Leave Tellycine?",
+            message = "Anything playing stops. Choose Cancel or press Back to stay.",
+            confirmLabel = "Leave",
+            onConfirm = {
+                confirmLeave = false
+                activity?.finish()
+            },
+            onDismiss = { confirmLeave = false },
+        )
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -273,22 +309,24 @@ private fun TvHome(navigator: TvNavigator) {
             }
         },
     ) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .padding(start = if (hideRail) 0.dp else RailWidth)
-                .focusRequester(contentFocus)
-                .focusRestorer()
-                .focusGroup(),
-        ) {
-            stateHolder.SaveableStateProvider(tab.name) {
-                TvTabContent(
-                    tab, session, navigator,
-                    onSelectPlaylist = home::select,
-                    onOpenTab = { tab = it; focusContent++ },
-                    onFullWidth = { fullWidth = it },
-                    onOpenMenu = openMenu,
-                )
+        CompositionLocalProvider(LocalTvMenuOpen provides menuOpen) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(start = if (hideRail) 0.dp else RailWidth)
+                    .focusRequester(contentFocus)
+                    .focusRestorer()
+                    .focusGroup(),
+            ) {
+                stateHolder.SaveableStateProvider(tab.name) {
+                    TvTabContent(
+                        tab, session, navigator,
+                        onSelectPlaylist = home::select,
+                        onOpenTab = { tab = it; focusContent++ },
+                        onFullWidth = { fullWidth = it },
+                        onOpenMenu = openMenu,
+                    )
+                }
             }
         }
     }

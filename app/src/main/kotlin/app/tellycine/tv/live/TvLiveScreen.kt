@@ -68,6 +68,7 @@ import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.data.repo.Categories
 import app.tellycine.player.MiniPlayback
 import app.tellycine.player.play
+import app.tellycine.tv.LocalTvMenuOpen
 import app.tellycine.tv.TvPalette
 import app.tellycine.tv.components.RequestFocusOnStart
 import app.tellycine.tv.components.TvActionButton
@@ -181,7 +182,7 @@ fun TvLiveScreen(
         leftPlaying = null
     }
     // In the guide, Back goes to the categories first, and Back from there to the side menu.
-    BackHandler(enabled = !listView && !categoryColumn.open && session.active != null) { categoryColumn.open() }
+    BackHandler(enabled = !listView && !categoryColumn.open && session.active != null && !LocalTvMenuOpen.current) { categoryColumn.open() }
 
     if (session.active == null) {
         Column(Modifier.fillMaxSize()) {
