@@ -1,7 +1,6 @@
 package app.tellycine.tv.live
 
 import android.view.KeyEvent.KEYCODE_DPAD_LEFT
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -77,7 +76,6 @@ import app.tellycine.tv.components.TvClock
 import app.tellycine.tv.components.TvEmptyState
 import app.tellycine.tv.components.TvHeader
 import app.tellycine.tv.components.TvIconButton
-import app.tellycine.tv.components.TvQrDialog
 import app.tellycine.tv.components.TvSourceLabel
 import app.tellycine.tv.components.TvSpacing
 import app.tellycine.tv.components.okClicks
@@ -107,7 +105,6 @@ fun TvLiveScreen(
     val context = LocalContext.current
     val categories by vm.categories.collectAsStateWithLifecycle()
     val selected by vm.selectedCategory.collectAsStateWithLifecycle()
-    val schedule by vm.schedule.collectAsStateWithLifecycle()
     val recordings by vm.recordings.collectAsStateWithLifecycle()
     val channels = vm.channels.collectAsLazyPagingItems()
     val scope by vm.scope.collectAsStateWithLifecycle()
@@ -135,7 +132,6 @@ fun TvLiveScreen(
     DisposableEffect(playback) { onDispose { playback.stopMini() } }
     var showCategories by remember { mutableStateOf(false) }
     val categoryColumn = remember { TvGuideCategoriesState() }
-    var share by remember { mutableStateOf<Pair<String, String>?>(null) }
     val contentFocus = remember { FocusRequester() }
 
     val days by vm.guideDays.collectAsStateWithLifecycle()
@@ -347,25 +343,7 @@ fun TvLiveScreen(
         )
     }
 
-    schedule?.let { state ->
-        TvChannelPanel(
-            state = state,
-            vm = vm,
-            recordings = recordings,
-            onShare = { label, url -> share = label to url },
-        )
-    }
-    val sources by vm.sources.collectAsStateWithLifecycle()
-    sources?.let { list -> TvSourcePicker(list, onPick = vm::pickSource) }
-    share?.let { (label, url) ->
-        TvQrDialog(title = label, url = url, note = "This link includes your login details.", onDismiss = { share = null })
-    }
-    LaunchedEffect(vm) {
-        vm.events.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
-    }
-    LaunchedEffect(vm) {
-        vm.shareRequests.collect { (label, url) -> share = label to url }
-    }
+    TvChannelOptions(vm)
 }
 
 /** With the side menu's rail hidden, the guide keeps the same TV-safe margin on the left as on the right. */

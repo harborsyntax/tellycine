@@ -24,11 +24,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.FiberManualRecord
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.outlined.FiberManualRecord
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -67,10 +70,12 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Switch
 import androidx.tv.material3.Text
 import app.tellycine.container
+import app.tellycine.data.db.ChannelRow
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.sports.SportEvent
 import app.tellycine.data.sports.SportSide
 import app.tellycine.data.sports.SportSource
+import app.tellycine.player.multiview.MultiViewActivity
 import app.tellycine.player.play
 import app.tellycine.tv.LocalTvMenuOpen
 import app.tellycine.tv.TvPalette
@@ -81,9 +86,11 @@ import app.tellycine.tv.components.TvHeader
 import app.tellycine.tv.components.TvSidePanel
 import app.tellycine.tv.components.TvSpacing
 import app.tellycine.tv.components.okClicks
+import app.tellycine.tv.live.TvChannelOptions
 import app.tellycine.tv.live.TvMiniPlayer
 import app.tellycine.ui.components.Artwork
 import app.tellycine.ui.components.formatTime
+import app.tellycine.ui.live.LiveViewModel
 import app.tellycine.ui.sports.LeagueFilter
 import app.tellycine.ui.sports.Monogram
 import app.tellycine.ui.sports.SportsFilter
@@ -113,6 +120,8 @@ import app.tellycine.ui.settings.SportsText
 @Composable
 fun TvSportsScreen(onAddPlaylist: () -> Unit) {
     val vm = tellycineViewModel { c, _ -> SportsViewModel(c) }
+    // The guide's channel options, for an event's channels: its own, so the guide's stay as they were.
+    val channels = tellycineViewModel(key = "sports-channels") { c, _ -> LiveViewModel(c) }
     val state by vm.state.collectAsStateWithLifecycle()
     val indexing by vm.indexing.collectAsStateWithLifecycle()
     val opened by vm.opened.collectAsStateWithLifecycle()
@@ -239,8 +248,11 @@ fun TvSportsScreen(onAddPlaylist: () -> Unit) {
     }
 
     opened?.let { event ->
-        TvEventPanel(event, now, vm, followed = settings.sportsTeams, multiplePlaylists = state.multiplePlaylists, onDismiss = vm::close)
+        TvEventPanel(event, now, vm, channels, followed = settings.sportsTeams, multiplePlaylists = state.multiplePlaylists, onDismiss = vm::close)
     }
+    // Over the event's panel: Back returns to it.
+    TvChannelOptions(channels)
+    DisposableEffect(channels) { onDispose { channels.dismissSchedule() } }
     if (follow) TvFollowPanel(vm, onDismiss = { follow = false })
 }
 
@@ -468,12 +480,18 @@ private fun TvEventPanel(
     event: SportEvent,
     now: Long,
     vm: SportsViewModel,
+    channels: LiveViewModel,
     followed: List<String>,
     multiplePlaylists: Boolean,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val focus = remember { FocusRequester() }
+    // Recording, where a channel's playlist can: on the first channel it's on that can record it.
+    val recordings by channels.recordings.collectAsStateWithLifecycle()
+    val recordable = event.sources.firstOrNull { it.airing.startMs != 0L && it.airing.stopMs > now && channels.canRecord(it.row()) }
+    LaunchedEffect(recordable?.stream?.streamId) { recordable?.let { channels.refreshRecordings(it.row()) } }
+    val onNow = event.sources.firstOrNull { it.isOn(now) }.takeIf { event.isLive(now) }
     TvSidePanel(onDismiss = onDismiss, width = 520.dp) {
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             item {
@@ -520,7 +538,10 @@ private fun TvEventPanel(
                 )
             }
             itemsIndexed(event.sources, key = { _, s -> "${s.playlist.id}:${s.stream.streamId}:${s.airing.startMs}" }) { i, source ->
-                SourceItem(source, now, multiplePlaylists, if (i == 0) Modifier.focusRequester(focus) else Modifier) {
+                SourceItem(
+                    source, now, multiplePlaylists, if (i == 0) Modifier.focusRequester(focus) else Modifier,
+                    onLongClick = { channels.showSchedule(source.stream) },
+                ) {
                     context.play(vm.playRequest(source, now))
                     onDismiss()
                 }
@@ -537,6 +558,35 @@ private fun TvEventPanel(
                         supportingContent = { Text("Catch-up on ${source.stream.name}") },
                         leadingContent = { Icon(Icons.Filled.Replay, null) },
                     )
+                }
+            }
+            // After where to watch it, so OK as the panel opens plays it.
+            if (recordable != null || onNow != null) {
+                item(key = "actions") {
+                    Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (recordable != null) {
+                            val row = recordable.row()
+                            val programme = recordable.airing.programme()
+                            val recording = channels.recordingFor(row, programme, recordings)
+                            TvActionButton(
+                                if (recording != null) "Recording" else "Record",
+                                onClick = { channels.toggleRecording(row, programme) },
+                                icon = if (recording != null) Icons.Filled.FiberManualRecord else Icons.Outlined.FiberManualRecord,
+                            )
+                        }
+                        if (onNow != null) {
+                            TvActionButton(
+                                "Multi-view",
+                                onClick = {
+                                    // The mini player lets go of its connection first.
+                                    context.container.tvPlayback.stopMini()
+                                    context.startActivity(MultiViewActivity.intent(context, vm.playRequest(onNow, now)))
+                                    onDismiss()
+                                },
+                                icon = Icons.Filled.GridView,
+                            )
+                        }
+                    }
                 }
             }
             val home = event.home
@@ -559,7 +609,8 @@ private fun TvEventPanel(
             }
         }
         Text(
-            "Back returns to the hub · " + if (event.sources.all { it.airing.isEventChannel }) "From the channel's name" else "From your TV guide",
+            "Hold OK on a channel for its options and schedule · " +
+                if (event.sources.all { it.airing.isEventChannel }) "From the channel's name" else "From your TV guide",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -578,7 +629,7 @@ private fun BigSide(side: SportSide, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun SourceItem(source: SportSource, now: Long, multiplePlaylists: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun SourceItem(source: SportSource, now: Long, multiplePlaylists: Boolean, modifier: Modifier, onLongClick: () -> Unit, onClick: () -> Unit) {
     val a = source.airing
     val detail = listOfNotNull(
         when {
@@ -595,6 +646,10 @@ private fun SourceItem(source: SportSource, now: Long, multiplePlaylists: Boolea
         supportingContent = { Text(detail, maxLines = 1) },
         leadingContent = { ChannelTile(source.stream, 48.dp, 32.dp) },
         trailingContent = { Icon(Icons.Filled.PlayArrow, null) },
-        modifier = modifier,
+        // Held, the channel's options, as in the guide.
+        modifier = modifier.okClicks(onClick, onLongClick),
     )
 }
+
+/** [SportSource]'s channel as the guide's options take it. */
+private fun SportSource.row() = ChannelRow(stream, null, null, null, false)

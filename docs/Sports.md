@@ -64,7 +64,8 @@ The empty Sports tab, and **Settings → Sports → Sport found**, say what was 
 <img src="images/screens/tv-sports.png" width="640" alt="Sports on TV">
 
 - Rows of cards: **Live now**, **Your teams**, then each day's events.
-- **OK** on a live event plays it. On one coming up, or held on a live one, it opens the event's panel: where to watch it, from the start, and following its sides.
+- **OK** on a live event plays it. On one coming up, or held on a live one, it opens the event's panel: where to watch it, from the start, **Record** (where the playlist can record, as in the guide), **Multi-view** (when it's on now), and following its sides.
+- **Hold OK** on a channel in the event's panel for that channel's options and schedule, as in the guide: favourites, Multi-view, Open with…, its stream URL, and watching or recording its programmes. **Back** returns to the event.
 - **Your sports** at the top chooses what you follow.
 - Back from a live channel, it plays on in a **mini player** at the top, as in the guide. OK on it, or **holding Back**, returns it to full screen; it stops when you leave Sports.
 - **Back** goes to the filters, **Back** again opens the side menu, and **Back** from the menu asks whether to leave Tellycine.

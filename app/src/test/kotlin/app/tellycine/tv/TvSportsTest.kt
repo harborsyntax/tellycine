@@ -1,13 +1,17 @@
 package app.tellycine.tv
 
+import android.os.SystemClock
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.performKeyPress
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -107,5 +111,42 @@ class TvSportsTest {
         chip("Live")
         d.waitForText("Sinner v Zverev")
         assertTrue(compose.onAllNodes(hasText("All football")).fetchSemanticsNodes().isEmpty())
+    }
+
+    /** Holds OK on whatever has the focus, in the newest window, and lets go. */
+    private fun holdOk() {
+        val roots = compose.onAllNodes(isRoot())
+        val root = roots[roots.fetchSemanticsNodes().size - 1]
+        val t = SystemClock.uptimeMillis()
+        for (e in listOf(
+            KeyEvent(t, t, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_CENTER, 0),
+            KeyEvent(t, t + 600, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_CENTER, 1),
+            KeyEvent(t, t + 700, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DPAD_CENTER, 0),
+        )) root.performKeyPress(androidx.compose.ui.input.key.KeyEvent(e))
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun holdingOkOnAnEventsChannelOpensTheGuidesOptionsForIt() {
+        val d = ScreenshotDriver(compose)
+        d.launchTv { pid -> DemoData.seedSports(d.app.container, pid) }
+        d.tvTab("Sports", "Live now")
+        beATelevision()
+
+        // Held on the live match, its panel: Multi-view, as it's on now; no Record without a DVR.
+        holdOk()
+        d.waitForText("Watch on City Sports 1")
+        d.waitForText("Multi-view")
+        assertTrue(compose.onAllNodes(hasText("Record")).fetchSemanticsNodes().isEmpty())
+
+        // Held on a channel there, the channel's options and schedule, as in the guide.
+        holdOk()
+        d.waitForText("Watch live")
+        d.waitForText("Open with…")
+
+        // Back returns to the event's panel.
+        d.back()
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Watch live")).fetchSemanticsNodes().isEmpty() }
+        d.waitForText("Watch on City Sports 1")
     }
 }
