@@ -188,6 +188,40 @@ class TvNavigationTest {
     }
 
     @Test
+    fun backFromTheMenuAsksBeforeLeaving() {
+        val d = ScreenshotDriver(compose)
+        d.launchTv()
+        fun menuFocusedOn(label: String) = compose.onAllNodes(hasText(label) and hasClickAction() and isFocused()).fetchSemanticsNodes().isNotEmpty()
+
+        // The guide: Back opens the categories, then the menu; there, Back asks, rather than going back into the guide.
+        d.back()
+        waitForCategoriesOnAllChannels()
+        d.back()
+        compose.waitUntil(5_000) { menuFocusedOn("Live TV") }
+        d.back()
+        d.waitForText("Leave Tellycine?")
+        // Cancel, the safe choice, comes first: the menu is as it was.
+        d.press(Key.DirectionCenter)
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Leave Tellycine?").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(5_000) { menuFocusedOn("Live TV") }
+        assertFalse(compose.activity.isFinishing)
+
+        // The same from Sports, whose Back goes to its filters first.
+        d.tvClick("Sports")
+        d.waitForText("For you")
+        d.back()
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("For you") and isFocused()).fetchSemanticsNodes().isNotEmpty() }
+        d.back()
+        compose.waitUntil(5_000) { menuFocusedOn("Sports") }
+        d.back()
+        d.waitForText("Leave Tellycine?")
+        // Leave closes Tellycine.
+        d.press(Key.DirectionRight)
+        d.press(Key.DirectionCenter)
+        compose.waitUntil(5_000) { compose.activity.isFinishing }
+    }
+
+    @Test
     fun backFromThePlayerShowsTheChannelLeftPlayingInTheGuide() {
         val d = ScreenshotDriver(compose)
         var pid = 0L

@@ -64,6 +64,7 @@ import app.tellycine.data.sports.SportEvent
 import app.tellycine.data.sports.SportSide
 import app.tellycine.data.sports.SportSource
 import app.tellycine.player.play
+import app.tellycine.tv.LocalTvMenuOpen
 import app.tellycine.tv.TvPalette
 import app.tellycine.tv.components.RequestFocusOnStart
 import app.tellycine.tv.components.TvActionButton
@@ -113,7 +114,7 @@ fun TvSportsScreen(onAddPlaylist: () -> Unit) {
     val first = remember { FocusRequester() }
     var inChips by remember { mutableStateOf(false) }
     // Back from the rows goes to the filters; from the filters, to the menu.
-    BackHandler(enabled = !inChips && opened == null && !follow) { runCatching { chips.requestFocus() } }
+    BackHandler(enabled = !inChips && opened == null && !follow && !LocalTvMenuOpen.current) { runCatching { chips.requestFocus() } }
 
     val open = { e: SportEvent -> vm.open(e) }
     val play = { e: SportEvent ->
