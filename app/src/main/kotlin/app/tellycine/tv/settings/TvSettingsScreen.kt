@@ -24,9 +24,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
@@ -329,19 +333,26 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
     }
 }
 
-/** The last problem, as a QR code a phone can copy it from, to pass on. */
+/**
+ * The last problem, as a QR code a phone can copy it from, and in full beside it, small, so it all
+ * fits on the screen to photograph (the remote can't scroll text).
+ */
 @Composable
 private fun TvProblemDialog(problem: ProblemLog.Problem, onForget: () -> Unit, onDismiss: () -> Unit) {
     val done = remember { FocusRequester() }
-    TvDialog(title = "Last problem", onDismiss = onDismiss, width = 820.dp, buttons = {
+    TvDialog(title = "Last problem, ${ProblemText.ago(problem)}", onDismiss = onDismiss, width = 900.dp, buttons = {
         OutlinedButton(onClick = onForget) { Text("Forget it") }
         Button(onClick = onDismiss, modifier = Modifier.focusRequester(done)) { Text("Done") }
     }) {
-        Row(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
-            QrCode(problem.report, size = 260.dp)
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
-                Text(ProblemText.whenAndWhat(problem), style = MaterialTheme.typography.titleMedium)
-                Text(ProblemText.PASS_ON_TV, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            QrCode(problem.report, size = 220.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.weight(1f)) {
+                Text(ProblemText.PASS_ON_TV, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    problem.report,
+                    style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 9.sp, lineHeight = 11.sp),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
             }
         }
     }

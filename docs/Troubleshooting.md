@@ -77,6 +77,6 @@ Turn on **Settings → Match the TV's refresh rate**, or Google TV's **Match con
 Newer Fire TV devices run Amazon's Vega OS, which can't run Android apps. Fire TV devices with Fire OS can install it with Downloader.
 
 ## Reporting a problem
-If Tellycine closed unexpectedly, **Settings → Problems → Last problem** says what went wrong and where: the error it couldn't handle, or (from Android 11) that Android closed it while it was on screen, to free memory or because it stopped responding. On a TV, scan its QR code with your phone's camera to copy it; on a phone, share it. It says which version and device, and where in Tellycine, without links, addresses or server names, and it stays on your device unless you pass it on. **Forget it** clears it.
+If Tellycine closed unexpectedly, **Settings → Problems → Last problem** says what went wrong and where: the error it couldn't handle, or (from Android 11) that Android closed it while it was on screen, to free memory or because it stopped responding. On a TV, scan its QR code with your phone's camera to copy it, or photograph the report shown below it; on a phone, share it. It says which version and device, and where in Tellycine, without links, addresses or server names, and it stays on your device unless you pass it on. **Forget it** clears it.
 
 Open an issue on GitHub with it and what you were doing at the time, or include the output of `adb logcat` captured while the problem happens.

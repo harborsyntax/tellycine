@@ -149,4 +149,39 @@ class TvSportsTest {
         compose.waitUntil(5_000) { compose.onAllNodes(hasText("Watch live")).fetchSemanticsNodes().isEmpty() }
         d.waitForText("Watch on City Sports 1")
     }
+
+    /**
+     * Filter after filter with the remote, the focus going into each one's events and back: once,
+     * changing the events a list already showed as the focus moved into it had Compose place a row
+     * twice, and the app stopped ("Place was called on a node which was placed already").
+     */
+    @Test
+    fun filterAfterFilterWithTheRemote() {
+        val d = ScreenshotDriver(compose)
+        d.launchTv { pid -> DemoData.seedSports(d.app.container, pid) }
+        d.tvTab("Sports", "Live now")
+        beATelevision()
+        val chips = listOf("All", "Live", "Football", "Tennis", "For you", "Football", "Live", "All")
+        repeat(2) {
+            for (label in chips) {
+                val chip = compose.onAllNodes(hasText(label) and hasClickAction())
+                if (chip.fetchSemanticsNodes().isEmpty()) continue
+                chip.onFirst().performSemanticsAction(SemanticsActions.RequestFocus)
+                compose.waitForIdle()
+                d.press(Key.DirectionCenter)
+                compose.mainClock.advanceTimeBy(500)
+                d.press(Key.DirectionRight, 2)
+                d.press(Key.DirectionDown)
+                d.press(Key.DirectionRight)
+                d.back()
+                compose.mainClock.advanceTimeBy(300)
+                d.press(Key.DirectionRight)
+                d.press(Key.DirectionCenter)
+                compose.mainClock.advanceTimeBy(200)
+                d.press(Key.DirectionDown, 2)
+                d.back()
+            }
+        }
+        d.waitForText("Sports")
+    }
 }

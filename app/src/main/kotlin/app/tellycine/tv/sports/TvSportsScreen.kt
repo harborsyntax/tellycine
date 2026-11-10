@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -231,18 +231,19 @@ fun TvSportsScreen(onAddPlaylist: () -> Unit) {
                 RequestFocusOnStart(chips)
             }
             else -> {
-                // Another filter starts from the top, where what's on now is.
-                val list = rememberLazyListState()
-                LaunchedEffect(state.filter, state.league) { list.scrollToItem(0) }
-                LazyColumn(
-                    Modifier.fillMaxSize(),
-                    state = list,
-                    contentPadding = PaddingValues(bottom = TvSpacing.screenBottom),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    rows(state, now, first, play, open)
+                // Each filter has rows of its own, from the top, where what's on now is. Changing the
+                // rows a list already shows (and scrolling it back to the top) as the focus moves
+                // into them can have Compose place one twice, which stops the app.
+                key(state.filter, state.league) {
+                    LazyColumn(
+                        Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = TvSpacing.screenBottom),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        rows(state, now, first, play, open)
+                    }
+                    RequestFocusOnStart(first)
                 }
-                RequestFocusOnStart(first, key = state.filter to state.league)
             }
         }
     }
