@@ -1,11 +1,13 @@
 package app.tellycine.ui.sports
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.tellycine.AppContainer
 import app.tellycine.core.ContentKind
@@ -101,10 +103,38 @@ class SportsHubTest {
         // A live match opens its sheet; a channel there plays it.
         compose.onAllNodesWithText("Inter", substring = true).onFirst().performClick()
         d.waitForText("Watch on")
-        d.click("Follow Inter")
+        // Low in the sheet, below the channels: on screen first, or the tap lands elsewhere.
+        compose.onAllNodesWithText("Follow Inter", useUnmergedTree = true).onFirst().performScrollTo().performClick()
+        compose.waitForIdle()
         compose.waitUntil(5_000) { runBlocking { d.app.container.settings.current().sportsTeams } == listOf("Inter") }
         d.click("City Sports 1")
         assertEquals("https://example.com/live/2.m3u8", d.playing().url)
+    }
+
+    @Test
+    fun liveAndASportsCompetitions() {
+        val d = ScreenshotDriver(compose)
+        d.launch { pid -> DemoData.seedSports(d.app.container, pid, follow = emptyList()) }
+        d.openTab("Sports", "Live now")
+        fun chip(text: String) {
+            compose.waitUntil(5_000) { compose.onAllNodes(hasText(text) and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+            compose.onAllNodes(hasText(text) and hasClickAction()).onFirst().performClick()
+            compose.waitForIdle()
+        }
+
+        // Football: all of it, or one of its competitions.
+        chip("Football")
+        d.waitForText("All football")
+        chip("Premier League")
+        d.waitForText("Newcastle v Man Utd")
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Live now")).fetchSemanticsNodes().isEmpty() }
+        chip("Champions League")
+        d.waitForText("Live now")
+
+        // Live: what the guides say is live, in every sport; no competitions to choose.
+        chip("Live")
+        d.waitForText("Sinner v Zverev")
+        assertTrue(compose.onAllNodes(hasText("All football")).fetchSemanticsNodes().isEmpty())
     }
 
     @Test

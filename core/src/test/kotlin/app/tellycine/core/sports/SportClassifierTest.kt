@@ -218,4 +218,29 @@ class SportClassifierTest {
         assertEquals("Chelsea", m.away)
         assertEquals(Sport.F1, c.channel("Sky Sports F1 ᴴᴰ").sport)
     }
+
+    @Test
+    fun episodesOfSeriesAreNotEvents() {
+        assertNull(classify("The Simpsons - Tennis the Menace", description = "S05 E12 Tennis the Menace\nHomer builds a tennis court.", channel = "Sky Showcase"))
+        assertNull(classify("Starsky and Hutch - Shoot Out", description = "S01E05 Shoot Out. The detectives go after a gang.", channel = "Great! Action"))
+        assertNull(classify("Ski Sunday Classics", description = "Series 3, Episode 4. A look back.", channel = "BBC Two"))
+        // On a sports channel, a series is a magazine or documentary.
+        assertEquals(AiringKind.MAGAZINE, classify("Golf Channel Academy", description = "S03 E02 Short game tips.", channel = "Sky Sports Golf")!!.kind)
+        // Unless it's live or says who's playing; and seasons named by year aren't episodes.
+        assertEquals(AiringKind.LIVE, classify("Live Premier League: Arsenal v Chelsea", description = "S2026 E12 Arsenal host Chelsea.", channel = "Sky Sports Main Event")!!.kind)
+        assertEquals(AiringKind.LIVE, classify("Snooker: UK Championship", description = "Episode 4. Live coverage of the second round.", channel = "BBC Two")!!.kind)
+    }
+
+    @Test
+    fun radioMusicAndFilmsAreNotSport() {
+        assertNull(classify("LOSE MY MIND (from F1 The Movie)", channel = "Capital FM"))
+        assertNull(classify("LOSE MY MIND (from F1 The Movie)", channel = "Music Choice Stage & Screen"))
+        assertNull(classify("5 Live Sport: Premier League Football", description = "Commentary on Arsenal v Chelsea.", channel = "BBC Radio 5 Live"))
+        assertNull(classify("F1 The Movie", description = "Brad Pitt stars.", channel = "Sky Cinema Premiere"))
+        assertTrue(c.channel("Heart 80s", "UK | Radio").radio)
+        assertFalse(c.isCandidate("Premier League Football", null, c.channel("talkSPORT", "Radio Stations")))
+        // A TV channel with "Radio" in its name isn't a radio station.
+        assertFalse(c.channel("ICI Radio-Canada Télé").radio)
+        assertFalse(c.channel("Sky Sports Main Event", "UK | Sports").radio)
+    }
 }

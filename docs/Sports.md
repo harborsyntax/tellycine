@@ -9,7 +9,8 @@ The **Sports** tab shows the sport on now and coming up in your playlists: footb
 </p>
 
 ## What it shows
-- **Filters** along the top: **For you** (the sports you follow, and your teams and players), **All** (every sport found, other sports too), and one for each sport you follow.
+- **Filters** along the top: **For you** (the sports you follow, and your teams and players), **All** (every sport found, other sports too), **Live** (what your TV guides say is live, now and to come, in every sport), and one for each sport you follow.
+- **Countries and competitions:** in a sport, a second row chooses between the competitions on, such as **Premier League**, **Champions League** or **LaLiga**, and a country with more than one, such as **England** for all of its. Football goes by country, UK first; tennis, golf, darts and snooker by tour and event.
 - **Live now:** what's on now, with how long it's been on and the channel it's on ("City Sports 1 · 2 more" when it's on more than one).
 - **Your teams:** each team or player you follow, with their next event in your guides.
 - **Coming up:** what's on later, day by day, as far ahead as your TV guides go.
@@ -35,6 +36,8 @@ Everything comes from your own playlists, on your device:
 - **Event channels:** many providers have channels whose names change with each event, such as "EPL 03: Arsenal v Chelsea 15:00", "PPV 1 | Joshua v Dubois | Sat 22:00 UK" or "Sky Sports + 05: EFL Trophy Barnet v L Orient @ 10 Nov 06:45 PM London". Their events show too, and join the same match on other channels. Times without a time zone are taken to be UK time.
 
 The same match on several channels, or in several playlists, is one event with every channel it's on.
+
+Episodes of series ("S05 E12"), films, and radio and music channels aren't taken for sport, whatever they're called: The Simpsons' "Tennis the Menace" isn't tennis. On a sports channel, a series is a magazine or documentary, and stays out too.
 
 Sport is found after each refresh of a playlist or its guide, in the background. Only what's new in the guide is looked through again.
 
@@ -63,6 +66,7 @@ The empty Sports tab, and **Settings → Sports → Sport found**, say what was 
 - Rows of cards: **Live now**, **Your teams**, then each day's events.
 - **OK** on a live event plays it. On one coming up, or held on a live one, it opens the event's panel: where to watch it, from the start, and following its sides.
 - **Your sports** at the top chooses what you follow.
+- Back from a live channel, it plays on in a **mini player** at the top, as in the guide. OK on it, or **holding Back**, returns it to full screen; it stops when you leave Sports.
 - **Back** goes to the filters, **Back** again opens the side menu, and **Back** from the menu asks whether to leave Tellycine.
 
 <img src="images/screens/tv-sports-event.png" width="640" alt="An event on TV">

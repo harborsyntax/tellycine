@@ -148,7 +148,7 @@ class SportsIndexer(
         val hints = HashMap<String, SportClassifier.ChannelHint>()
         for (ch in channels) {
             val id = ch.epgChannelId ?: continue
-            if (id !in hints) hints[id] = classifier.channel(ch.name)
+            if (id !in hints) hints[id] = classifier.channel(ch.name, ch.category)
         }
 
         // The programmes that could be sport. Titles and categories repeat a lot in guides, so
@@ -258,9 +258,10 @@ class SportsIndexer(
         /**
          * Goes up when the rules for finding sport change, so it's found again everywhere. 2: from
          * a real UK guide: sport the title doesn't name needs more to be an event, seasons and
-         * past years are replays, news channels, "Hlts".
+         * past years are replays, news channels, "Hlts". 3: series' episodes ("S05 E12"), films,
+         * and radio and music channels aren't sport.
          */
-        const val VERSION = 2
+        const val VERSION = 3
 
         /** How long ago an event can have started and still be on: a Test match or a golf round is long. */
         private const val LIVE_FOR_MS = 8 * 60 * 60 * 1000L

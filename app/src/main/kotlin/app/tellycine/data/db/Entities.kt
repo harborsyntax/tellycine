@@ -448,4 +448,4 @@ data class ProgrammeHead(
 data class ProgrammeDescription(val id: Long, val description: String?)
 
 /** A live channel's name and guide id, for finding sport by channel. */
-data class LiveChannelName(val streamId: String, val name: String, val epgChannelId: String?)
+data class LiveChannelName(val streamId: String, val name: String, val epgChannelId: String?, val category: String? = null)

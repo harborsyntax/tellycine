@@ -1,0 +1,4 @@
+• Sports Hub: a Live filter, for what your guides say is live, now and to come
+• In a sport, filter by country and competition: Premier League, Champions League, LaLiga and more
+• Series episodes, films, radio and music channels no longer show up as sport
+• TV: a channel played from Sports plays on in a mini player at the top, as in the guide

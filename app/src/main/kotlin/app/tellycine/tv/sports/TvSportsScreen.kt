@@ -17,17 +17,22 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +53,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Border
 import androidx.tv.material3.Card
@@ -59,6 +66,7 @@ import androidx.tv.material3.ListItem
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Switch
 import androidx.tv.material3.Text
+import app.tellycine.container
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.sports.SportEvent
 import app.tellycine.data.sports.SportSide
@@ -73,8 +81,10 @@ import app.tellycine.tv.components.TvHeader
 import app.tellycine.tv.components.TvSidePanel
 import app.tellycine.tv.components.TvSpacing
 import app.tellycine.tv.components.okClicks
+import app.tellycine.tv.live.TvMiniPlayer
 import app.tellycine.ui.components.Artwork
 import app.tellycine.ui.components.formatTime
+import app.tellycine.ui.sports.LeagueFilter
 import app.tellycine.ui.sports.Monogram
 import app.tellycine.ui.sports.SportsFilter
 import app.tellycine.ui.sports.SportsHubState
@@ -123,12 +133,29 @@ fun TvSportsScreen(onAddPlaylist: () -> Unit) {
         if (request != null) context.play(request) else vm.open(e)
     }
 
+    // A live channel left with Back plays on above the hub, as in the guide; OK (or holding Back)
+    // returns it to full screen. Only while the hub is on screen.
+    val playback = context.container.tvPlayback
+    val mini = playback.mini
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { playback.stopMini() }
+    DisposableEffect(playback) { onDispose { playback.stopMini() } }
+
     Column(Modifier.fillMaxSize()) {
-        TvHeader(
-            title = "Sports",
-            subtitle = (if (state.multiplePlaylists) "All playlists" else "Your playlist") + if (state.liveCount > 0) " · ${state.liveCount} live now" else "",
-            actions = { TvActionButton("Your sports", onClick = { follow = true }, icon = Icons.Filled.Tune) },
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (mini != null) {
+                TvMiniPlayer(
+                    mini,
+                    onOpen = { context.startActivity(mini.request.toIntent(context)) },
+                    modifier = Modifier.padding(start = TvSpacing.screenStart, top = TvSpacing.screenTop).height(MiniHeight),
+                )
+            }
+            TvHeader(
+                title = "Sports",
+                subtitle = (if (state.multiplePlaylists) "All playlists" else "Your playlist") + if (state.liveCount > 0) " · ${state.liveCount} live now" else "",
+                actions = { TvActionButton("Your sports", onClick = { follow = true }, icon = Icons.Filled.Tune) },
+                modifier = Modifier.weight(1f),
+            )
+        }
         LazyRow(
             contentPadding = PaddingValues(start = TvSpacing.screenStart, end = TvSpacing.screenEnd, top = 2.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -140,11 +167,32 @@ fun TvSportsScreen(onAddPlaylist: () -> Unit) {
                     onClick = { vm.select(f) },
                     leadingIcon = when (f) {
                         SportsFilter.ForYou -> { { Icon(Icons.Filled.Star, null, Modifier.size(18.dp)) } }
+                        SportsFilter.Live -> { { Box(Modifier.size(9.dp).clip(CircleShape).background(MaterialTheme.colorScheme.error)) } }
                         is SportsFilter.Only -> { { Icon(f.sport.icon, null, Modifier.size(18.dp)) } }
                         SportsFilter.All -> null
                     },
                     modifier = if (f == state.filter) Modifier.focusRequester(chips) else Modifier,
                 ) { Text(f.label) }
+            }
+        }
+        // Within a sport: its countries and competitions.
+        val sport = (state.filter as? SportsFilter.Only)?.sport
+        if (sport != null && state.leagues.isNotEmpty()) {
+            LazyRow(
+                contentPadding = PaddingValues(start = TvSpacing.screenStart, end = TvSpacing.screenEnd, bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.focusRestorer(),
+            ) {
+                item(key = "all") {
+                    FilterChip(selected = state.league == null, onClick = { vm.selectLeague(null) }) { Text(LeagueFilter.allOf(sport)) }
+                }
+                items(state.leagues, key = { "${it.region}|${it.competition}" }) { l ->
+                    FilterChip(
+                        selected = l == state.league,
+                        onClick = { vm.selectLeague(l) },
+                        leadingIcon = if (l.competition == null) { { Icon(Icons.Filled.Public, null, Modifier.size(18.dp)) } } else null,
+                    ) { Text(l.label) }
+                }
             }
         }
         when {
@@ -166,20 +214,26 @@ fun TvSportsScreen(onAddPlaylist: () -> Unit) {
                     indexing && !state.anyEvents -> "Finding sport in your guides…" to "This takes a moment after a playlist or its TV guide is refreshed."
                     !state.anyEvents -> "No sport found yet" to
                         "Sport shows here from your playlists' TV guides, and from event channels' names. Guides that give programmes categories work best."
-                    else -> "Nothing on in ${state.filter.label}" to "Try All, or another sport. Events show here as far ahead as your TV guides go."
+                    state.filter == SportsFilter.Live -> "Nothing said to be live" to
+                        "Live shows what your TV guides say is live, now and to come. Guides don't always say: try All."
+                    else -> "Nothing on in ${state.league?.label ?: state.filter.label}" to "Try All, or another sport. Events show here as far ahead as your TV guides go."
                 }
                 TvEmptyState(Icons.Filled.EmojiEvents, title, if (found.isBlank()) message else "$message\n\n$found")
                 RequestFocusOnStart(chips)
             }
             else -> {
+                // Another filter starts from the top, where what's on now is.
+                val list = rememberLazyListState()
+                LaunchedEffect(state.filter, state.league) { list.scrollToItem(0) }
                 LazyColumn(
                     Modifier.fillMaxSize(),
+                    state = list,
                     contentPadding = PaddingValues(bottom = TvSpacing.screenBottom),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     rows(state, now, first, play, open)
                 }
-                RequestFocusOnStart(first, key = state.filter)
+                RequestFocusOnStart(first, key = state.filter to state.league)
             }
         }
     }
@@ -266,6 +320,9 @@ private fun cardColors(container: androidx.compose.ui.graphics.Color = TvPalette
 )
 
 private val CardShape = RoundedCornerShape(16.dp)
+
+/** The mini player above the hub: smaller than the guide's, which has a programme's details beside it. */
+private val MiniHeight = 96.dp
 
 @Composable
 private fun LivePill() {

@@ -2,9 +2,13 @@ package app.tellycine.tv
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.tellycine.TellycineApp
@@ -18,6 +22,7 @@ import app.tellycine.screenshots.beATelevision
 import app.tellycine.ui.live.liveRequest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -52,7 +57,7 @@ class TvSportsTest {
     }
 
     @Test
-    fun aChannelLeftWithBackStopsUnlessTheGuideIsShowing() {
+    fun aChannelLeftWithBackPlaysOnAboveTheHubUntilItsLeft() {
         val d = ScreenshotDriver(compose)
         d.launchTv { pid -> DemoData.seedSports(d.app.container, pid) }
         d.tvTab("Sports", "Live now")
@@ -66,6 +71,41 @@ class TvSportsTest {
             playback.toMini(owner, liveRequest(playlist, stream))
         }
         compose.waitForIdle()
+        // It plays on in the mini player, as in the guide.
+        assertNotNull(playback.mini)
+        assertTrue(compose.onAllNodes(hasText("City Sports 1") and hasClickAction()).fetchSemanticsNodes().isNotEmpty())
+
+        // Anywhere else, it stops.
+        d.tvTab("Search", "Search your playlist")
         compose.waitUntil(5_000) { playback.mini == null }
+    }
+
+    /** The filter chip saying exactly [text]: the chips come before the events they filter. */
+    private fun chip(text: String) {
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText(text) and hasClickAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodes(hasText(text) and hasClickAction()).onFirst().performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun aSportsCompetitionsAndLive() {
+        val d = ScreenshotDriver(compose)
+        d.launchTv { pid -> DemoData.seedSports(d.app.container, pid) }
+        d.tvTab("Sports", "Live now")
+
+        // Football: all of it, or one of its competitions.
+        chip("Football")
+        d.waitForText("All football")
+        chip("Premier League")
+        d.waitForText("Newcastle v Man Utd")
+        // Arsenal v Inter, on now, is in the Champions League.
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("Live now")).fetchSemanticsNodes().isEmpty() }
+        chip("All football")
+        d.waitForText("Live now")
+
+        // Live: what the guides say is live, in every sport.
+        chip("Live")
+        d.waitForText("Sinner v Zverev")
+        assertTrue(compose.onAllNodes(hasText("All football")).fetchSemanticsNodes().isEmpty())
     }
 }

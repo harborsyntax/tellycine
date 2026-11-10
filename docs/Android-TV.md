@@ -47,7 +47,7 @@ Live TV opens on the **guide**: channels down the side and time across the top. 
 
 The top of the screen describes the highlighted programme, and with more than one playlist, which playlist the channel is from. The two buttons at the top right are icons: **Compact** shrinks the rows to fit more channels on screen, and **Expand** makes them bigger again; **List** switches to a plain channel list with what's on now, and **Guide** switches back. In the list, the categories have a button of their own, with the same playlists and **Sort** button.
 
-When you go back to the guide from a live channel, it keeps playing in a **mini player** in the top corner, and the guide moves to that channel: the one you were watching, even if you changed channel in the player or Tellycine opened on it as it started. Press OK on the mini player, or **hold Back** anywhere in the guide, to return to it full screen. It stops when you leave the guide.
+When you go back to the guide from a live channel, it keeps playing in a **mini player** in the top corner, and the guide moves to that channel: the one you were watching, even if you changed channel in the player or Tellycine opened on it as it started. Press OK on the mini player, or **hold Back** anywhere in the guide, to return to it full screen. It stops when you leave the guide. The [Sports Hub](Sports.md) has one too, for channels played from it.
 
 <img src="images/screens/tv-channel-options.png" width="640" alt="A channel's options and schedule">
 

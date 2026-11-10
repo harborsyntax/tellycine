@@ -29,6 +29,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
@@ -73,6 +75,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.tellycine.cast.CastButton
 import app.tellycine.core.sports.AiringKind
+import app.tellycine.core.sports.Sport
 import app.tellycine.core.sports.SportCatalogue
 import app.tellycine.core.sports.SportNames
 import app.tellycine.data.db.StreamEntity
@@ -122,6 +125,7 @@ fun SportsScreen(onSearch: () -> Unit, onSetup: () -> Unit) {
     ) { padding ->
         LazyColumn(Modifier.padding(padding).fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
             item(key = "filters") { FilterRow(state, vm::select) }
+            if (state.leagues.isNotEmpty()) item(key = "leagues") { LeagueRow(state, vm::selectLeague) }
             if (state.ask && state.hasPlaylists) item(key = "ask") { AskCard(onChoose = onSetup, onLater = vm::asked) }
             when {
                 !state.hasPlaylists -> item(key = "empty") {
@@ -165,9 +169,29 @@ private fun FilterRow(state: SportsHubState, onSelect: (SportsFilter) -> Unit) {
                 label = { Text(f.label, maxLines = 1) },
                 leadingIcon = when (f) {
                     SportsFilter.ForYou -> { { Icon(Icons.Filled.Star, null, Modifier.size(18.dp)) } }
+                    SportsFilter.Live -> { { Icon(Icons.Filled.FiberManualRecord, null, Modifier.size(12.dp), tint = MaterialTheme.colorScheme.error) } }
                     is SportsFilter.Only -> { { Icon(f.sport.icon, null, Modifier.size(18.dp)) } }
                     SportsFilter.All -> null
                 },
+            )
+        }
+    }
+}
+
+/** Within a sport: its countries and competitions. */
+@Composable
+private fun LeagueRow(state: SportsHubState, onSelect: (LeagueFilter?) -> Unit) {
+    val sport = (state.filter as? SportsFilter.Only)?.sport ?: return
+    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        item(key = "all") {
+            FilterChip(selected = state.league == null, onClick = { onSelect(null) }, label = { Text(LeagueFilter.allOf(sport), maxLines = 1) })
+        }
+        items(state.leagues, key = { "${it.region}|${it.competition}" }) { l ->
+            FilterChip(
+                selected = l == state.league,
+                onClick = { onSelect(l) },
+                label = { Text(l.label, maxLines = 1) },
+                leadingIcon = if (l.competition == null) { { Icon(Icons.Filled.Public, null, Modifier.size(18.dp)) } } else null,
             )
         }
     }
@@ -200,7 +224,9 @@ private fun NothingOn(state: SportsHubState, indexing: Boolean, found: String) {
         indexing && !state.anyEvents -> "Finding sport in your guides…" to "This takes a moment after a playlist or its TV guide is refreshed."
         !state.anyEvents -> "No sport found yet" to
             "Sport shows here from your playlists' TV guides, and from event channels' names. Guides that give programmes categories work best."
-        else -> "Nothing on in ${state.filter.label}" to "Try All, or another sport. Events show here as far ahead as your TV guides go."
+        state.filter == SportsFilter.Live -> "Nothing said to be live" to
+            "Live shows what your TV guides say is live, now and to come. Guides don't always say: try All."
+        else -> "Nothing on in ${state.league?.label ?: state.filter.label}" to "Try All, or another sport. Events show here as far ahead as your TV guides go."
     }
     // What was found in each playlist, so an empty hub says why.
     EmptyState(Icons.Filled.EmojiEvents, title, if (found.isBlank()) message else "$message\n\n$found", Modifier.heightIn(min = 360.dp))
