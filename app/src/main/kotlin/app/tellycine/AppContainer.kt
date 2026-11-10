@@ -2,6 +2,7 @@ package app.tellycine
 
 import android.content.Context
 import app.tellycine.cast.CastManager
+import app.tellycine.data.ProblemLog
 import app.tellycine.data.db.TellycineDatabase
 import app.tellycine.data.net.Downloader
 import app.tellycine.data.net.createHttpClient
@@ -36,6 +37,9 @@ import java.util.concurrent.TimeUnit
 /** Hand-rolled dependency graph; small enough not to need a DI framework. */
 class AppContainer(context: Context) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** The last time the app stopped unexpectedly, for Settings to show. */
+    val problems = ProblemLog(context)
     val httpClient = createHttpClient()
     val database = TellycineDatabase.create(context).also { db -> appScope.launch(Dispatchers.IO) { db.watchAllTables() } }
     val settings = SettingsRepository(context, builtInTmdbKey = TmdbBuiltInKey.value)
