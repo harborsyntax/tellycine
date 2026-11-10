@@ -86,5 +86,7 @@ object Catchup {
     private fun durationMinutes(startMs: Long, stopMs: Long) =
         ceil((stopMs - startMs).coerceAtLeast(60_000) / 60_000.0).toInt()
 
-    private val PLACEHOLDER = Regex("""\$?\{([A-Za-z_]+)}""")
+    // Both braces escaped: Android's regular expressions (ICU) refuse a bare "}", which the JVM's
+    // allow, so every M3U catch-up stopped the app on Android while passing its tests.
+    private val PLACEHOLDER = Regex("""\$?\{([A-Za-z_]+)\}""")
 }

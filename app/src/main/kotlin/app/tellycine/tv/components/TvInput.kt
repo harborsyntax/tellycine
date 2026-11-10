@@ -125,7 +125,13 @@ fun QrCode(text: String, modifier: Modifier = Modifier, size: Dp = 220.dp) {
 }
 
 private fun qrBitmap(text: String): ImageBitmap {
-    val hints = mapOf(EncodeHintType.MARGIN to 0, EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M)
+    // UTF-8, said so in the code itself: without it, phones' scanners read anything but plain
+    // ASCII as nothing at all. Long texts with less error correction, so they're less dense.
+    val hints = mapOf(
+        EncodeHintType.MARGIN to 0,
+        EncodeHintType.ERROR_CORRECTION to if (text.length > 300) ErrorCorrectionLevel.L else ErrorCorrectionLevel.M,
+        EncodeHintType.CHARACTER_SET to "UTF-8",
+    )
     val matrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, 0, 0, hints)
     val w = matrix.width
     val h = matrix.height

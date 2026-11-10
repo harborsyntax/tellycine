@@ -75,7 +75,7 @@ class ProblemLog(private val context: Context) {
         private const val PREFS = "problems"
         private const val EXIT_SEEN = "exitSeen"
 
-        /** Small enough for a QR code a phone can read from across the room. */
+        /** Small enough for a QR code a phone can read from across the room. Plain ASCII where it can be. */
         private const val MAX_REPORT = 1_800
 
         /** Keeps the error that's about to stop the app, then lets Android's own handler close it. */
@@ -116,7 +116,7 @@ class ProblemLog(private val context: Context) {
          * it was thrown and Tellycine's own code it came through.
          */
         fun report(atMs: Long, thread: Thread, error: Throwable): String = buildString {
-            appendLine(about(atMs) + " · thread ${thread.name}")
+            appendLine(about(atMs) + " | thread ${thread.name}")
             var e: Throwable? = error
             var first = true
             while (e != null) {
@@ -132,7 +132,7 @@ class ProblemLog(private val context: Context) {
 
         private fun about(atMs: Long): String {
             val time = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ROOT).format(Date(atMs))
-            return "Tellycine ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) · ${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE} · $time"
+            return "Tellycine ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) | ${Build.MANUFACTURER} ${Build.MODEL} | Android ${Build.VERSION.RELEASE} | $time"
         }
 
         private val LINK = Regex("(?i)\\b[a-z][a-z0-9+.-]*://\\S+")

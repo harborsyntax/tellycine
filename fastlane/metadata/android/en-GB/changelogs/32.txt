@@ -1,0 +1,3 @@
+• Catch-up from M3U playlists no longer closes the app
+• TV: choosing filters in the Sports Hub no longer closes the app
+• Settings › Problems › Last problem: its QR code now gives your phone the text, and on TV the report shows in full
