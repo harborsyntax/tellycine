@@ -32,7 +32,7 @@ Following an F1 or MotoGP team or driver follows their sport's races, as they're
 Everything comes from your own playlists, on your device:
 - **TV guides:** each programme's title, categories and description, and the channel it's on. "Live Premier League: Arsenal v Chelsea" on a sports channel is a live football match between Arsenal and Chelsea; "Football Focus" is a magazine show, which isn't shown; "Match of the Day" is highlights.
 - **Live or not:** Sky Sports, TNT Sports and Premier Sports say "Live" on their live coverage, so on their channels, sport that doesn't say it (such as "The Emirates FA Cup" or "EFL 26/27: West Brom v Millwall") is taken to be shown again. A season or past year in the title, "Hlts" and the like mark replays and highlights anywhere.
-- **Event channels:** many providers have channels whose names change with each event, such as "EPL 03: Arsenal v Chelsea 15:00" or "PPV 1 | Joshua v Dubois | Sat 22:00 UK". Their events show too, and join the same match on other channels. Times without a time zone are taken to be UK time.
+- **Event channels:** many providers have channels whose names change with each event, such as "EPL 03: Arsenal v Chelsea 15:00", "PPV 1 | Joshua v Dubois | Sat 22:00 UK" or "Sky Sports + 05: EFL Trophy Barnet v L Orient @ 10 Nov 06:45 PM London". Their events show too, and join the same match on other channels. Times without a time zone are taken to be UK time.
 
 The same match on several channels, or in several playlists, is one event with every channel it's on.
 
@@ -52,6 +52,10 @@ In **Settings → Sports** (on phones and TV):
 | **Your sports and teams** | What shows under **For you**. |
 | **Replays and highlights** | Shows them as well as live coverage. Off by default. |
 | **Event channels** | Shows the events channels' names announce. On by default. |
+| **Sport found** | For each playlist, how much sport was found in its guide and when, or why its guide couldn't be looked through. **Look again** looks through every guide afresh. |
+
+### If the Sports tab is empty
+The empty Sports tab, and **Settings → Sports → Sport found**, say what was found in each playlist's guide. If a playlist hasn't been looked through yet, or its guide couldn't be, use **Look again**. Sport is found on each device separately, from its own copy of your guides, so one device can be behind another until its guide is refreshed.
 
 ## On TV
 <img src="images/screens/tv-sports.png" width="640" alt="Sports on TV">

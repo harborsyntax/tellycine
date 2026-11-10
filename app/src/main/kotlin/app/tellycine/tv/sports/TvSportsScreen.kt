@@ -92,6 +92,7 @@ import app.tellycine.ui.sports.startLabel
 import app.tellycine.ui.sports.startsIn
 import app.tellycine.ui.sports.whenLabel
 import app.tellycine.ui.components.tellycineViewModel
+import app.tellycine.ui.settings.SportsText
 
 /**
  * The Sports Hub on TV: rows of what's live and coming up. OK on a live event plays it; on one
@@ -154,15 +155,20 @@ fun TvSportsScreen(onAddPlaylist: () -> Unit) {
                 actionLabel = "Add a playlist",
                 onAction = onAddPlaylist,
             )
-            !state.loaded -> Box(Modifier.fillMaxSize())
+            !state.loaded -> {
+                val status by vm.status.collectAsStateWithLifecycle()
+                TvEmptyState(Icons.Filled.EmojiEvents, "Loading the Sports Hub…", SportsText.found(status, indexing))
+            }
             !state.anyShown -> {
+                val status by vm.status.collectAsStateWithLifecycle()
+                val found = SportsText.found(status, indexing)
                 val (title, message) = when {
                     indexing && !state.anyEvents -> "Finding sport in your guides…" to "This takes a moment after a playlist or its TV guide is refreshed."
                     !state.anyEvents -> "No sport found yet" to
                         "Sport shows here from your playlists' TV guides, and from event channels' names. Guides that give programmes categories work best."
                     else -> "Nothing on in ${state.filter.label}" to "Try All, or another sport. Events show here as far ahead as your TV guides go."
                 }
-                TvEmptyState(Icons.Filled.EmojiEvents, title, message)
+                TvEmptyState(Icons.Filled.EmojiEvents, title, if (found.isBlank()) message else "$message\n\n$found")
                 RequestFocusOnStart(chips)
             }
             else -> {

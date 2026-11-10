@@ -79,6 +79,9 @@ class SportClassifier {
         month: Int? = null,
         year: Int? = null,
     ): SportMatch? {
+        // Superscript and other look-alike letters as plain ones: "ᴸᶦᵛᵉ" is "Live".
+        val title = SportNames.plain(title)
+        val description = description?.let(SportNames::plain)
         val titleWords = Words(title)
         val categoryWords = category?.let(::Words)
         val descWords = description?.let { Words(firstSentences(it)) }
@@ -388,7 +391,8 @@ class SportClassifier {
              */
             fun normalise(raw: String): String {
                 val ascii = raw.all { it.code < 128 }
-                val source = if (ascii) raw else MARKS.replace(Normalizer.normalize(raw, Normalizer.Form.NFD), "")
+                // Compatibility forms too: superscript "ᴸᶦᵛᵉ" is "Live".
+                val source = if (ascii) raw else SportNames.plain(raw)
                 val out = StringBuilder(source.length + 2).append(' ')
                 var space = true
                 for (c in source) {

@@ -26,7 +26,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SportAiringEntity::class,
         SportIndexEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class TellycineDatabase : RoomDatabase() {
@@ -176,6 +176,14 @@ abstract class TellycineDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+        /** 1.17.2: when the Sports Hub last looked through each playlist, and why it couldn't, to say so. */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `sport_index` ADD COLUMN `indexedAt` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `sport_index` ADD COLUMN `error` TEXT")
+            }
+        }
+
+        val MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
     }
 }

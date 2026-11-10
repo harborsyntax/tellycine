@@ -12,6 +12,7 @@ import app.tellycine.data.db.SportAiringEntity
 import app.tellycine.data.db.SportIndexEntity
 import app.tellycine.data.db.TellycineDatabase
 import app.tellycine.data.settings.SettingsRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -85,6 +86,13 @@ class SportsIndexer(
         }
     }
 
+    /** Looks through every playlist's guide again, all of it: when asked to, in Settings. */
+    fun refreshAll() {
+        scope.launch {
+            if (settings.current().sportsHub) for (p in db.playlists().getAll()) index(p.id, full = true)
+        }
+    }
+
     private suspend fun indexOutdated() {
         val current = try {
             withContext(worker) { dao.indexedWith(VERSION) }.toSet()
@@ -111,8 +119,18 @@ class SportsIndexer(
         _working.update { it + 1 }
         try {
             withContext(worker) { indexBlocking(playlistId, full, now) }
-        } catch (e: Exception) {
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            // Out of memory too: it says so in Settings, and looks through it all again next time.
             Log.w(TAG, "Couldn't find sport in playlist $playlistId", e)
+            runCatching {
+                withContext(worker) {
+                    if (db.playlists().getBlocking(playlistId) != null) {
+                        dao.setIndexState(SportIndexEntity(playlistId, 0, 0, System.currentTimeMillis(), e.message ?: e.javaClass.simpleName))
+                    }
+                }
+            }
         } finally {
             _working.update { it - 1 }
         }
@@ -203,7 +221,7 @@ class SportsIndexer(
                 sport = e.sport,
                 kind = AiringKind.LIVE,
                 title = e.title,
-                competition = null,
+                competition = e.competition,
                 session = null,
                 home = e.home,
                 away = e.away,
@@ -224,7 +242,7 @@ class SportsIndexer(
             // Unless the playlist was removed in the meantime.
             if (db.playlists().getBlocking(playlistId) != null) {
                 rows.chunked(BATCH).forEach(dao::insert)
-                dao.setIndexState(SportIndexEntity(playlistId, lastId, VERSION))
+                dao.setIndexState(SportIndexEntity(playlistId, lastId, VERSION, System.currentTimeMillis()))
             }
         }
         Log.i(

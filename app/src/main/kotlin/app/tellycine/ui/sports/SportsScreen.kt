@@ -84,6 +84,7 @@ import app.tellycine.ui.components.Artwork
 import app.tellycine.ui.components.EmptyState
 import app.tellycine.ui.components.formatTime
 import app.tellycine.ui.components.tellycineViewModel
+import app.tellycine.ui.settings.SportsText
 
 /** The Sports Hub: what's on now and coming up, of the sports and teams followed. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -134,7 +135,10 @@ fun SportsScreen(onSearch: () -> Unit, onSetup: () -> Unit) {
                 !state.loaded -> item(key = "loading") {
                     Box(Modifier.fillMaxWidth().height(240.dp), Alignment.Center) { CircularProgressIndicator() }
                 }
-                !state.anyShown -> item(key = "empty") { NothingOn(state, indexing) }
+                !state.anyShown -> item(key = "empty") {
+                    val status by vm.status.collectAsStateWithLifecycle()
+                    NothingOn(state, indexing, SportsText.found(status, indexing))
+                }
                 else -> hubSections(state, now, vm::open)
             }
         }
@@ -191,14 +195,15 @@ private fun AskCard(onChoose: () -> Unit, onLater: () -> Unit) {
 }
 
 @Composable
-private fun NothingOn(state: SportsHubState, indexing: Boolean) {
+private fun NothingOn(state: SportsHubState, indexing: Boolean, found: String) {
     val (title, message) = when {
         indexing && !state.anyEvents -> "Finding sport in your guides…" to "This takes a moment after a playlist or its TV guide is refreshed."
         !state.anyEvents -> "No sport found yet" to
             "Sport shows here from your playlists' TV guides, and from event channels' names. Guides that give programmes categories work best."
         else -> "Nothing on in ${state.filter.label}" to "Try All, or another sport. Events show here as far ahead as your TV guides go."
     }
-    EmptyState(Icons.Filled.EmojiEvents, title, message, Modifier.heightIn(min = 360.dp))
+    // What was found in each playlist, so an empty hub says why.
+    EmptyState(Icons.Filled.EmojiEvents, title, if (found.isBlank()) message else "$message\n\n$found", Modifier.heightIn(min = 360.dp))
 }
 
 private fun LazyListScope.hubSections(state: SportsHubState, now: Long, onOpen: (SportEvent) -> Unit) {

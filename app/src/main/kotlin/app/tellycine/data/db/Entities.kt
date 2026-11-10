@@ -417,6 +417,21 @@ data class SportIndexEntity(
     @PrimaryKey val playlistId: Long,
     val lastProgrammeId: Long,
     val version: Int,
+    /** When it last looked, and why it couldn't, if it couldn't (then it looks through it all next time). */
+    @ColumnInfo(defaultValue = "0")
+    val indexedAt: Long = 0,
+    val error: String? = null,
+)
+
+/** What the Sports Hub found in a playlist, to say so: in Settings, and when the hub is empty. */
+data class SportsStatus(
+    val playlistId: Long,
+    val name: String,
+    /** When it last looked; null if it hasn't. */
+    val indexedAt: Long?,
+    val error: String?,
+    val programmes: Int,
+    val eventChannels: Int,
 )
 
 /** The start of a programme, for finding sport in a guide without reading every description. */

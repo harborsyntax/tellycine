@@ -210,4 +210,12 @@ class SportClassifierTest {
         assertEquals(Sport.OTHER, nfl.sport)
         assertEquals("Buccaneers", nfl.home)
     }
+
+    @Test
+    fun superscriptLetters() {
+        val m = classify("Premier League: Arsenal v Chelsea ᴸᶦᵛᵉ")!!
+        assertEquals(AiringKind.LIVE, m.kind)
+        assertEquals("Chelsea", m.away)
+        assertEquals(Sport.F1, c.channel("Sky Sports F1 ᴴᴰ").sport)
+    }
 }

@@ -68,4 +68,38 @@ class EventChannelsTest {
         assertNull(EventChannels.parse("BBC One", now))
         assertNull(EventChannels.parse("PPV 3 | ---", now))
     }
+
+    // As an IPTVBoss-style provider names them.
+
+    @Test
+    fun londonTimesAndCompetitionsBeforeTheSides() {
+        val e = EventChannels.parse("Sky Sports + 05: EFL EFL Trophy Barnet v L Orient @ 10 Nov 06:45 PM London", now)!!
+        assertEquals(Sport.FOOTBALL, e.sport)
+        assertEquals("Barnet v L Orient", e.title)
+        assertEquals("EFL Trophy", e.competition)
+        assertEquals(at(10, 18, 45), e.startMs)
+        val tennis = EventChannels.parse("Sky Sports + 01: ATP Tour ATP Tennis A. Michelsen v J. Cerundolo @ 10 Nov 11:55 AM London", now)!!
+        assertEquals(Sport.TENNIS, tennis.sport)
+        assertEquals("A. Michelsen v J. Cerundolo", tennis.title)
+    }
+
+    @Test
+    fun americanDatesAndAmericanFootball() {
+        val soccer = EventChannels.parse("ESPN UNLTD 037: Soccer: Bucknell vs. American (11.10 12:00 PM ET)", now)!!
+        assertEquals(Sport.FOOTBALL, soccer.sport)
+        assertEquals("Bucknell v American", soccer.title)
+        assertEquals(at(10, 12, 0, ZoneId.of("America/New_York")), soccer.startMs)
+        assertEquals(Sport.OTHER, EventChannels.parse("ESPN UNLTD 169: Football: Kent State vs. Bowling Green (11.10 07:00 PM ET)", now)!!.sport)
+        assertEquals(Sport.OTHER, EventChannels.parse("TSN+ 08: NCAA Football: Ohio vs. Miami (OH) @ 10 Nov 08:00 PM ET", now)!!.sport)
+        assertEquals(Sport.OTHER, EventChannels.parse("(UK) Dazn  01: Basketball Champions League: Sabah BC vs Trabzonspor Nov 10 11:00 AM", now)!!.sport)
+        val nba = EventChannels.parse("NBA LP 05 | Cavaliers @ Hornets (Mobile View (In-Arena)) (2026-11-10 00:00:00)", now)!!
+        assertEquals("Cavaliers v Hornets", nba.title)
+    }
+
+    @Test
+    fun notEvents() {
+        assertNull(EventChannels.parse("(UK) Dazn  12: No Event Scheduled", now))
+        assertNull(EventChannels.parse("Sky Sports + 28: NO EVENT", now))
+        assertNull(EventChannels.parse("ESPN UNLTD 062: Football: Iowa State Football Press Conference (11.10 12:55 PM ET)", now))
+    }
 }

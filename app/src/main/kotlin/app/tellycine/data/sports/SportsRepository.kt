@@ -8,6 +8,7 @@ import app.tellycine.core.sports.SportClassifier
 import app.tellycine.core.sports.SportNames
 import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.SportAiringEntity
+import app.tellycine.data.db.SportsStatus
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.db.TellycineDatabase
 import kotlinx.coroutines.Dispatchers
@@ -75,6 +76,9 @@ class SportsRepository(private val db: TellycineDatabase) {
             .mapLatest { (airings, playlists) -> build(airings.filter { eventChannels || !it.isEventChannel }, playlists, follows, replays) }
             .flowOn(Dispatchers.IO)
     }
+
+    /** What was found in each playlist, and when. */
+    fun status(): Flow<List<SportsStatus>> = dao.observeStatus()
 
     /** Teams and players in the events found, for suggestions while choosing what to follow. */
     suspend fun sideNames(): List<String> = dao.sideNames()

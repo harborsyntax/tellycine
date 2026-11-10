@@ -148,6 +148,16 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
                     item { TvValueRow("Your sports and teams", SportsText.followed(s), onClick = { followPanel = true }) }
                     item { TvSwitchRow("Replays and highlights", SportsText.replays(s.sportsReplays), s.sportsReplays, vm::setSportsReplays) }
                     item { TvSwitchRow("Event channels", SportsText.EVENT_CHANNELS, s.sportsEventChannels, vm::setSportsEventChannels) }
+                    item {
+                        val status by vm.sportsStatus.collectAsStateWithLifecycle()
+                        val working by vm.sportsWorking.collectAsStateWithLifecycle()
+                        // What was found, and OK to look through the guides again.
+                        TvValueRow(
+                            "Sport found",
+                            SportsText.found(status, working).ifEmpty { "No playlists yet" } + if (working) "" else "\nPress OK to look through your guides again.",
+                            onClick = { if (!working) vm.lookForSportAgain() },
+                        )
+                    }
                 }
                 item {
                     Text(
