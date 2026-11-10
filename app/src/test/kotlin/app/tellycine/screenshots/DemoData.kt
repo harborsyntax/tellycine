@@ -114,6 +114,12 @@ object DemoData {
         container.settings.setVodSort(ContentKind.SERIES, VodOrder(VodSort.PROVIDER))
         container.settings.setTmdbEnabled(false)
         container.settings.setLibraryGroupByCategory(groupLibrary)
+        // The Sports Hub as it starts: on, every sport, nothing followed, live coverage only.
+        container.settings.setSportsHub(true)
+        container.settings.setSportsReplays(false)
+        container.settings.setSportsEventChannels(true)
+        for (sport in app.tellycine.core.sports.Sport.FOLLOWABLE) container.settings.setSportFollowed(sport, true)
+        for (team in container.settings.current().sportsTeams) container.settings.unfollowTeam(team)
         val dao = db.content()
 
         dao.insertCategories(
@@ -185,5 +191,47 @@ object DemoData {
 
         seedDownloads(container, pid, now)
         pid
+    }
+
+    /**
+     * Sport for the Sports Hub on the demo's sports channels, in place of their usual programmes:
+     * two matches on now (one also on an event channel), more later today and in the days after,
+     * and some teams and players followed. Then it's found, as a refresh would find it.
+     */
+    fun seedSports(container: AppContainer, pid: Long, follow: List<String> = listOf("Arsenal", "McLaren", "Ronnie O'Sullivan")) = runBlocking(Dispatchers.IO) {
+        val quarter = 15 * 60 * 1000L
+        val now = System.currentTimeMillis() / quarter * quarter
+        val tomorrow = java.time.LocalDate.now().plusDays(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val db = container.database
+        val dao = db.content()
+        db.openHelper.writableDatabase.execSQL("DELETE FROM programmes WHERE playlistId = $pid AND channelId IN ('ch2', 'ch3', 'ch4')")
+        fun p(channel: String, start: Long, minutes: Int, title: String, category: String = "Sport", description: String? = null) =
+            ProgrammeEntity(playlistId = pid, channelId = channel, startMs = start, stopMs = start + minutes * 60_000L, title = title, description = description, category = category)
+        val minute = 60_000L
+        dao.insertProgrammes(listOf(
+            p("ch2", now - 3 * HOUR, 133, "Football Focus", "Sport, Sports magazine"),
+            p("ch2", now - 47 * minute, 120, "Live Champions League: Arsenal v Inter", "Sport, Football", "Live coverage from the Emirates Stadium."),
+            p("ch2", now + 73 * minute, 47, "Champions League Goals", "Sport, Football"),
+            p("ch2", now + 2 * HOUR, 135, "Live Premier League: Newcastle v Man Utd", "Sport, Football"),
+            p("ch2", tomorrow + 15 * HOUR, 120, "Live Premier League: Chelsea v Arsenal", "Sport, Football"),
+            p("ch3", now - HOUR, 180, "Live Darts: Grand Slam of Darts - Littler v Price", "Sport, Darts"),
+            p("ch3", now + 2 * HOUR, 180, "Live Tennis: ATP Finals - Sinner v Zverev", "Sport, Tennis"),
+            p("ch3", tomorrow + 14 * HOUR, 90, "Live Formula 1: Brazilian Grand Prix - Qualifying", "Sport, Motor Sport"),
+            p("ch3", tomorrow + DAY + 17 * HOUR, 120, "Live Formula 1: Brazilian Grand Prix - Race", "Sport, Motor Sport"),
+            p("ch4", now - 30 * minute, 150, "Live Tennis: ATP Finals - Alcaraz v Fritz", "Sport, Tennis"),
+            p("ch4", now + 2 * HOUR + 30 * minute, 210, "Live Boxing: Fight Night - Main Card", "Sport, Boxing"),
+            p("ch4", tomorrow + 13 * HOUR, 240, "Live Snooker: Scottish Open - Round 1", "Sport, Snooker", "Ronnie O'Sullivan begins his campaign."),
+            p("ch4", tomorrow + DAY + 8 * HOUR + 30 * minute, 300, "Live Golf: DP World Tour Championship - Final Round", "Sport, Golf"),
+        ))
+        // An event channel for the match on now, in the sport category.
+        dao.insertStreams(listOf(
+            StreamEntity(
+                playlistId = pid, kind = ContentKind.LIVE, streamId = "ev4", name = "UCL 04: Arsenal v Inter", sortOrder = channels.size,
+                categoryId = "sport", logo = null, url = "https://example.com/live/ev4.m3u8", epgChannelId = "ucl 04",
+            )
+        ))
+        for (name in follow) container.settings.followTeam(name)
+        container.settings.setSportsAsked()
+        container.sportsIndexer.index(pid)
     }
 }

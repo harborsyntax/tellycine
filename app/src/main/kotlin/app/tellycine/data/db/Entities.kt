@@ -6,6 +6,8 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import app.tellycine.core.ContentKind
+import app.tellycine.core.sports.AiringKind
+import app.tellycine.core.sports.Sport
 import java.util.Locale
 
 enum class PlaylistType { M3U_URL, M3U_FILE, XTREAM }
@@ -365,3 +367,70 @@ data class TmdbPageEntity(
     val json: String,
     val fetchedAt: Long,
 )
+
+/**
+ * Sport on a channel, as the Sports Hub found it ([app.tellycine.data.sports.SportsIndexer]): a
+ * programme in a playlist's guide, or an event a channel's name announces. A small table of its
+ * own, so the hub reads a few hundred rows rather than looking through the whole guide.
+ */
+@Entity(
+    tableName = "sport_airings",
+    primaryKeys = ["playlistId", "channelId", "startMs"],
+    indices = [Index(value = ["stopMs"])],
+)
+data class SportAiringEntity(
+    val playlistId: Long,
+    /** The guide channel it's on ([StreamEntity.epgChannelId]), or for an event channel "#" and its stream id. */
+    val channelId: String,
+    /** When it starts and ends; both 0 for an event channel whose name doesn't say when. */
+    val startMs: Long,
+    val stopMs: Long,
+    val sport: Sport,
+    val kind: AiringKind,
+    /** What to call it: "Arsenal v Chelsea", "Brazilian Grand Prix". */
+    val title: String,
+    val competition: String?,
+    val session: String?,
+    /** Who's playing, when it's "A v B". */
+    val home: String?,
+    val away: String?,
+    /** The programme's title as the guide has it, or the event channel's name. */
+    val programmeTitle: String,
+    /** The start of its description, to find players' names in. */
+    val detail: String?,
+    /** The event channel it's on; null for a programme in the guide. */
+    val streamId: String?,
+) {
+    val isEventChannel: Boolean get() = streamId != null
+
+    /** The programme it is, for catch-up. */
+    fun programme(): ProgrammeEntity =
+        ProgrammeEntity(playlistId = playlistId, channelId = channelId, startMs = startMs, stopMs = stopMs, title = programmeTitle, description = detail, category = null)
+}
+
+/**
+ * How far the Sports Hub has looked through a playlist's guide: the last programme it read (a
+ * refresh adds programmes after it, keeping those that haven't changed) and the rules it used.
+ */
+@Entity(tableName = "sport_index")
+data class SportIndexEntity(
+    @PrimaryKey val playlistId: Long,
+    val lastProgrammeId: Long,
+    val version: Int,
+)
+
+/** The start of a programme, for finding sport in a guide without reading every description. */
+data class ProgrammeHead(
+    val id: Long,
+    val channelId: String,
+    val startMs: Long,
+    val stopMs: Long,
+    val title: String,
+    val category: String?,
+)
+
+/** A programme's description, or its start. */
+data class ProgrammeDescription(val id: Long, val description: String?)
+
+/** A live channel's name and guide id, for finding sport by channel. */
+data class LiveChannelName(val streamId: String, val name: String, val epgChannelId: String?)

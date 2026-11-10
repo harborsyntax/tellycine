@@ -594,8 +594,11 @@ class PlaylistSyncer(
         private const val TAG = "PlaylistSyncer"
         private const val BATCH = 2000
 
-        /** Goes up when importing a guide changes, so guides are imported again rather than found unchanged. */
-        private const val GUIDE_IMPORT_VERSION = 1
+        /**
+         * Goes up when importing a guide changes, so guides are imported again rather than found
+         * unchanged. 2: every category a programme has, not only the first (for the Sports Hub).
+         */
+        private const val GUIDE_IMPORT_VERSION = 2
         private const val HOUR = 60 * 60 * 1000L
         const val UNCATEGORIZED = "Uncategorized"
 

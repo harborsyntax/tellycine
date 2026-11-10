@@ -23,8 +23,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TmdbPageEntity::class,
         StagedProgrammeEntity::class,
         GuideSourceEntity::class,
+        SportAiringEntity::class,
+        SportIndexEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class TellycineDatabase : RoomDatabase() {
@@ -32,6 +34,7 @@ abstract class TellycineDatabase : RoomDatabase() {
     abstract fun content(): ContentDao
     abstract fun downloads(): DownloadDao
     abstract fun tmdb(): TmdbDao
+    abstract fun sports(): SportsDao
 
     /**
      * Watches every table for as long as the app runs, so Room keeps track of changes to them all.
@@ -50,7 +53,7 @@ abstract class TellycineDatabase : RoomDatabase() {
         /** All the tables but the guide's staging table, which nothing watches: [watchAllTables] watches them. */
         val WATCHED_TABLES = arrayOf(
             "playlists", "categories", "streams", "episodes", "programmes", "favorites", "history",
-            "hidden_categories", "downloads", "tmdb_titles", "tmdb_pages", "guide_sources",
+            "hidden_categories", "downloads", "tmdb_titles", "tmdb_pages", "guide_sources", "sport_airings", "sport_index",
         )
 
         fun create(context: Context): TellycineDatabase =
@@ -156,6 +159,23 @@ abstract class TellycineDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+        /** 1.17: the Sports Hub's tables: sport found in guides and channel names, and how far it has looked. */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `sport_airings` (`playlistId` INTEGER NOT NULL, `channelId` TEXT NOT NULL, " +
+                        "`startMs` INTEGER NOT NULL, `stopMs` INTEGER NOT NULL, `sport` TEXT NOT NULL, `kind` TEXT NOT NULL, " +
+                        "`title` TEXT NOT NULL, `competition` TEXT, `session` TEXT, `home` TEXT, `away` TEXT, " +
+                        "`programmeTitle` TEXT NOT NULL, `detail` TEXT, `streamId` TEXT, PRIMARY KEY(`playlistId`, `channelId`, `startMs`))"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sport_airings_stopMs` ON `sport_airings` (`stopMs`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `sport_index` (`playlistId` INTEGER NOT NULL, `lastProgrammeId` INTEGER NOT NULL, " +
+                        "`version` INTEGER NOT NULL, PRIMARY KEY(`playlistId`))"
+                )
+            }
+        }
+
+        val MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
     }
 }

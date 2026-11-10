@@ -2,6 +2,7 @@ package app.tellycine.data.settings
 
 import android.content.Context
 import app.tellycine.core.ContentKind
+import app.tellycine.core.sports.Sport
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -9,6 +10,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -129,6 +131,18 @@ data class AppSettings(
     val tmdbApiKey: String = "",
     /** Tellycine's own TMDB key, when this build has one. */
     val tmdbBuiltInKey: String = "",
+    /** The Sports Hub: its tab and menu item, and finding sport in the guides. */
+    val sportsHub: Boolean = true,
+    /** The sports it shows under "For you", and as chips. */
+    val sports: Set<Sport> = Sport.FOLLOWABLE.toSet(),
+    /** Teams and players followed, in the order they were added. */
+    val sportsTeams: List<String> = emptyList(),
+    /** Show replays and highlights too, not only live coverage. */
+    val sportsReplays: Boolean = false,
+    /** Show events that channels' names announce ("EPL 03: Arsenal v Chelsea 15:00"). */
+    val sportsEventChannels: Boolean = true,
+    /** Whether "What do you follow?" has been answered or put off, so the hub stops asking. */
+    val sportsAsked: Boolean = false,
 ) {
     /** The key TMDB is asked with: the user's own, or else Tellycine's. */
     val tmdbKey: String get() = tmdbApiKey.ifBlank { tmdbBuiltInKey }
@@ -180,6 +194,12 @@ class SettingsRepository(
         val vodSortsDescending = listOf(ContentKind.MOVIE, ContentKind.SERIES).associateWith { booleanPreferencesKey("sort_${it.name.lowercase()}_descending") }
         val tmdbEnabled = booleanPreferencesKey("tmdb_enabled")
         val tmdbApiKey = stringPreferencesKey("tmdb_api_key")
+        val sportsHub = booleanPreferencesKey("sports_hub")
+        val sports = stringSetPreferencesKey("sports")
+        val sportsTeams = stringPreferencesKey("sports_teams")
+        val sportsReplays = booleanPreferencesKey("sports_replays")
+        val sportsEventChannels = booleanPreferencesKey("sports_event_channels")
+        val sportsAsked = booleanPreferencesKey("sports_asked")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map(::read)
@@ -208,6 +228,12 @@ class SettingsRepository(
             tmdbEnabled = p[Keys.tmdbEnabled] ?: false,
             tmdbApiKey = p[Keys.tmdbApiKey].orEmpty(),
             tmdbBuiltInKey = builtInTmdbKey,
+            sportsHub = p[Keys.sportsHub] ?: true,
+            sports = p[Keys.sports]?.mapNotNull { Sport.of(it) }?.toSet() ?: Sport.FOLLOWABLE.toSet(),
+            sportsTeams = p[Keys.sportsTeams]?.split('\n')?.filter { it.isNotBlank() }.orEmpty(),
+            sportsReplays = p[Keys.sportsReplays] ?: false,
+            sportsEventChannels = p[Keys.sportsEventChannels] ?: true,
+            sportsAsked = p[Keys.sportsAsked] ?: false,
         )
 
     suspend fun current(): AppSettings = settings.first()
@@ -268,6 +294,31 @@ class SettingsRepository(
             it[Keys.tmdbApiKey] = trimmed
         }
     }
+
+    suspend fun setSportsHub(enabled: Boolean) = context.dataStore.edit { it[Keys.sportsHub] = enabled }
+    suspend fun setSportsReplays(enabled: Boolean) = context.dataStore.edit { it[Keys.sportsReplays] = enabled }
+    suspend fun setSportsEventChannels(enabled: Boolean) = context.dataStore.edit { it[Keys.sportsEventChannels] = enabled }
+
+    /** Shows [sport] under "For you", or stops; the last one can't be turned off. */
+    suspend fun setSportFollowed(sport: Sport, followed: Boolean) = context.dataStore.edit { p ->
+        val now = read(p).sports
+        val next = if (followed) now + sport else now - sport
+        if (next.isNotEmpty()) p[Keys.sports] = next.map { it.name }.toSet()
+    }
+
+    /** Follows [name], a team or player, unless it already is (in any spelling). */
+    suspend fun followTeam(name: String) = context.dataStore.edit { p ->
+        val trimmed = name.trim()
+        val teams = read(p).sportsTeams
+        if (trimmed.isNotEmpty() && teams.none { it.equals(trimmed, ignoreCase = true) }) p[Keys.sportsTeams] = (teams + trimmed).joinToString("\n")
+    }
+
+    suspend fun unfollowTeam(name: String) = context.dataStore.edit { p ->
+        p[Keys.sportsTeams] = read(p).sportsTeams.filterNot { it.equals(name, ignoreCase = true) }.joinToString("\n")
+    }
+
+    /** "What do you follow?" has been answered, or put off. */
+    suspend fun setSportsAsked() = context.dataStore.edit { it[Keys.sportsAsked] = true }
 
     private fun vodOrder(p: Preferences, kind: ContentKind): VodOrder? {
         val sort = Keys.vodSorts[kind]?.let { p[it] }?.let { runCatching { VodSort.valueOf(it) }.getOrNull() } ?: return null

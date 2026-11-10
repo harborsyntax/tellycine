@@ -89,6 +89,8 @@ class MigrationTest {
             }
             db.query("SELECT COUNT(*) FROM programmes_staging").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
             db.query("SELECT COUNT(*) FROM guide_sources").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+            // 1.17: the Sports Hub finds sport in the guide once it's opened.
+            db.query("SELECT COUNT(*) FROM sport_airings").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
         } finally {
             room.close()
         }

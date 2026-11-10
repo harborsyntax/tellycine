@@ -3,10 +3,12 @@ package app.tellycine.ui
 import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.LiveTv
 import androidx.compose.material.icons.outlined.Movie
@@ -51,10 +53,13 @@ import app.tellycine.ui.recordings.RecordingsScreen
 import app.tellycine.ui.downloads.DownloadsScreen
 import app.tellycine.ui.search.SearchScreen
 import app.tellycine.ui.settings.SettingsScreen
+import app.tellycine.ui.sports.SportsScreen
+import app.tellycine.ui.sports.SportsSetupScreen
 import app.tellycine.ui.vod.VodScreen
 
 private enum class Tab(val label: String, val icon: ImageVector, val selectedIcon: ImageVector) {
     LIVE("Live TV", Icons.Outlined.LiveTv, Icons.Filled.LiveTv),
+    SPORTS("Sports", Icons.Outlined.EmojiEvents, Icons.Filled.EmojiEvents),
     MOVIES("Movies", Icons.Outlined.Movie, Icons.Filled.Movie),
     SERIES("Series", Icons.Outlined.VideoLibrary, Icons.Filled.VideoLibrary),
     LIBRARY("Library", Icons.Outlined.FavoriteBorder, Icons.Filled.Favorite),
@@ -70,6 +75,7 @@ private object Routes {
     const val CATEGORIES = "playlist/{id}/categories"
     const val RECORDINGS = "playlist/{id}/recordings"
     const val DOWNLOADS = "downloads"
+    const val SPORTS_SETUP = "sports/setup"
 
     fun detail(s: StreamEntity) = "detail/${s.kind.name}/${s.playlistId}/${Uri.encode(s.streamId)}"
     fun edit(id: Long?) = "playlist/edit?id=${id ?: -1}"
@@ -127,7 +133,14 @@ fun TellycineNavHost(nav: NavHostController = rememberNavController()) {
             SearchScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate(Routes.detail(it)) })
         }
         composable(Routes.SETTINGS) {
-            SettingsScreen(onBack = { nav.popBackStack() }, onOpenDownloads = { nav.navigate(Routes.DOWNLOADS) })
+            SettingsScreen(
+                onBack = { nav.popBackStack() },
+                onOpenDownloads = { nav.navigate(Routes.DOWNLOADS) },
+                onOpenSports = { nav.navigate(Routes.SPORTS_SETUP) },
+            )
+        }
+        composable(Routes.SPORTS_SETUP) {
+            SportsSetupScreen(onDone = { nav.popBackStack() })
         }
         composable(Routes.DOWNLOADS) {
             DownloadsScreen(onBack = { nav.popBackStack() })
@@ -142,10 +155,10 @@ private fun HomeScreen(nav: NavHostController) {
     var tab by rememberSaveable { mutableStateOf(Tab.LIVE) }
     val stateHolder = rememberSaveableStateHolder()
 
-    // Movies and Series tabs disappear for playlists with VOD turned off.
+    // Movies and Series tabs disappear for playlists with VOD turned off, and Sports with the Sports Hub.
     val vodEnabled = session.active?.vodEnabled != false
-    val tabs = Tab.entries.filter { vodEnabled || (it != Tab.MOVIES && it != Tab.SERIES) }
-    LaunchedEffect(vodEnabled) {
+    val tabs = Tab.entries.filter { (vodEnabled || (it != Tab.MOVIES && it != Tab.SERIES)) && (session.sportsHub || it != Tab.SPORTS) }
+    LaunchedEffect(vodEnabled, session.sportsHub) {
         if (tab !in tabs) tab = Tab.LIVE
     }
 
@@ -188,6 +201,7 @@ private fun TabContent(tab: Tab, session: SessionState, nav: NavHostController, 
     val onOpen = { s: StreamEntity -> nav.navigate(Routes.detail(s)) }
     when (tab) {
         Tab.LIVE -> LiveScreen(session, onSelectPlaylist, onSearch)
+        Tab.SPORTS -> SportsScreen(onSearch = onSearch, onSetup = { nav.navigate(Routes.SPORTS_SETUP) })
         Tab.MOVIES -> VodScreen(ContentKind.MOVIE, session, onSelectPlaylist, onSearch, onOpen)
         Tab.SERIES -> VodScreen(ContentKind.SERIES, session, onSelectPlaylist, onSearch, onOpen)
         Tab.LIBRARY -> LibraryScreen(

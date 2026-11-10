@@ -22,6 +22,11 @@ ANDROID TV AND GOOGLE TV
 • Add a playlist from your phone by scanning a QR code
 • Voice search
 
+SPORTS HUB
+• The sport on now and coming up in your TV guides and event channels, in one place
+• Football, motor racing, golf, tennis, snooker, darts and boxing, with every channel each event is on
+• Follow your sports, teams and players; no scores, so nothing is spoiled
+
 MOVIES AND SERIES
 • Browse your provider's movies and series by category
 • Continue watching, resume where you left off, and download for offline viewing

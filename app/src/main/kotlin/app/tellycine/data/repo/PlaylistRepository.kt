@@ -97,6 +97,7 @@ class PlaylistRepository(
             content.deleteFavorites(id)
             content.deleteHistory(id)
             content.deleteHiddenCategories(id)
+            db.sports().delete(id)
             dao.delete(id)
         }
         if (settings.current().activePlaylistId == id) {

@@ -13,6 +13,8 @@ import app.tellycine.data.repo.PlaylistRepository
 import app.tellycine.data.repo.XtreamFinder
 import app.tellycine.data.settings.SettingsRepository
 import app.tellycine.data.settings.TvTheme
+import app.tellycine.data.sports.SportsIndexer
+import app.tellycine.data.sports.SportsRepository
 import app.tellycine.data.sync.PlaylistSyncer
 import app.tellycine.data.sync.SyncManager
 import app.tellycine.data.tmdb.TmdbBuiltInKey
@@ -42,9 +44,17 @@ class AppContainer(context: Context) {
     private val tmdbClient = TmdbClient(httpClient)
     val tmdb = TmdbUpdater(database, settings, tmdbClient, appScope)
     val tmdbLookup = TmdbLookup(database, settings, tmdbClient)
-    val syncManager = SyncManager(database, PlaylistSyncer(context, database, downloader), settings, appScope, onContentSynced = tmdb::requestCheck)
+    /** The Sports Hub's sport, found in the guides and channel names after each refresh. */
+    val sportsIndexer = SportsIndexer(database, settings, appScope).also { it.start() }
+    val syncManager = SyncManager(
+        database, PlaylistSyncer(context, database, downloader), settings, appScope,
+        onContentSynced = tmdb::requestCheck,
+        // Its channels' names say what sport they show: when they change, all its sport is found again.
+        onRefreshed = { id, contentChanged -> sportsIndexer.refresh(id, full = contentChanged) },
+    )
     val playlists = PlaylistRepository(context, database, settings, syncManager)
     val content = ContentRepository(database)
+    val sports = SportsRepository(database)
     val details = DetailsRepository(downloader)
     /** For checking an M3U link's server while it's typed: a quick answer or none. */
     val xtreamFinder = XtreamFinder(Downloader(context, httpClient.newBuilder().callTimeout(10, TimeUnit.SECONDS).build()))

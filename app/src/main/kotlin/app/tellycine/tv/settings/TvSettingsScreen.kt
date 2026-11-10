@@ -45,7 +45,10 @@ import app.tellycine.ui.components.TellycineLogo
 import app.tellycine.ui.components.tellycineViewModel
 import app.tellycine.ui.settings.FfmpegText
 import app.tellycine.ui.settings.SettingsViewModel
+import app.tellycine.ui.settings.SportsText
 import app.tellycine.ui.settings.TmdbText
+import app.tellycine.tv.sports.TvFollowPanel
+import app.tellycine.ui.sports.SportsViewModel
 
 @Composable
 fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
@@ -55,6 +58,7 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
     var epgDialog by remember { mutableStateOf(false) }
     var themeDialog by remember { mutableStateOf(false) }
     var clearDialog by remember { mutableStateOf(false) }
+    var followPanel by remember { mutableStateOf(false) }
     /** Typing a TMDB key: whether a saved key turns details from TMDB on; null when not typing one. */
     var keyInput by remember { mutableStateOf<Boolean?>(null) }
     val keyCheck by vm.keyCheck.collectAsStateWithLifecycle()
@@ -138,6 +142,22 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
                 }
                 item { TvValueRow(TmdbText.KEY, TmdbText.keySummary(s.tmdbApiKey, s.hasBuiltInTmdbKey), onClick = { keyInput = false }) }
 
+                item { TvSectionLabel("Sports") }
+                item { TvSwitchRow("Sports Hub", SportsText.HUB, s.sportsHub, vm::setSportsHub) }
+                if (s.sportsHub) {
+                    item { TvValueRow("Your sports and teams", SportsText.followed(s), onClick = { followPanel = true }) }
+                    item { TvSwitchRow("Replays and highlights", SportsText.replays(s.sportsReplays), s.sportsReplays, vm::setSportsReplays) }
+                    item { TvSwitchRow("Event channels", SportsText.EVENT_CHANNELS, s.sportsEventChannels, vm::setSportsEventChannels) }
+                }
+                item {
+                    Text(
+                        SportsText.ABOUT,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                    )
+                }
+
                 item { TvSectionLabel("Downloads") }
                 item {
                     TvSwitchRow(
@@ -216,6 +236,10 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
         is SettingsViewModel.KeyCheck.Failed -> TvMessageDialog(TmdbText.KEY, check.message, onDismiss = vm::resetKeyCheck)
         SettingsViewModel.KeyCheck.Saved -> LaunchedEffect(Unit) { vm.resetKeyCheck() }
         SettingsViewModel.KeyCheck.Idle -> Unit
+    }
+    if (followPanel) {
+        val sports = tellycineViewModel { c, _ -> SportsViewModel(c) }
+        TvFollowPanel(sports, onDismiss = { followPanel = false })
     }
     if (playerDialog) {
         TvChoiceDialog(

@@ -1,0 +1,6 @@
+• New Sports tab (Sports in the TV menu): the sport on now and coming up in your TV guides and event channels, with every channel each event is on
+• Follow your sports, teams and players to see them first
+• Watch from the start where your channel has catch-up
+• No scores, so nothing is spoiled; replays and highlights only if you want them
+• It all happens on your device: nothing is sent anywhere
+• TV: a channel played from Search or the Library no longer keeps playing after Back

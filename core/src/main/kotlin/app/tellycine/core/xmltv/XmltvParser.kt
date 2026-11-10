@@ -101,7 +101,8 @@ class XmltvParser(private val parserFactory: () -> XmlPullParser) {
                 when (parser.name) {
                     "title" -> if (title == null) title = readText(parser)
                     "desc" -> if (desc == null) desc = readText(parser)
-                    "category" -> if (category == null) category = readText(parser)
+                    // All of them, as "Sport, Football": guides often list the general one first.
+                    "category" -> category = addCategory(category, readText(parser))
                 }
             }
         }
@@ -113,6 +114,16 @@ class XmltvParser(private val parserFactory: () -> XmlPullParser) {
             description = desc?.trim()?.ifEmpty { null },
             category = category?.trim()?.ifEmpty { null },
         )
+    }
+
+    /** [list] ("Sport, Football") with [next] added, unless it's already there; three at most. */
+    private fun addCategory(list: String?, next: String): String? {
+        val name = next.trim()
+        if (name.isEmpty()) return list
+        if (list == null) return name
+        val names = list.split(", ")
+        if (names.size >= MAX_CATEGORIES || names.any { it.equals(name, ignoreCase = true) }) return list
+        return "$list, $name"
     }
 
     /** Reads the text content of the current element, tolerating nested markup. */
@@ -138,6 +149,9 @@ class XmltvParser(private val parserFactory: () -> XmlPullParser) {
     }
 
     companion object {
+        /** How many of a programme's categories are kept. */
+        private const val MAX_CATEGORIES = 3
+
         /**
          * Parses XMLTV timestamps such as `20240131203000 +0100`, `20240131203000`,
          * `202401312030 -0500` or `20240131203000+0000`. Missing offsets are treated as UTC.

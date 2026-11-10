@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Movie
@@ -40,6 +41,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -60,6 +62,7 @@ import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import androidx.tv.material3.rememberDrawerState
 import app.tellycine.R
+import app.tellycine.container
 import app.tellycine.core.ContentKind
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.tv.detail.TvDetailScreen
@@ -73,6 +76,7 @@ import app.tellycine.tv.playlists.TvPlaylistsScreen
 import app.tellycine.tv.recordings.TvRecordingsScreen
 import app.tellycine.tv.search.TvSearchScreen
 import app.tellycine.tv.settings.TvSettingsScreen
+import app.tellycine.tv.sports.TvSportsScreen
 import app.tellycine.tv.vod.TvVodScreen
 import app.tellycine.ui.components.TellycineLogo
 import app.tellycine.ui.components.tellycineViewModel
@@ -82,6 +86,7 @@ import app.tellycine.ui.home.SessionState
 enum class TvTab(val label: String, val icon: ImageVector) {
     SEARCH("Search", Icons.Filled.Search),
     LIVE("Live TV", Icons.Filled.LiveTv),
+    SPORTS("Sports", Icons.Filled.EmojiEvents),
     MOVIES("Movies", Icons.Filled.Movie),
     SERIES("Series", Icons.Filled.VideoLibrary),
     LIBRARY("Library", Icons.Filled.Favorite),
@@ -182,11 +187,18 @@ private fun TvHome(navigator: TvNavigator) {
     var tab by rememberSaveable { mutableStateOf(TvTab.LIVE) }
     val stateHolder = rememberSaveableStateHolder()
 
-    // Movies and Series disappear for playlists with VOD turned off.
+    // Movies and Series disappear for playlists with VOD turned off, and Sports with the Sports Hub.
     val vodEnabled = session.active?.vodEnabled != false
-    val tabs = TvTab.entries.filter { vodEnabled || (it != TvTab.MOVIES && it != TvTab.SERIES) }
-    LaunchedEffect(vodEnabled) {
+    val tabs = TvTab.entries.filter { (vodEnabled || (it != TvTab.MOVIES && it != TvTab.SERIES)) && (session.sportsHub || it != TvTab.SPORTS) }
+    LaunchedEffect(vodEnabled, session.sportsHub) {
         if (tab !in tabs) tab = TvTab.LIVE
+    }
+    // A live channel left with Back plays on in the guide's mini player, which only the guide shows:
+    // played from anywhere else (Sports, Search, Library), it stops.
+    val playback = LocalContext.current.container.tvPlayback
+    val mini = playback.mini
+    LaunchedEffect(mini, tab) {
+        if (mini != null && tab != TvTab.LIVE) playback.stopMini()
     }
     // First run: go straight to playlist setup.
     LaunchedEffect(session.loaded, session.playlists.isEmpty()) {
@@ -295,6 +307,7 @@ private fun TvTabContent(
     when (tab) {
         TvTab.SEARCH -> TvSearchScreen(onOpen = navigator::openDetail)
         TvTab.LIVE -> TvLiveScreen(session, onAddPlaylist = { onOpenTab(TvTab.PLAYLISTS) }, onFullWidth = onFullWidth, onOpenMenu = onOpenMenu)
+        TvTab.SPORTS -> TvSportsScreen(onAddPlaylist = { onOpenTab(TvTab.PLAYLISTS) })
         TvTab.MOVIES -> TvVodScreen(ContentKind.MOVIE, session, onOpen = navigator::openDetail)
         TvTab.SERIES -> TvVodScreen(ContentKind.SERIES, session, onOpen = navigator::openDetail)
         TvTab.LIBRARY -> TvLibraryScreen(
