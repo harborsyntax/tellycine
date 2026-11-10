@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,13 +28,19 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.OutlinedButton
 import androidx.tv.material3.Text
 import app.tellycine.BuildConfig
 import app.tellycine.R
+import app.tellycine.data.ProblemLog
 import app.tellycine.data.settings.TvTheme
+import app.tellycine.tv.components.QrCode
+import app.tellycine.tv.components.RequestFocusOnStart
 import app.tellycine.tv.components.TvChoiceDialog
 import app.tellycine.tv.components.TvConfirmDialog
+import app.tellycine.tv.components.TvDialog
 import app.tellycine.tv.components.TvHeader
 import app.tellycine.tv.components.TvMessageDialog
 import app.tellycine.tv.components.TvSectionLabel
@@ -44,6 +51,7 @@ import app.tellycine.tv.components.TvValueRow
 import app.tellycine.ui.components.TellycineLogo
 import app.tellycine.ui.components.tellycineViewModel
 import app.tellycine.ui.settings.FfmpegText
+import app.tellycine.ui.settings.ProblemText
 import app.tellycine.ui.settings.SettingsViewModel
 import app.tellycine.ui.settings.SportsText
 import app.tellycine.ui.settings.TmdbText
@@ -58,6 +66,8 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
     var epgDialog by remember { mutableStateOf(false) }
     var themeDialog by remember { mutableStateOf(false) }
     var clearDialog by remember { mutableStateOf(false) }
+    var problemDialog by remember { mutableStateOf(false) }
+    val problem by vm.problem.collectAsStateWithLifecycle()
     var followPanel by remember { mutableStateOf(false) }
     /** Typing a TMDB key: whether a saved key turns details from TMDB on; null when not typing one. */
     var keyInput by remember { mutableStateOf<Boolean?>(null) }
@@ -185,6 +195,12 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
                 item {
                     TvValueRow("Clear watch history", "Removes resume points and recently watched channels", onClick = { clearDialog = true })
                 }
+                problem?.let { p ->
+                    item { TvSectionLabel("Problems") }
+                    item {
+                        TvValueRow("Last problem", "${ProblemText.whenAndWhat(p)}\nPress OK to pass it on.", onClick = { problemDialog = true })
+                    }
+                }
 
                 item {
                     // Focusable, so Down from the last setting brings the version and credits into view.
@@ -288,6 +304,17 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
             onDismiss = { epgDialog = false },
         )
     }
+    val shown = problem
+    if (problemDialog && shown != null) {
+        TvProblemDialog(
+            shown,
+            onForget = {
+                vm.forgetProblem()
+                problemDialog = false
+            },
+            onDismiss = { problemDialog = false },
+        )
+    }
     if (clearDialog) {
         TvConfirmDialog(
             title = "Clear watch history?",
@@ -300,4 +327,23 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
             onDismiss = { clearDialog = false },
         )
     }
+}
+
+/** The last problem, as a QR code a phone can copy it from, to pass on. */
+@Composable
+private fun TvProblemDialog(problem: ProblemLog.Problem, onForget: () -> Unit, onDismiss: () -> Unit) {
+    val done = remember { FocusRequester() }
+    TvDialog(title = "Last problem", onDismiss = onDismiss, width = 820.dp, buttons = {
+        OutlinedButton(onClick = onForget) { Text("Forget it") }
+        Button(onClick = onDismiss, modifier = Modifier.focusRequester(done)) { Text("Done") }
+    }) {
+        Row(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
+            QrCode(problem.report, size = 260.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
+                Text(ProblemText.whenAndWhat(problem), style = MaterialTheme.typography.titleMedium)
+                Text(ProblemText.PASS_ON_TV, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+    RequestFocusOnStart(done)
 }

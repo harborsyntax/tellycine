@@ -186,6 +186,7 @@ class SportsViewModel(private val container: AppContainer) : ViewModel() {
         val days = upcoming.groupBy { Instant.ofEpochMilli(it.startMs).atZone(zone).toLocalDate() }
             .map { (day, list) -> SportDay(day.atStartOfDay(zone).toInstant().toEpochMilli(), list) }
             .sortedBy { it.dayStartMs }
+        // A team followed by two of its names ("Man Utd" and "Manchester United") has one card.
         val teams = if (filter == SportsFilter.All || filter == SportsFilter.Live) emptyList() else prefs.sportsTeams.mapNotNull { name ->
             val figure = SportCatalogue.find(name)
             if (filter is SportsFilter.Only && figure != null && figure.sport != filter.sport) return@mapNotNull null
@@ -197,7 +198,7 @@ class SportsViewModel(private val container: AppContainer) : ViewModel() {
                 sport = figure?.sport ?: next?.sport,
                 next = next,
             )
-        }
+        }.distinctBy { it.name }
         return SportsHubState(
             loaded = events != null,
             filters = filters,

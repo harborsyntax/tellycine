@@ -2,6 +2,7 @@ package app.tellycine
 
 import android.app.Application
 import android.content.Context
+import app.tellycine.data.ProblemLog
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
@@ -10,6 +11,7 @@ import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
+import kotlinx.coroutines.launch
 
 class TellycineApp : Application(), SingletonImageLoader.Factory {
 
@@ -18,7 +20,10 @@ class TellycineApp : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        // First, so an error anywhere after is kept for Settings to show.
+        ProblemLog.install(this)
         container = AppContainer(this)
+        container.appScope.launch { container.problems.load() }
         container.syncManager.refreshStale()
         container.tmdb.start()
     }

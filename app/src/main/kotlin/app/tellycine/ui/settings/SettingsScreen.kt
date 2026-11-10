@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -44,8 +45,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.ViewModel
@@ -54,6 +57,7 @@ import androidx.lifecycle.viewModelScope
 import app.tellycine.AppContainer
 import app.tellycine.BuildConfig
 import app.tellycine.R
+import app.tellycine.data.ProblemLog
 import app.tellycine.data.settings.AppSettings
 import app.tellycine.data.settings.ThemeMode
 import app.tellycine.data.settings.TvTheme
@@ -71,6 +75,10 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     private val repo = container.settings
     val settings: StateFlow<AppSettings> = repo.settings.stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings())
+
+    /** The last time the app stopped unexpectedly, if it has. */
+    val problem: StateFlow<ProblemLog.Problem?> = container.problems.last
+    fun forgetProblem() = container.problems.forget()
 
     fun setTheme(mode: ThemeMode) = viewModelScope.launch { repo.setThemeMode(mode) }
     fun setDynamicColor(v: Boolean) = viewModelScope.launch { repo.setDynamicColor(v) }
@@ -143,6 +151,8 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit, onOpenSports
     var themeDialog by remember { mutableStateOf(false) }
     var epgDialog by remember { mutableStateOf(false) }
     var clearDialog by remember { mutableStateOf(false) }
+    var problemDialog by remember { mutableStateOf(false) }
+    val problem by vm.problem.collectAsStateWithLifecycle()
     var playerDialog by remember { mutableStateOf(false) }
     /** The TMDB key dialog: open, and whether a saved key turns details from TMDB on. */
     var keyDialog by remember { mutableStateOf<Boolean?>(null) }
@@ -262,6 +272,16 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit, onOpenSports
             )
             HorizontalDivider()
 
+            problem?.let { p ->
+                Header("Problems")
+                ListItem(
+                    headlineContent = { Text("Last problem") },
+                    supportingContent = { Text(ProblemText.whenAndWhat(p), maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                    modifier = Modifier.clickable { problemDialog = true },
+                )
+                HorizontalDivider()
+            }
+
             Column(
                 Modifier.fillMaxWidth().padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -331,6 +351,33 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit, onOpenSports
             selected = s.epgDays,
             onSelect = { vm.setEpgDays(it); epgDialog = false },
             onDismiss = { epgDialog = false },
+        )
+    }
+    val shown = problem
+    if (problemDialog && shown != null) {
+        AlertDialog(
+            onDismissRequest = { problemDialog = false },
+            title = { Text("Last problem") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(ProblemText.PASS_ON_PHONE, style = MaterialTheme.typography.bodyMedium)
+                    SelectionContainer {
+                        Text(shown.report, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, shown.report)
+                    runCatching { context.startActivity(Intent.createChooser(send, "Share the problem")) }
+                }) { Text("Share") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    vm.forgetProblem()
+                    problemDialog = false
+                }) { Text("Forget it") }
+            },
         )
     }
     if (clearDialog) {

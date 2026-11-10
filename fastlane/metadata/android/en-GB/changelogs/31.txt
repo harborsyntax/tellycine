@@ -1,0 +1,2 @@
+• If Tellycine closes unexpectedly, Settings › Problems › Last problem says what went wrong, to pass on (on TV, by a QR code your phone can copy). Links and server names are left out.
+• Sports Hub: a team followed by two of its names no longer closes the app
