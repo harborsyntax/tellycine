@@ -14,8 +14,19 @@ import java.util.Locale
  */
 class SportClassifier {
 
-    /** What a channel's name says about its sport: one sport ("Sky Sports F1"), or sport in general. */
-    data class ChannelHint(val sport: Sport?, val isSport: Boolean) {
+    /**
+     * What a channel's name says about its sport: one sport ("Sky Sports F1"), or sport in general;
+     * whether it's a news channel ("Sky Sports News"), whose programmes are news unless they say
+     * who's playing; and whether it's a club's own channel (MUTV), which shows its matches again.
+     */
+    data class ChannelHint(
+        val sport: Sport?,
+        val isSport: Boolean,
+        val news: Boolean = false,
+        val club: Boolean = false,
+        /** Its name is a sport the hub doesn't name ("Sky Sports NFL"): its football isn't football. */
+        val otherSport: Boolean = false,
+    ) {
         companion object {
             val NONE = ChannelHint(null, false)
         }
@@ -38,7 +49,7 @@ class SportClassifier {
             else -> null
         }
         val isSport = sport != null || w.hasAny(CHANNEL_SPORT) || w.hasAny(OTHER_SPORT)
-        return ChannelHint(sport, isSport)
+        return ChannelHint(sport, isSport, news = w.has("news"), club = w.hasAny(CLUB_CHANNELS), otherSport = sport == null && w.otherSport())
     }
 
     /**
@@ -57,7 +68,8 @@ class SportClassifier {
 
     /**
      * What sport the programme is, if it's sport. [month] (1 to 12) settles names two sports
-     * share, such as the US Open (golf in June, tennis in August and September).
+     * share, such as the US Open (golf in June, tennis in August and September); [year], when it's
+     * on, tells a match from years ago ("ENG v SA 2017") for a replay.
      */
     fun classify(
         title: String,
@@ -65,6 +77,7 @@ class SportClassifier {
         description: String?,
         channel: ChannelHint,
         month: Int? = null,
+        year: Int? = null,
     ): SportMatch? {
         val titleWords = Words(title)
         val categoryWords = category?.let(::Words)
@@ -78,22 +91,31 @@ class SportClassifier {
         val home = parts.home ?: descSides?.first
         val away = parts.away ?: descSides?.second
 
-        // Which sport: the title first, then the description, then who's playing, the channel and the category.
+        // Which sport: the title, or who's playing, says for sure; the description, the category
+        // or the channel only suggest it.
         val strong = sportOf(titleWords)
             ?: contextual(titleWords, descWords, channel, categoryWords, month)
             ?: Sport.OTHER.takeIf { titleWords.otherSport() }
-            ?: footballOf(titleWords)
-            ?: descWords?.let { sportOf(it) ?: Sport.OTHER.takeIf { _ -> it.otherSport() } ?: footballOf(it) }
+            ?: footballOf(titleWords)?.let { if (channel.otherSport) Sport.OTHER else it }
             ?: sidesSport(home, away)
+        val weak = descWords?.let { sportOf(it) ?: Sport.OTHER.takeIf { _ -> it.otherSport() } ?: footballOf(it) }
             ?: categoryWords?.let { sportOf(it) ?: footballOf(it) ?: if (it.hasAny(MOTOR_CATEGORY)) channel.sport?.takeIf { s -> s == Sport.F1 || s == Sport.MOTOGP } ?: Sport.OTHER else null }
-        val weak = channel.sport ?: Sport.OTHER.takeIf { channel.isSport || sporty }
+            ?: channel.sport
+            ?: Sport.OTHER.takeIf { channel.isSport || sporty }
         val sport = strong ?: weak ?: return null
 
-        val kind = kindOf(title, titleWords, descWords, categoryWords)
+        val kind = kindOf(title, titleWords, descWords, categoryWords, year)
         val session = sessionOf(parts.rest, sport)
-        // Only the channel or category says it's sport: unless it says it's live, or who's playing
-        // or which part of the event it is, it's more likely a magazine than the event.
-        val finalKind = if (strong == null && kind == AiringKind.EVENT && home == null && session == null) AiringKind.MAGAZINE else kind
+        val finalKind = when {
+            // A news channel's programmes are news, unless they say who's playing.
+            channel.news && home == null -> AiringKind.MAGAZINE
+            // Only the description, category or channel says it's sport: unless it says it's live,
+            // or who's playing or which part of the event it is, it's more likely a magazine.
+            strong == null && kind == AiringKind.EVENT && home == null && session == null -> AiringKind.MAGAZINE
+            // A club's channel shows its matches again; live ones say so.
+            channel.club && kind == AiringKind.EVENT -> AiringKind.REPLAY
+            else -> kind
+        }
 
         val competition = parts.competition(sport)
         val display = when {
@@ -197,14 +219,31 @@ class SportClassifier {
 
     // ---- Live, replay, highlights ----
 
-    private fun kindOf(raw: String, title: Words, desc: Words?, category: Words?): AiringKind = when {
-        title.hasAny(REPLAY) || REPEAT_MARK.containsMatchIn(raw) || OLD_YEAR.containsMatchIn(raw) -> AiringKind.REPLAY
+    private fun kindOf(raw: String, title: Words, desc: Words?, category: Words?, year: Int?): AiringKind = when {
+        // Match of the Day's live matches.
+        title.has("motd live") || title.has("match of the day live") -> AiringKind.LIVE
+        title.hasAny(REPLAY) || REPEAT_MARK.containsMatchIn(raw) || OLD_YEAR.containsMatchIn(raw) || isSeason(raw) || isPastYear(raw, year) ->
+            AiringKind.REPLAY
         title.hasAny(HIGHLIGHTS) -> AiringKind.HIGHLIGHTS
-        title.hasAny(MAGAZINE) || category?.hasAny(MAGAZINE_CATEGORY) == true -> AiringKind.MAGAZINE
+        title.hasAny(MAGAZINE) || isGenericTitle(title) || category?.hasAny(MAGAZINE_CATEGORY) == true -> AiringKind.MAGAZINE
         title.has("live") || desc?.startsWith("live") == true || desc?.hasAny(LIVE_DESC) == true -> AiringKind.LIVE
         desc?.hasAny(REPLAY_DESC) == true -> AiringKind.REPLAY
         else -> AiringKind.EVENT
     }
+
+    /** A season in the title, such as "26/27" or "1999/00": a match or show from the archive. */
+    private fun isSeason(raw: String): Boolean = SEASON.findAll(raw).any { m ->
+        val a = m.groupValues[1].takeLast(2).toInt()
+        val b = m.groupValues[2].takeLast(2).toInt()
+        (a + 1) % 100 == b
+    }
+
+    /** A year before [year] in the title: "ENG v SA 2017". */
+    private fun isPastYear(raw: String, year: Int?): Boolean =
+        year != null && YEAR.findAll(raw).any { it.value.toInt() < year }
+
+    /** Only the word sport, or news: a sports news slot. */
+    private fun isGenericTitle(title: Words): Boolean = title.words.all { it in GENERIC_TITLE_WORDS }
 
     // ---- Sessions ----
 
@@ -257,11 +296,15 @@ class SportClassifier {
                 return TitleParts(cleaned.ifEmpty { title.trim() }, rest, home, away)
             }
 
-            /** "A v B" in [text], when both are teams or players the catalogue knows. */
+            /**
+             * "A v B" in [text], a description: at its start ("Plymouth Parkway v Berkhamsted
+             * (Kick-off 7.30pm). Coverage of…"), or elsewhere when both are teams or players the
+             * catalogue knows.
+             */
             fun knownSides(text: String): Pair<String, String>? {
-                for (part in text.split(SENTENCE_OR_SEPARATOR)) {
-                    val sides = sidesOf(part.trim()) ?: continue
-                    if (SportCatalogue.find(sides.first) != null && SportCatalogue.find(sides.second) != null) return sides
+                text.replace(LEADING_ACTION, "").split(SENTENCE_OR_SEPARATOR).forEachIndexed { index, part ->
+                    val sides = sidesOf(part.trim()) ?: return@forEachIndexed
+                    if (index == 0 || (SportCatalogue.find(sides.first) != null && SportCatalogue.find(sides.second) != null)) return sides
                 }
                 return null
             }
@@ -275,7 +318,8 @@ class SportClassifier {
 
             /** One side of "A v B": a name of a few words, without "Live" or a kick-off time. */
             private fun side(text: String): String? {
-                val s = text.replace(TRAILING_BRACKETS, "").replace(LEADING_LIVE, "").replace(TRAILING_TIME, "").trim(' ', ',', '.', '-', '–')
+                val s = text.replace(TRAILING_BRACKETS, "").replace(LEADING_LIVE, "").replace(LEADING_LEAGUE, "").replace(TRAILING_TIME, "")
+                    .replace(TRAILING_CONTEXT, "").trim(' ', ',', '.', '-', '–')
                 val words = s.split(' ').filter { it.isNotEmpty() }
                 if (words.isEmpty() || words.size > 5 || s.length > 40 || s.none { it.isLetter() }) return null
                 return s
@@ -378,10 +422,16 @@ class SportClassifier {
 
         /** Between the parts of a title: "Live Premier League: Arsenal v Chelsea - Week 12". */
         val SEPARATORS = Regex("\\s*:\\s+|\\s+[-–—|/]\\s+|\\s*\\|\\s*")
-        val SENTENCE_OR_SEPARATOR = Regex("[.!?]\\s+|\\s*:\\s+|\\s+[-–—|]\\s+|,\\s+")
+        val SENTENCE_OR_SEPARATOR = Regex("[.!?](?:\\s+|$)|\\s*:\\s+|\\s+[-–—|]\\s+|,\\s+|\\s*\\(")
 
         /** "A v B", "A vs B", "A vs. B", "A versus B". */
-        val SIDES = Regex("^(.+?)\\s+(?:v|vs\\.?|versus)\\s+(.+)$", RegexOption.IGNORE_CASE)
+        val SIDES = Regex("^(.+?)\\s+(?:v|vs\\.?|versus|@)\\s+(.+)$", RegexOption.IGNORE_CASE)
+
+        /** "26/27", "1999/00", "2013-14". */
+        val SEASON = Regex("(?<![\\d/])((?:19|20)?\\d{2})[/-]((?:19|20)?\\d{2})(?![\\d/])")
+        val YEAR = Regex("(?<!\\d)(?:19[5-9]\\d|20\\d\\d)(?!\\d)")
+        val GENERIC_TITLE_WORDS = setOf("sport", "sports", "news", "live", "today", "tonight", "update", "the")
+        val CLUB_CHANNELS = Phrases(listOf("mutv", "lfctv", "lfc tv", "chelsea tv", "barca tv", "barca one", "real madrid tv", "rangers tv", "celtic tv", "city plus"))
 
         val MOTOGP_WORDS = Phrases(listOf("motogp", "moto gp", "moto2", "moto3"))
 
@@ -391,6 +441,17 @@ class SportClassifier {
         val LEADING_LIVE = Regex("^\\s*live\\b\\s*[:!\\-–|]?\\s*", RegexOption.IGNORE_CASE)
         val TRAILING_LIVE = Regex("\\s*[-–:|]\\s*live\\s*$|\\s+live!?\\s*$", RegexOption.IGNORE_CASE)
         val KICK_OFF = Regex("\\((?:ko|k/o|kick[- ]?off)[^)]*\\)", RegexOption.IGNORE_CASE)
+        /** A league before the first side, without a colon: "NFL Buccaneers @ Bears". */
+        val LEADING_LEAGUE = Regex("^(?:NFL|NBA|NHL|MLB|MLS|WNBA|NRL|AFL|IPL|EPL)\\s+")
+
+        /** How a description starts before naming the match: "Action from Chelsea v Everton". */
+        val LEADING_ACTION = Regex(
+            "^\\s*(?:live\\s+)?(?:extended\\s+)?(?:action|highlights|coverage|another chance to see|a chance to see|full match)\\s+(?:from|of)?\\s*",
+            RegexOption.IGNORE_CASE,
+        )
+
+        /** Where or what a match is, after the side: "Sheffield United in the Championship". */
+        val TRAILING_CONTEXT = Regex("\\s+(?:in|at|from|on|for|with|as|during)\\s+(?:the\\s+)?[a-z0-9].*$|\\s+(?:in|at|from)\\s+the\\s+.*$")
         val TRAILING_BRACKETS = Regex("\\s*[(\\[][^)\\]]*[)\\]]\\s*$")
         val TRAILING_TIME = Regex("\\s+(?:@\\s*)?\\d{1,2}[:.]\\d{2}\\s*(?:am|pm)?$|\\s+\\d{1,2}\\s*(?:am|pm)$", RegexOption.IGNORE_CASE)
 
@@ -418,8 +479,8 @@ class SportClassifier {
             "nations league", "world cup qualifier", "world cup qualifiers", "world cup qualifying", "euro 2028", "euro qualifier",
             "euro qualifiers", "scottish premiership", "spfl", "scottish cup", "la liga", "laliga", "serie a", "bundesliga", "ligue 1",
             "eredivisie", "mls", "copa del rey", "copa america", "copa libertadores", "wsl", "womens super league", "saudi pro league",
-            "community shield", "club world cup", "supercopa", "dfb pokal", "coppa italia", "primeira liga", "liga portugal",
-            "match of the day", "motd", "uefa", "fifa", "kick off", "monday night football", "super sunday",
+            "community shield", "club world cup", "nwsl", "supercopa", "dfb pokal", "coppa italia", "primeira liga", "liga portugal",
+            "match of the day", "motd", "uefa", "fifa", "monday night football", "super sunday",
         ))
 
         /** Sports the hub doesn't name whose names have one of its sports' words in. */
@@ -434,10 +495,11 @@ class SportClassifier {
             "rugby", "rugby union", "rugby league", "cricket", "nfl", "gaelic", "hurling", "ice hockey", "hockey", "nhl", "basketball",
             "nba", "wnba", "baseball", "mlb", "netball", "handball", "volleyball", "cycling", "tour de france", "athletics", "swimming",
             "horse racing", "racing from", "greyhound", "greyhounds", "ufc", "mma", "bellator", "pfl", "wrestling", "wwe", "aew",
-            "triathlon", "rowing", "sailing", "skiing", "snowboarding", "gymnastics", "squash", "badminton", "pickleball", "bowls",
+            "triathlon", "rowing", "skiing", "snowboarding", "gymnastics", "squash", "badminton", "pickleball", "bowls",
             "pool", "nine ball", "mosconi cup", "motocross", "supercross", "indycar", "nascar", "rally", "wrc", "le mans", "wec",
             "btcc", "speedway", "lacrosse", "afl", "curling", "equestrian", "showjumping", "six nations", "premiership rugby",
-            "super league", "challenge cup", "autumn nations", "test match", "the ashes", "t20", "odi", "ipl", "the hundred",
+            "challenge cup", "autumn nations", "test match", "the ashes", "t20", "odi", "ipl", "the hundred", "rlwc",
+            "rugby league", "cyclocross", "nations championship",
             "olympics", "paralympics", "commonwealth games",
         ))
 
@@ -472,18 +534,21 @@ class SportClassifier {
         val REPLAY = Phrases(listOf(
             "replay", "replays", "repeat", "rpt", "rerun", "re run", "classic", "classics", "encore", "rewind", "retro", "archive",
             "greatest", "best of", "vintage", "full match", "full race", "memorable", "iconic", "from the vault", "on this day",
+            "flashback",
         ))
         val REPLAY_DESC = Phrases(listOf("another chance to see", "first shown", "originally shown", "from earlier", "earlier today"))
         val HIGHLIGHTS = Phrases(listOf(
             "highlights", "match of the day", "motd", "goals", "round up", "roundup", "review", "recap", "in 90", "extended",
-            "catch up", "best bits", "the best of", "action replay",
+            "catch up", "best bits", "the best of", "action replay", "hlts", "netbusters", "reload",
         ))
         val MAGAZINE = Phrases(listOf(
             "news", "show", "podcast", "preview", "previews", "build up", "buildup", "pre match", "prematch", "pre race", "post race",
             "post match", "talk", "talking", "debate", "reaction", "analysis", "countdown", "weekly", "magazine", "focus", "insider",
             "documentary", "uncovered", "story", "stories", "quiz", "fantasy", "soccer saturday", "final score", "results", "sportscene",
             "sports centre", "sportsday", "breakfast", "fanzone", "tips", "betting", "draw", "awards", "behind the", "notebook", "unlocked",
-            "special report", "headlines", "bulletin", "update", "updates",
+            "special report", "headlines", "bulletin", "update", "updates", "legends", "icons", "interview", "this week",
+            "season so far", "spotlight", "a day in the life", "ref watch", "sky sports fc", "football night", "debrief", "lessons",
+            "good morning", "golf academy", "the cut", "specials", "breakdown", "on fire", "on the fly",
         ))
         val LIVE_DESC = Phrases(listOf("live coverage", "live action", "coverage live", "shown live", "live from", "live on", "live as", "watch live"))
 

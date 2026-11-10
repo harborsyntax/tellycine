@@ -162,11 +162,11 @@ class SportsIndexer(
         // The same programme, described the same way on a channel like it, is the same sport.
         val decided = HashMap<List<Any?>, SportMatch?>()
         for (p in candidates) {
-            val month = Instant.ofEpochMilli(p.startMs).atZone(zone).monthValue
+            val date = Instant.ofEpochMilli(p.startMs).atZone(zone)
             val description = descriptions[p.id]
             val hint = hints[p.channelId] ?: SportClassifier.ChannelHint.NONE
-            val match = decided.getOrPut(listOf(p.title, p.category, description, hint, month)) {
-                classifier.classify(p.title, p.category, description, hint, month)
+            val match = decided.getOrPut(listOf(p.title, p.category, description, hint, date.monthValue, date.year)) {
+                classifier.classify(p.title, p.category, description, hint, date.monthValue, date.year)
             } ?: continue
             if (match.kind == AiringKind.MAGAZINE) continue
             rows += SportAiringEntity(
@@ -237,8 +237,12 @@ class SportsIndexer(
     companion object {
         private const val TAG = "SportsIndexer"
 
-        /** Goes up when the rules for finding sport change, so it's found again everywhere. */
-        const val VERSION = 1
+        /**
+         * Goes up when the rules for finding sport change, so it's found again everywhere. 2: from
+         * a real UK guide: sport the title doesn't name needs more to be an event, seasons and
+         * past years are replays, news channels, "Hlts".
+         */
+        const val VERSION = 2
 
         /** How long ago an event can have started and still be on: a Test match or a golf round is long. */
         private const val LIVE_FOR_MS = 8 * 60 * 60 * 1000L

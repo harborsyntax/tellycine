@@ -31,6 +31,7 @@ Following an F1 or MotoGP team or driver follows their sport's races, as they're
 ## Where the sport comes from
 Everything comes from your own playlists, on your device:
 - **TV guides:** each programme's title, categories and description, and the channel it's on. "Live Premier League: Arsenal v Chelsea" on a sports channel is a live football match between Arsenal and Chelsea; "Football Focus" is a magazine show, which isn't shown; "Match of the Day" is highlights.
+- **Live or not:** Sky Sports, TNT Sports and Premier Sports say "Live" on their live coverage, so on their channels, sport that doesn't say it (such as "The Emirates FA Cup" or "EFL 26/27: West Brom v Millwall") is taken to be shown again. A season or past year in the title, "Hlts" and the like mark replays and highlights anywhere.
 - **Event channels:** many providers have channels whose names change with each event, such as "EPL 03: Arsenal v Chelsea 15:00" or "PPV 1 | Joshua v Dubois | Sat 22:00 UK". Their events show too, and join the same match on other channels. Times without a time zone are taken to be UK time.
 
 The same match on several channels, or in several playlists, is one event with every channel it's on.
