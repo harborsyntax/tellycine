@@ -84,6 +84,9 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setStartOnLastChannel(v: Boolean) = viewModelScope.launch { repo.setStartOnLastChannel(v) }
     fun setMatchFrameRate(v: Boolean) = viewModelScope.launch { repo.setMatchFrameRate(v) }
     fun setTmdbEnabled(v: Boolean) = viewModelScope.launch { repo.setTmdbEnabled(v) }
+    fun setSportsHub(v: Boolean) = viewModelScope.launch { repo.setSportsHub(v) }
+    fun setSportsReplays(v: Boolean) = viewModelScope.launch { repo.setSportsReplays(v) }
+    fun setSportsEventChannels(v: Boolean) = viewModelScope.launch { repo.setSportsEventChannels(v) }
 
     /** Checking a TMDB key before keeping it. */
     sealed interface KeyCheck {
@@ -128,7 +131,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit, onOpenSports: () -> Unit = {}) {
     val vm = tellycineViewModel { c, _ -> SettingsViewModel(c) }
     val s by vm.settings.collectAsStateWithLifecycle()
     var themeDialog by remember { mutableStateOf(false) }
@@ -216,6 +219,25 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit) {
                 headlineContent = { Text(TmdbText.KEY) },
                 supportingContent = { Text(TmdbText.keySummary(s.tmdbApiKey, s.hasBuiltInTmdbKey)) },
                 modifier = Modifier.clickable { keyDialog = false },
+            )
+            HorizontalDivider()
+
+            Header("Sports")
+            SwitchItem("Sports Hub", SportsText.HUB, s.sportsHub, vm::setSportsHub)
+            if (s.sportsHub) {
+                ListItem(
+                    headlineContent = { Text("Your sports and teams") },
+                    supportingContent = { Text(SportsText.followed(s), maxLines = 2) },
+                    modifier = Modifier.clickable(onClick = onOpenSports),
+                )
+                SwitchItem("Replays and highlights", SportsText.replays(s.sportsReplays), s.sportsReplays, vm::setSportsReplays)
+                SwitchItem("Event channels", SportsText.EVENT_CHANNELS, s.sportsEventChannels, vm::setSportsEventChannels)
+            }
+            Text(
+                SportsText.ABOUT,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
             HorizontalDivider()
 

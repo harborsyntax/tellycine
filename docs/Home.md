@@ -17,6 +17,7 @@ Tellycine is an IPTV player for Android phones, tablets and TVs. It plays your o
 
 ## Using Tellycine
 - [Live TV & TV guide](Live-TV.md)
+- [Sports Hub](Sports.md): sport on now and coming up, and the teams you follow
 - [Catch-up TV](Catch-up.md)
 - [Movies & series](Movies-and-Series.md)
 - [Library](Library.md): favourites, continue watching, sorting and grouping

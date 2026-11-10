@@ -1,14 +1,18 @@
 package app.tellycine.data.db
 
+import android.database.Cursor
 import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.RawQuery
+import androidx.room.Transaction
 import androidx.room.Upsert
 import androidx.sqlite.db.SupportSQLiteQuery
 import app.tellycine.core.ContentKind
+import app.tellycine.core.sports.AiringKind
+import app.tellycine.core.sports.Sport
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -534,4 +538,109 @@ interface TmdbDao {
     /** The [kind] titles in [playlistIds] that are the TMDB titles [tmdbIds]. */
     @Query("SELECT * FROM streams WHERE kind = :kind AND tmdbId IN (:tmdbIds) AND playlistId IN (:playlistIds)")
     suspend fun streamsFor(kind: ContentKind, tmdbIds: List<Int>, playlistIds: List<Long>): List<StreamEntity>
+}
+
+/** The Sports Hub's table ([SportAiringEntity]), and what finding sport in a guide reads. */
+@Dao
+interface SportsDao {
+    // ---- Finding sport (blocking: on the Sports Hub's own thread) ----
+
+    /**
+     * A playlist's programmes after [afterId] ending after [fromMs]: their id, channelId, startMs, stopMs, title
+     * and category, in that order. A cursor, so the many that aren't sport are passed over without
+     * making an object of each.
+     */
+    @Query(
+        """SELECT id, channelId, startMs, stopMs, title, category FROM programmes
+           WHERE playlistId = :playlistId AND id > :afterId AND stopMs > :fromMs"""
+    )
+    fun programmeHeads(playlistId: Long, afterId: Long, fromMs: Long): Cursor
+
+    /** The start of these programmes' descriptions: enough to tell what they are. */
+    @Query("SELECT id, substr(description, 1, 300) AS description FROM programmes WHERE id IN (:ids)")
+    fun descriptions(ids: List<Long>): List<ProgrammeDescription>
+
+    @Query("SELECT streamId, name, epgChannelId FROM streams WHERE playlistId = :playlistId AND kind = 'LIVE' ORDER BY sortOrder")
+    fun liveChannels(playlistId: Long): List<LiveChannelName>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insert(items: List<SportAiringEntity>)
+
+    @Query("DELETE FROM sport_airings WHERE playlistId = :playlistId")
+    fun deleteAirings(playlistId: Long)
+
+    /** After a guide refresh: sport whose programme is no longer in the guide as it was. */
+    @Query(
+        """DELETE FROM sport_airings WHERE playlistId = :playlistId AND streamId IS NULL AND NOT EXISTS (
+             SELECT 1 FROM programmes p WHERE p.playlistId = sport_airings.playlistId AND p.channelId = sport_airings.channelId
+               AND p.startMs = sport_airings.startMs AND p.title = sport_airings.programmeTitle)"""
+    )
+    fun deleteGoneAirings(playlistId: Long)
+
+    /** Sport over before [beforeMs], and events channels' names announced (found again each time). */
+    @Query("DELETE FROM sport_airings WHERE playlistId = :playlistId AND ((stopMs <= :beforeMs AND startMs != 0) OR streamId IS NOT NULL)")
+    fun deleteEndedAndEventChannels(playlistId: Long, beforeMs: Long)
+
+    @Query("SELECT * FROM sport_index WHERE playlistId = :playlistId")
+    fun indexState(playlistId: Long): SportIndexEntity?
+
+    @Upsert
+    fun setIndexState(state: SportIndexEntity)
+
+    /** Forgets [playlistId]'s sport: when it's removed. */
+    @Transaction
+    fun delete(playlistId: Long) {
+        deleteAirings(playlistId)
+        deleteIndexState(playlistId)
+    }
+
+    @Query("DELETE FROM sport_index WHERE playlistId = :playlistId")
+    fun deleteIndexState(playlistId: Long)
+
+    @Query("DELETE FROM sport_airings")
+    fun clearAirings()
+
+    @Query("DELETE FROM sport_index")
+    fun clearIndexStates()
+
+    /** Forgets all the sport found: with the hub turned off. */
+    @Transaction
+    fun clear() {
+        clearAirings()
+        clearIndexStates()
+    }
+
+    /** The playlists whose sport was found with [version]'s rules. */
+    @Query("SELECT playlistId FROM sport_index WHERE version = :version")
+    fun indexedWith(version: Int): List<Long>
+
+    // ---- The hub ----
+
+    /** Sport on between [fromMs] and [toMs], and event channels that don't say when. */
+    @Query(
+        """SELECT * FROM sport_airings WHERE ((stopMs > :fromMs AND startMs < :toMs) OR startMs = 0)
+           AND sport IN (:sports) AND kind IN (:kinds) ORDER BY startMs"""
+    )
+    fun observeBetween(fromMs: Long, toMs: Long, sports: List<Sport>, kinds: List<AiringKind>): Flow<List<SportAiringEntity>>
+
+    @Query("SELECT COUNT(*) FROM sport_airings")
+    fun observeCount(): Flow<Int>
+
+    /** Live channels of [playlistId] with these guide ids, in categories that aren't hidden. */
+    @Query(
+        """SELECT * FROM streams s WHERE s.playlistId = :playlistId AND s.kind = 'LIVE'
+           AND s.epgChannelId IN (:epgChannelIds) AND """ + VISIBLE + """ ORDER BY s.sortOrder"""
+    )
+    suspend fun channelsFor(playlistId: Long, epgChannelIds: List<String>): List<StreamEntity>
+
+    /** Live channels of [playlistId] by their ids, in categories that aren't hidden. */
+    @Query(
+        """SELECT * FROM streams s WHERE s.playlistId = :playlistId AND s.kind = 'LIVE'
+           AND s.streamId IN (:streamIds) AND """ + VISIBLE + """ ORDER BY s.sortOrder"""
+    )
+    suspend fun channelsById(playlistId: Long, streamIds: List<String>): List<StreamEntity>
+
+    /** Team and player names in the hub's events, for suggestions while choosing what to follow. */
+    @Query("SELECT DISTINCT home FROM sport_airings WHERE home IS NOT NULL UNION SELECT DISTINCT away FROM sport_airings WHERE away IS NOT NULL")
+    suspend fun sideNames(): List<String>
 }

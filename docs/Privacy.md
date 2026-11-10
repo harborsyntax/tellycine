@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Last updated: 13 October 2026*
+*Last updated: 10 November 2026*
 
 Tellycine is an IPTV player for Android phones, tablets and TVs. This policy explains what happens to your information when you use it. In short: Tellycine has no accounts, ads, analytics or tracking, and it doesn't send your information to its developer.
 
@@ -9,6 +9,7 @@ Tellycine keeps these **only on your device**, in its private storage:
 
 - the playlists you add, including their addresses and login details (for Xtream Codes-compatible servers, a username and password; for Dispatcharr, an API key and never your web password)
 - TV guide data, favourites, watch history, resume positions and settings
+- the sport the Sports Hub finds in your TV guides and channel names, and the sports, teams and players you follow there (none of it is sent anywhere)
 - if you turn on details from TMDB: what TMDB said about your movies and series (for six months at most), and your own TMDB API key if you add one
 - movies and episodes you download for offline viewing
 

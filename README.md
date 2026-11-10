@@ -36,6 +36,7 @@ Tellycine is a player only. It doesn't provide any channels or content; you add 
 
 - **Your sources:** M3U/M3U8 links, local M3U files, Xtream Codes accounts and Dispatcharr servers, with as many playlists as you like, browsed one at a time or all together.
 - **Live TV with a TV guide:** XMLTV guides, "on now" with progress, and a full schedule for each channel.
+- **Sports Hub:** the football, F1, MotoGP, golf, tennis, snooker, darts and boxing on now and coming up in your guides and event channels, gathered into events with every channel they're on, with your teams and players first. No scores, so nothing is spoiled.
 - **Catch-up TV:** replay past programmes, or restart the current one. Works with Xtream timeshift and M3U `catchup` attributes.
 - **Movies & series:** poster grids sorted your way (date added, release date, latest episode, title), details with full backdrops and trailers, seasons and episodes, and resume where you left off. Optionally, details from TMDB: cast and crew, ratings, missing posters, episode details, collections and titles like the one you're looking at, and sorting by rating or when series last aired.
 - **Search:** find channels, programmes in the TV guide, movies and series across all your playlists in one place.

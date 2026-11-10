@@ -40,7 +40,7 @@ class NarrowWindowTest {
         val d = ScreenshotDriver(compose)
         d.launch(ready = null)
         d.waitForText("Metro News 24")
-        for (tab in listOf("Movies", "Series", "Library", "Playlists")) {
+        for (tab in listOf("Sports", "Movies", "Series", "Library", "Playlists")) {
             press(hasText(tab))
         }
         press(hasContentDescription("Settings"))

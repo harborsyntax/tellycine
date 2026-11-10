@@ -7,6 +7,7 @@
 
 **Using Tellycine**
 - [Live TV & TV guide](Live-TV.md)
+- [Sports Hub](Sports.md)
 - [Catch-up TV](Catch-up.md)
 - [Movies & series](Movies-and-Series.md)
 - [Library](Library.md)

@@ -24,7 +24,8 @@ data class SyncProgress(val message: String, val fraction: Float?)
 
 /**
  * Runs playlist refreshes in the application scope, one at a time, and exposes live
- * progress for the UI. [onContentSynced] runs after each playlist's content is refreshed.
+ * progress for the UI. [onContentSynced] runs after each playlist's content is refreshed, and
+ * [onRefreshed] after its content or guide changed, with its id and whether its content did.
  */
 class SyncManager(
     private val db: TellycineDatabase,
@@ -32,6 +33,7 @@ class SyncManager(
     private val settings: SettingsRepository,
     private val scope: CoroutineScope,
     private val onContentSynced: () -> Unit = {},
+    private val onRefreshed: (playlistId: Long, contentChanged: Boolean) -> Unit = { _, _ -> },
 ) {
     private val dao = db.playlists()
     private val jobs = ConcurrentHashMap<Long, Job>()
@@ -104,6 +106,8 @@ class SyncManager(
         val report: ProgressReporter = { message, fraction -> setProgress(playlistId, SyncProgress(message, fraction)) }
 
         var guide = epg
+        var changed = false
+        var contentChanged = false
         if (content || playlist.lastSyncedAt == null) {
             val result = syncer.syncContent(playlist, prefs.preferHls, report)
             dao.setContentSynced(
@@ -120,6 +124,8 @@ class SyncManager(
                 serverSoftware = result.account?.serverSoftware,
             )
             playlist = dao.get(playlistId) ?: return
+            changed = true
+            contentChanged = true
             onContentSynced()
             // Its guide needs importing again for channels it didn't have before, even if it isn't due.
             guide = guide || withContext(Dispatchers.IO) { syncer.guideInputs(playlist, prefs.epgDays) } != playlist.epgInputs
@@ -128,7 +134,7 @@ class SyncManager(
         var epgError: String? = null
         if (guide && syncer.epgUrlsFor(playlist).isNotEmpty()) {
             try {
-                syncer.syncEpg(playlist, prefs.epgDays, report)
+                if (syncer.syncEpg(playlist, prefs.epgDays, report) is GuideRefresh.Imported) changed = true
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -137,6 +143,7 @@ class SyncManager(
             }
         }
         dao.setSyncState(playlistId, if (epgError != null) SyncState.ERROR else SyncState.IDLE, epgError)
+        if (changed) onRefreshed(playlistId, contentChanged)
     }
 
     private fun setProgress(id: Long, progress: SyncProgress) {

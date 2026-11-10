@@ -31,6 +31,9 @@ class XmltvParserTest {
           </programme>
           <programme start="20240131210000" stop="20240131213000" channel="bbc1.uk">
             <title><![CDATA[Film]]></title>
+            <category lang="en">Sport</category>
+            <category lang="en">Football</category>
+            <category lang="en">sport</category>
           </programme>
         </tv>
     """.trimIndent()
@@ -57,6 +60,8 @@ class XmltvParserTest {
         assertEquals("News", programmes[0].category)
         assertEquals(1706731200000L, programmes[0].startMs)
         assertEquals("Film", programmes[1].title)
+        // Every category, once each.
+        assertEquals("Sport, Football", programmes[1].category)
     }
 
     @Test

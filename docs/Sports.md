@@ -1,0 +1,66 @@
+# Sports Hub
+
+The **Sports** tab shows the sport on now and coming up in your playlists: football, Formula 1, MotoGP, golf, tennis, snooker, darts and boxing, and any other sport your TV guides call sport. On a TV, it's **Sports** in the side menu.
+
+<p>
+  <img src="images/screens/sports.png" width="260" alt="The Sports tab">
+  <img src="images/screens/sports-event.png" width="260" alt="An event: where to watch it">
+  <img src="images/screens/sports-setup.png" width="260" alt="What do you follow?">
+</p>
+
+## What it shows
+- **Filters** along the top: **For you** (the sports you follow, and your teams and players), **All** (every sport found, other sports too), and one for each sport you follow.
+- **Live now:** what's on now, with how long it's been on and the channel it's on ("City Sports 1 · 2 more" when it's on more than one).
+- **Your teams:** each team or player you follow, with their next event in your guides.
+- **Coming up:** what's on later, day by day, as far ahead as your TV guides go.
+
+Tap an event to see where to watch it:
+- **Watch on:** every channel it's on, in all your playlists, with the playlist's name when you have more than one. Tap one to watch it.
+- **Watch from the start:** when it's started already and the channel has [catch-up](Catch-up.md).
+- **Follow** either side, or stop following them.
+
+No scores or results are shown, so nothing is spoiled.
+
+## What do you follow?
+Tap the **⚙ sliders** at the top of the Sports tab, or go to **Settings → Your sports and teams**:
+- **Sports:** tick the ones you want under **For you**, each with its own filter. Untick one and its events still show under **All**.
+- **Teams and players:** type a name. Tellycine suggests the teams, drivers and players it knows (from the Premier League, the EFL and Scotland to the F1 grid, the snooker and darts tours, tennis, golf and boxing), and names it has found in your guides. Anything else is found by name in titles and descriptions.
+
+Following an F1 or MotoGP team or driver follows their sport's races, as they're in every one. Teams show in their colours with a three-letter code, as crests belong to the clubs.
+
+## Where the sport comes from
+Everything comes from your own playlists, on your device:
+- **TV guides:** each programme's title, categories and description, and the channel it's on. "Live Premier League: Arsenal v Chelsea" on a sports channel is a live football match between Arsenal and Chelsea; "Football Focus" is a magazine show, which isn't shown; "Match of the Day" is highlights.
+- **Event channels:** many providers have channels whose names change with each event, such as "EPL 03: Arsenal v Chelsea 15:00" or "PPV 1 | Joshua v Dubois | Sat 22:00 UK". Their events show too, and join the same match on other channels. Times without a time zone are taken to be UK time.
+
+The same match on several channels, or in several playlists, is one event with every channel it's on.
+
+Sport is found after each refresh of a playlist or its guide, in the background. Only what's new in the guide is looked through again.
+
+### Getting the best results
+- Guides that give programmes **categories** (such as "Sport, Football") work best.
+- Tellycine knows UK names first: the BBC, ITV, Sky Sports, TNT Sports, Premier Sports and the like, and how UK guides name events. Guides from elsewhere work too, but may be found less well.
+- Replays and highlights are hidden unless you turn on **Replays and highlights** in Settings.
+
+## Settings
+In **Settings → Sports** (on phones and TV):
+
+| Setting | What it does |
+| --- | --- |
+| **Sports Hub** | The Sports tab, and Sports in the TV menu. On by default. Turning it off also stops looking for sport, and forgets what was found. |
+| **Your sports and teams** | What shows under **For you**. |
+| **Replays and highlights** | Shows them as well as live coverage. Off by default. |
+| **Event channels** | Shows the events channels' names announce. On by default. |
+
+## On TV
+<img src="images/screens/tv-sports.png" width="640" alt="Sports on TV">
+
+- Rows of cards: **Live now**, **Your teams**, then each day's events.
+- **OK** on a live event plays it. On one coming up, or held on a live one, it opens the event's panel: where to watch it, from the start, and following its sides.
+- **Your sports** at the top chooses what you follow.
+- **Back** goes to the filters, and **Back** again opens the side menu.
+
+<img src="images/screens/tv-sports-event.png" width="640" alt="An event on TV">
+
+## Privacy
+The Sports Hub sends nothing anywhere: it reads your playlists' guides and channel names on your device, and what you follow stays on it. See [Privacy](Privacy.md).

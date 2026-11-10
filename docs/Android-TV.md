@@ -26,7 +26,7 @@ Updates install the same way, over the existing app.
 - **Fire TV:** Fire TV devices that run Fire OS (Android) work. Amazon's newer **Vega OS** devices (starting with the Fire TV Stick 4K Select) can't run Android apps, so Tellycine can't be installed on them.
 
 ## Getting around
-- The **side menu** (Search, Live TV, Movies, Series, Library, Playlists, Settings) is on the left. Press **Back** from any screen to open it (from the guide, Back opens its categories first), and **Back** again to leave Tellycine.
+- The **side menu** (Search, Live TV, Sports, Movies, Series, Library, Playlists, Settings) is on the left. Press **Back** from any screen to open it (from the guide, Back opens its categories first), and **Back** again to leave Tellycine.
 - **OK** chooses. **Hold OK** for more options: a channel's schedule and actions, removing a Library item, or deleting a download or recording.
 - Everything works with just the arrows, OK and Back, so any remote will do. Number and channel buttons are used when your remote has them.
 - In long lists (the guide, channels, categories, movies and series), **hold Up or Down** to scroll: it starts one row at a time and speeds up the longer you hold. Held, it stops at the top or bottom of the list; press again to move on from there.
@@ -83,6 +83,9 @@ Watch up to four live channels at once.
 - **Back** leaves multi-view.
 
 In multi-view, Dolby sound is decoded by the TV box rather than passed to your TV or receiver, so several channels can play at once. How many channels play smoothly depends on your device: older or lower-powered boxes may struggle with four HD channels.
+
+## Sports
+**Sports** shows the sport on now and coming up in rows. OK on a live event plays it; on one coming up, or held on a live one, it opens its panel, with every channel it's on. **Back** goes to the filters, and again the side menu. See [Sports Hub](Sports.md#on-tv).
 
 ## Movies, series and the Library
 - **Movies** and **Series** are poster grids. Press **Left** from the first column for the categories, with the playlists to show above them when you have more than one: **All playlists** or one of them, chosen separately for Live TV, Movies and Series. See [Switching playlists](Managing-Playlists.md#switching-playlists).
