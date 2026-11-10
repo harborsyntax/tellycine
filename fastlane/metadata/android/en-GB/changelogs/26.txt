@@ -1,0 +1,2 @@
+• Android TV: going back to the guide from a channel now highlights that channel, rather than the first in the guide
+• In the guide, Back opens the categories first, and Back again the side menu

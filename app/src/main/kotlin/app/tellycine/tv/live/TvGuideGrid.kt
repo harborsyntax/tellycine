@@ -126,8 +126,11 @@ class TvGuideState(window: GuideWindow, now: Long) {
     fun focusedProgramme(row: ChannelRow?): ProgrammeEntity? =
         if (onChannel) null else programmesOf(row)?.firstOrNull { it.startMs <= timeMs && it.stopMs > timeMs }
 
-    fun reset(now: Long) {
-        row = 0
+    fun reset(now: Long) = goTo(0, now)
+
+    /** Highlights what's on now on the channel in [row]. */
+    fun goTo(row: Int, now: Long) {
+        this.row = row
         onChannel = false
         timeMs = now.coerceIn(window.startMs, window.endMs - 1)
         viewStart = floorToSlot(now).coerceIn(window.startMs, window.endMs)

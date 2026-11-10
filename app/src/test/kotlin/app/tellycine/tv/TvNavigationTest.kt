@@ -18,11 +18,13 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.tellycine.TellycineApp
+import app.tellycine.core.ContentKind
 import app.tellycine.data.settings.CategorySort
 import app.tellycine.player.PlayerActivity
 import app.tellycine.screenshots.ScreenshotDriver
 import app.tellycine.screenshots.beATelevision
 import app.tellycine.tv.components.hold
+import app.tellycine.ui.live.liveRequest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -97,7 +99,7 @@ class TvNavigationTest {
         // Left steps back to the channel, then once more into the categories column, on the current one.
         d.pressUntil(Key.DirectionLeft, "Press OK to watch")
         d.press(Key.DirectionLeft)
-        compose.onNode(hasText("All channels") and hasText("12") and isFocused()).assertExists()
+        waitForCategoriesOnAllChannels()
 
         // OK on Sport shows its channels and returns to them: OK then plays the first.
         d.press(Key.DirectionDown, 3)
@@ -156,17 +158,63 @@ class TvNavigationTest {
     }
 
     @Test
-    fun upFromTheFirstChannelReachesTheHeaderAndBackOpensTheMenu() {
+    fun upFromTheFirstChannelReachesTheHeader() {
         val d = ScreenshotDriver(compose)
         d.launchTv()
 
         d.press(Key.DirectionUp)
         compose.onNode((hasContentDescription("Compact") or hasContentDescription("List")) and isButton and isFocused()).assertExists()
 
+        // Back from there goes to the categories too.
+        d.back()
+        waitForCategoriesOnAllChannels()
+    }
+
+    @Test
+    fun backInTheGuideGoesToTheCategoriesThenTheMenu() {
+        val d = ScreenshotDriver(compose)
+        d.launchTv()
+        d.press(Key.DirectionDown, 2)
+
+        d.back()
+        waitForCategoriesOnAllChannels()
         d.back()
         d.waitForText("Playlists")
         compose.onNode(hasText("Live TV") and hasClickAction()).assertIsFocused()
+
+        // Right from the menu returns to the channel highlighted before.
+        d.press(Key.DirectionRight)
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("City Sports 1", useUnmergedTree = true).fetchSemanticsNodes().size == 2 }
     }
+
+    @Test
+    fun backFromThePlayerShowsTheChannelLeftPlayingInTheGuide() {
+        val d = ScreenshotDriver(compose)
+        var pid = 0L
+        d.launchTv { pid = it }
+        val app = ApplicationProvider.getApplicationContext<TellycineApp>()
+        val playback = app.container.tvPlayback
+        // Back from the player (here, on the last channel opened as the app started) leaves it
+        // playing in the guide's mini player.
+        val request = runBlocking {
+            val playlist = app.container.database.playlists().get(pid)
+            liveRequest(playlist, app.container.content.getStream(pid, ContentKind.LIVE, "ch10")!!)
+        }
+        val player = Any()
+        compose.runOnUiThread {
+            playback.claim(player)
+            playback.toMini(player, request)
+        }
+        try {
+            // Named at the top as well as on its row (and in the mini player).
+            compose.waitUntil(5_000) { compose.onAllNodesWithText("Planet Wild", useUnmergedTree = true).fetchSemanticsNodes().size == 3 }
+        } finally {
+            compose.runOnUiThread { playback.stopMini() }
+        }
+    }
+
+    private fun waitForCategoriesOnAllChannels() =
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText("All channels") and hasText("12") and isFocused()).fetchSemanticsNodes().isNotEmpty() }
 
     private val isButton = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
 }

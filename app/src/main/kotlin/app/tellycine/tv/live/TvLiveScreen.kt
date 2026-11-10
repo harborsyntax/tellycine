@@ -2,6 +2,7 @@ package app.tellycine.tv.live
 
 import android.view.KeyEvent.KEYCODE_DPAD_LEFT
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -98,6 +99,8 @@ fun TvLiveScreen(
     onAddPlaylist: () -> Unit,
     /** True while the guide is on screen and wants the full width, without the side menu's rail. */
     onFullWidth: (Boolean) -> Unit = {},
+    /** Opens the side menu, as Back does from the guide's categories. */
+    onOpenMenu: () -> Unit = {},
 ) {
     val vm = tellycineViewModel { c, _ -> LiveViewModel(c) }
     val context = LocalContext.current
@@ -163,6 +166,22 @@ fun TvLiveScreen(
         if (guide.row != 0) guide.reset(System.currentTimeMillis())
         guide.listState.scrollToItem(0)
     }
+    // Back from the player, the guide moves to the channel left playing in the mini player (the
+    // one played, or changed to in the player, or the last channel, opened as the app started),
+    // when it's among the channels shown.
+    var leftPlaying by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(mini?.request) {
+        leftPlaying = mini?.request?.let { vm.rowOf(it) }
+    }
+    LaunchedEffect(leftPlaying) {
+        val row = leftPlaying ?: return@LaunchedEffect
+        // Scrolled there first, as the grid only scrolls a row or two to keep the highlight on screen.
+        guide.listState.scrollToItem((row - 1).coerceAtLeast(0))
+        guide.goTo(row, System.currentTimeMillis())
+        leftPlaying = null
+    }
+    // In the guide, Back goes to the categories first, and Back from there to the side menu.
+    BackHandler(enabled = !listView && !categoryColumn.open && session.active != null) { categoryColumn.open() }
 
     if (session.active == null) {
         Column(Modifier.fillMaxSize()) {
@@ -259,7 +278,11 @@ fun TvLiveScreen(
                         categoryColumn.open = false
                         runCatching { contentFocus.requestFocus() }
                     },
-                    onClose = { runCatching { contentFocus.requestFocus() } },
+                    // Back: the menu, then Right comes back to the channels.
+                    onClose = {
+                        runCatching { contentFocus.requestFocus() }
+                        onOpenMenu()
+                    },
                     modifier = Modifier.padding(end = 8.dp),
                     playlists = playlistFilter,
                     onSelectPlaylists = {
