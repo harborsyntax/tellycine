@@ -78,6 +78,7 @@ import androidx.tv.material3.Text
 import app.tellycine.data.db.ChannelRow
 import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.tv.TvPalette
+import app.tellycine.tv.components.OkPress
 import app.tellycine.tv.components.heldKeySteps
 import app.tellycine.ui.components.Artwork
 import app.tellycine.ui.components.formatTime
@@ -266,8 +267,7 @@ fun TvGuideGrid(
         // Rows on screen, for paging with channel up/down.
         fun pageSize() = (state.listState.layoutInfo.visibleItemsInfo.size - 1).coerceAtLeast(1)
 
-        var pressed by remember { mutableStateOf(false) }
-        var longPressed by remember { mutableStateOf(false) }
+        val ok = remember { OkPress() }
 
         Column(
             Modifier
@@ -279,21 +279,8 @@ fun TvGuideGrid(
                     val down = event.type == KeyEventType.KeyDown
                     when (native.keyCode) {
                         KEYCODE_DPAD_CENTER, KEYCODE_ENTER, KEYCODE_NUMPAD_ENTER, KEYCODE_BUTTON_A -> {
-                            // Acts on release, so the release can't land in the options panel it opens.
-                            when {
-                                down && native.repeatCount == 0 -> {
-                                    pressed = true
-                                    longPressed = false
-                                }
-                                down -> if (pressed) longPressed = true
-                                else -> {
-                                    if (pressed) {
-                                        if (longPressed) currentRow()?.let(onOptions) else activate()
-                                    }
-                                    pressed = false
-                                    longPressed = false
-                                }
-                            }
+                            // Plays as OK is let go; held, the channel's options open straight away.
+                            ok.on(native, onClick = ::activate, onLongClick = { currentRow()?.let(onOptions) })
                             true
                         }
                         KEYCODE_MENU -> {

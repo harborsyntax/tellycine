@@ -106,7 +106,12 @@ class SportsHubTest {
         // Low in the sheet, below the channels: on screen first, or the tap lands elsewhere.
         compose.onAllNodesWithText("Follow Inter", useUnmergedTree = true).onFirst().performScrollTo().performClick()
         compose.waitForIdle()
-        compose.waitUntil(5_000) { runBlocking { d.app.container.settings.current().sportsTeams } == listOf("Inter") }
+        // DataStore makes the change on the thread that asked for it, the main thread, which is this
+        // test's: it's let run while waiting (as the other tests' waits do), or it waits forever.
+        compose.waitUntil(5_000) {
+            compose.waitForIdle()
+            runBlocking { d.app.container.settings.current().sportsTeams } == listOf("Inter")
+        }
         d.click("City Sports 1")
         assertEquals("https://example.com/live/2.m3u8", d.playing().url)
     }

@@ -27,7 +27,7 @@ Updates install the same way, over the existing app.
 
 ## Getting around
 - The **side menu** (Search, Live TV, Sports, Movies, Series, Library, Playlists, Settings) is on the left. Press **Back** from any screen to open it (from the guide, Back opens its categories first; from Sports, its filters), and **Back** again to leave Tellycine: it asks first, with **Cancel** chosen, so press Right then OK to leave, or Back to stay.
-- **OK** chooses. **Hold OK** for more options: a channel's schedule and actions, removing a Library item, or deleting a download or recording.
+- **OK** chooses. **Hold OK** for more options: a channel's schedule and actions, removing a Library item, or deleting a download or recording. They open as soon as OK has been held a moment, like holding Back, without waiting for you to let go.
 - Everything works with just the arrows, OK and Back, so any remote will do. Number and channel buttons are used when your remote has them.
 - In long lists (the guide, channels, categories, movies and series), **hold Up or Down** to scroll: it starts one row at a time and speeds up the longer you hold. Held, it stops at the top or bottom of the list; press again to move on from there.
 
