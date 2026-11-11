@@ -12,6 +12,8 @@ import app.tellycine.data.db.ChannelRow
 import app.tellycine.data.db.FavoriteEntity
 import app.tellycine.data.db.HistoryEntity
 import app.tellycine.data.db.NowPlaying
+import app.tellycine.data.db.PlaylistEntity
+import app.tellycine.data.db.PlaylistType
 import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.db.TellycineDatabase
@@ -205,14 +207,18 @@ class ContentRepository(private val db: TellycineDatabase) {
     suspend fun search(playlistId: Long, kind: ContentKind, query: String, limit: Int) =
         dao.search(playlistId, kind, query, limit)
 
-    /** Guide programmes matching [query], each with the first visible channel that carries it. */
+    /**
+     * Guide programmes matching [query] that are on now or still to come (from [fromMs] earlier, with
+     * those that have ended), each with the first visible channel that carries it.
+     */
     suspend fun searchProgrammes(
         playlistId: Long,
         query: String,
         limit: Int,
         now: Long = System.currentTimeMillis(),
+        fromMs: Long = now - PAST_SEARCH_WINDOW,
     ): List<ProgrammeHit> {
-        val programmes = dao.searchProgrammes(playlistId, query, now, now - PAST_SEARCH_WINDOW, limit)
+        val programmes = dao.searchProgrammes(playlistId, query, now, fromMs, limit)
         if (programmes.isEmpty()) return emptyList()
         val channels = programmes.map { it.channelId }.distinct().chunked(500)
             .flatMap { dao.channelsForGuideIds(playlistId, it) }
@@ -221,6 +227,28 @@ class ContentRepository(private val db: TellycineDatabase) {
         return programmes
             .distinctBy { it.channelId to it.startMs }
             .mapNotNull { p -> channels[p.channelId]?.let { ProgrammeHit(p, it) } }
+    }
+
+    /**
+     * Programmes matching [query] that have finished and can still be watched again from
+     * [playlist]'s catch-up, most recent first, each with a channel whose archive has it.
+     */
+    suspend fun searchCatchup(playlist: PlaylistEntity, query: String, limit: Int, now: Long = System.currentTimeMillis()): List<ProgrammeHit> {
+        val programmes = dao.searchCatchup(
+            playlist.id, query, now, now - PAST_SEARCH_WINDOW, anyArchive = playlist.type == PlaylistType.XTREAM, limit = limit,
+        )
+        if (programmes.isEmpty()) return emptyList()
+        val channels = programmes.map { it.channelId }.distinct().chunked(500)
+            .flatMap { dao.channelsForGuideIds(playlist.id, it) }
+            .groupBy { it.epgChannelId }
+        return programmes
+            .distinctBy { it.channelId to it.startMs }
+            .mapNotNull { p ->
+                // Of the channels with this guide, the first whose archive has the programme.
+                channels[p.channelId]?.sortedBy { it.sortOrder }
+                    ?.firstOrNull { CatchupResolver.isReplayable(playlist, it, p, now) }
+                    ?.let { ProgrammeHit(p, it) }
+            }
     }
 
     suspend fun episodes(playlistId: Long, seriesId: String) = dao.episodes(playlistId, seriesId)

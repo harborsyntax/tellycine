@@ -172,6 +172,9 @@ fun TvSearchScreen(onOpen: (StreamEntity) -> Unit) {
                     resultRow("TV guide", results.programmes) { hit ->
                         ProgrammeCard(hit, sources[hit.channel.playlistId], replayable = vm.canReplay(hit), onClick = { context.play(vm.programmeRequest(hit)) })
                     }
+                    resultRow("Catch-up", results.catchup) { hit ->
+                        ProgrammeCard(hit, sources[hit.channel.playlistId], replayable = true, onClick = { context.play(vm.programmeRequest(hit)) })
+                    }
                     resultRow("Movies", results.movies) { s ->
                         TvPosterCard(
                             title = s.name, poster = s.artwork, meta = s.year, rating = s.score, onClick = { onOpen(s) },
