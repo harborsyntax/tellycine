@@ -88,6 +88,7 @@ enum class SearchFilter(val label: String, val needsVod: Boolean = false) {
     ALL("All"),
     LIVE("Live TV"),
     GUIDE("TV guide"),
+    CATCHUP("Catch-up"),
     MOVIES("Movies", needsVod = true),
     SERIES("Series", needsVod = true),
 }
@@ -96,13 +97,16 @@ data class SearchResults(
     val query: String = "",
     val searching: Boolean = false,
     val live: List<StreamEntity> = emptyList(),
+    /** What's on now and still to come. */
     val programmes: List<ProgrammeHit> = emptyList(),
+    /** What has been on, and can still be watched again from the channel's archive. */
+    val catchup: List<ProgrammeHit> = emptyList(),
     val movies: List<StreamEntity> = emptyList(),
     val series: List<StreamEntity> = emptyList(),
     /** Playlist names by id, to label where each result is from; empty with only one playlist. */
     val sources: Map<Long, String> = emptyMap(),
 ) {
-    val isEmpty get() = live.isEmpty() && programmes.isEmpty() && movies.isEmpty() && series.isEmpty()
+    val isEmpty get() = live.isEmpty() && programmes.isEmpty() && catchup.isEmpty() && movies.isEmpty() && series.isEmpty()
 }
 
 /**
@@ -160,13 +164,14 @@ class SearchViewModel(container: AppContainer) : ViewModel() {
                     SearchResults(
                         query = q,
                         live = streams(ContentKind.LIVE, SearchFilter.LIVE),
-                        // Past programmes are only useful when they can still be replayed.
                         programmes = if (wants(SearchFilter.GUIDE)) {
-                            val hits = ps.flatMap { p ->
-                                content.searchProgrammes(p.id, q, limit, now)
-                                    .filter { it.programme.stopMs > now || CatchupResolver.isReplayable(p, it.channel, it.programme, now) }
-                            }
-                            rankByTime(hits, now, limit)
+                            rankByTime(ps.flatMap { p -> content.searchProgrammes(p.id, q, limit, now, fromMs = now) }, now, limit)
+                        } else {
+                            emptyList()
+                        },
+                        // Looked for on their own, so what's still to come can't crowd them out.
+                        catchup = if (wants(SearchFilter.CATCHUP)) {
+                            rankByTime(ps.flatMap { p -> content.searchCatchup(p, q, limit, now) }, now, limit)
                         } else {
                             emptyList()
                         },
@@ -270,7 +275,8 @@ fun SearchScreen(onBack: () -> Unit, onOpen: (StreamEntity) -> Unit) {
                 }
             }
             section("Live TV", results.live, results.sources) { s -> context.play(vm.channelRequest(s)) }
-            programmeSection(results.programmes, results.sources, vm::canReplay) { hit -> context.play(vm.programmeRequest(hit)) }
+            programmeSection("TV guide", results.programmes, results.sources, vm::canReplay) { hit -> context.play(vm.programmeRequest(hit)) }
+            programmeSection("Catch-up", results.catchup, results.sources, vm::canReplay) { hit -> context.play(vm.programmeRequest(hit)) }
             section("Movies", results.movies, results.sources, onOpen)
             section("Series", results.series, results.sources, onOpen)
         }
@@ -315,14 +321,15 @@ private fun supporting(text: String?, source: String?): (@Composable () -> Unit)
 }
 
 private fun androidx.compose.foundation.lazy.LazyListScope.programmeSection(
+    title: String,
     hits: List<ProgrammeHit>,
     sources: Map<Long, String>,
     canReplay: (ProgrammeHit) -> Boolean,
     onClick: (ProgrammeHit) -> Unit,
 ) {
     if (hits.isEmpty()) return
-    item(key = "h-guide") { SectionHeader("TV guide") }
-    items(hits, key = { "guide-${it.programme.id}" }) { hit ->
+    item(key = "h-$title") { SectionHeader(title) }
+    items(hits, key = { "$title-${it.programme.id}" }) { hit ->
         val p = hit.programme
         val now = remember(hit) { System.currentTimeMillis() }
         val onNow = p.startMs <= now && p.stopMs > now

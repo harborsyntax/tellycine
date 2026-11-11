@@ -8,6 +8,8 @@ Catch-up lets you watch programmes that have already aired, if your provider kee
 3. Tap the replay button next to any past programme still inside the archive. Older programmes appear greyed out.
 4. To restart the programme that's on now, tap **From the start**.
 
+Or search for it: programmes you can still watch again have a **Catch-up** section, and filter, in [Search](Search.md).
+
 Replays play like a recording: you can pause, rewind and fast-forward. They aren't added to your watch history.
 
 ## Supported providers

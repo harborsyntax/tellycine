@@ -364,6 +364,24 @@ interface ContentDao {
     )
     suspend fun searchProgrammes(playlistId: Long, query: String, now: Long, fromMs: Long, limit: Int): List<ProgrammeEntity>
 
+    /**
+     * Programmes that have finished whose title matches [query], on visible channels whose archive
+     * still has them (catch-up), most recent first. [anyArchive] for Xtream playlists, whose
+     * channels say only how many days they keep; M3U channels need a way to ask for them too.
+     */
+    @Query(
+        """SELECT * FROM programmes p WHERE p.playlistId = :playlistId AND p.stopMs <= :now AND p.startMs >= :fromMs
+           AND p.title LIKE '%' || :query || '%'
+           AND EXISTS (SELECT 1 FROM streams s WHERE s.playlistId = p.playlistId AND s.kind = 'LIVE'
+                       AND s.epgChannelId = p.channelId AND s.catchupDays > 0
+                       AND p.startMs >= :now - s.catchupDays * 86400000
+                       AND (:anyArchive OR s.catchupType IS NOT NULL OR s.catchupSource IS NOT NULL)
+                       AND """ + VISIBLE + """)
+           ORDER BY p.startMs DESC
+           LIMIT :limit"""
+    )
+    suspend fun searchCatchup(playlistId: Long, query: String, now: Long, fromMs: Long, anyArchive: Boolean, limit: Int): List<ProgrammeEntity>
+
     @Query(
         """SELECT * FROM streams s WHERE s.playlistId = :playlistId AND s.kind = 'LIVE'
            AND s.epgChannelId IN (:epgChannelIds) AND """ + VISIBLE + """ ORDER BY s.sortOrder"""
