@@ -15,6 +15,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.performKeyPress
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.tellycine.TellycineApp
@@ -251,4 +252,28 @@ class TvNavigationTest {
         compose.waitUntil(5_000) { compose.onAllNodes(hasText("All channels") and hasText("12") and isFocused()).fetchSemanticsNodes().isNotEmpty() }
 
     private val isButton = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
+
+    @Test
+    fun holdingOkInTheGuideOpensTheChannelsOptionsBeforeItsLetGo() {
+        val d = ScreenshotDriver(compose)
+        d.launchTv()
+        d.waitForText("World Tonight: tonight's episode.")
+        beATelevision()
+        fun send(e: android.view.KeyEvent) {
+            val roots = compose.onAllNodes(androidx.compose.ui.test.isRoot())
+            roots[roots.fetchSemanticsNodes().size - 1].performKeyPress(androidx.compose.ui.input.key.KeyEvent(e))
+            compose.waitForIdle()
+        }
+        val ok = android.view.KeyEvent.KEYCODE_DPAD_CENTER
+        val t = android.os.SystemClock.uptimeMillis()
+        send(android.view.KeyEvent(t, t, android.view.KeyEvent.ACTION_DOWN, ok, 0))
+        send(android.view.KeyEvent(t, t + 500, android.view.KeyEvent.ACTION_DOWN, ok, 1))
+        // Still held, and the options are open, as holding Back returns to the channel playing.
+        d.waitForText("Watch live")
+        // The rest of the press, in the options now, presses nothing there.
+        send(android.view.KeyEvent(t, t + 550, android.view.KeyEvent.ACTION_DOWN, ok, 2))
+        send(android.view.KeyEvent(t, t + 600, android.view.KeyEvent.ACTION_UP, ok, 0))
+        assertEquals(null, shadowOf(ApplicationProvider.getApplicationContext<TellycineApp>()).nextStartedActivity)
+        d.waitForText("Watch live")
+    }
 }

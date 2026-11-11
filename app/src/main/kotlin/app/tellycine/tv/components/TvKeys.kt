@@ -20,47 +20,65 @@ import androidx.compose.ui.platform.LocalFocusManager
 val OkKeyCodes = setOf(KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER, KeyEvent.KEYCODE_BUTTON_A)
 
 /**
- * Click and long-press on OK, both on release and only for presses that started here.
+ * Click and long-press on OK, only for presses that started here: the click as OK is let go, the
+ * long press as soon as OK has been held a moment, without waiting for it to be let go (as holding
+ * Back does).
  *
- * TV Material acts on the release of OK, and its long press fires while OK is still held. If that
- * long press opens a menu, the release lands on the menu's first button and presses it. Use this
- * instead of a component's own `onLongClick`.
+ * Whatever the long press opens doesn't take the rest of the press for its own: panels and dialogs
+ * ignore the repeats and the release of a press that began before them ([ignoreStrayOkRelease]),
+ * and here, once the long press has acted, they do nothing. Use this instead of a component's own
+ * `onLongClick`.
  */
 fun Modifier.okClicks(onClick: () -> Unit, onLongClick: (() -> Unit)? = null): Modifier = composed {
-    var pressed by remember { mutableStateOf(false) }
-    var held by remember { mutableStateOf(false) }
+    val press = remember { OkPress() }
     onPreviewKeyEvent { event ->
         val native = event.nativeKeyEvent
         if (native.keyCode !in OkKeyCodes) return@onPreviewKeyEvent false
-        when {
-            native.action == KeyEvent.ACTION_DOWN && native.repeatCount == 0 -> {
-                pressed = true
-                held = false
-            }
-            native.action == KeyEvent.ACTION_DOWN -> if (pressed) held = true
-            native.action == KeyEvent.ACTION_UP -> {
-                if (pressed) {
-                    if (held && onLongClick != null) onLongClick() else onClick()
-                }
-                pressed = false
-                held = false
-            }
-        }
+        press.on(native, onClick, onLongClick)
         true
     }
 }
 
 /**
- * Ignores the release of an OK press that began before this window or panel appeared, so it
- * can't press the first button of a menu that the press itself opened.
+ * One press of OK, as [okClicks] and the guide take it: [on] calls the click as OK is let go, or
+ * the long press once it's held (the first repeat), and only once.
+ */
+class OkPress {
+    private var pressed = false
+    private var longPressed = false
+
+    fun on(event: KeyEvent, onClick: () -> Unit, onLongClick: (() -> Unit)?) {
+        when {
+            event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 -> {
+                pressed = true
+                longPressed = false
+            }
+            event.action == KeyEvent.ACTION_DOWN -> if (pressed && !longPressed && onLongClick != null) {
+                longPressed = true
+                onLongClick()
+            }
+            event.action == KeyEvent.ACTION_UP -> {
+                // A release cancelled by another window taking the keys isn't a click.
+                if (pressed && !longPressed && !event.isCanceled) onClick()
+                pressed = false
+                longPressed = false
+            }
+        }
+    }
+}
+
+/**
+ * Ignores the rest of an OK press that began before this window or panel appeared (OK still held,
+ * then let go), so it can't press the first button of a menu that the press itself opened.
  */
 fun Modifier.ignoreStrayOkRelease(): Modifier = composed {
     var sawPress by remember { mutableStateOf(false) }
     onPreviewKeyEvent { event ->
         val native = event.nativeKeyEvent
         if (native.keyCode !in OkKeyCodes) return@onPreviewKeyEvent false
-        if (native.action == KeyEvent.ACTION_DOWN) sawPress = true
-        native.action == KeyEvent.ACTION_UP && !sawPress
+        // Only a fresh press is this window's; repeats are of the press it came in on.
+        if (native.action == KeyEvent.ACTION_DOWN && native.repeatCount == 0) sawPress = true
+        !sawPress
     }
 }
 
