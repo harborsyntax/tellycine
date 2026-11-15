@@ -332,8 +332,10 @@ class TmdbUpdaterTest {
         // A read access token goes in a header, not the address.
         assertEquals("Bearer $token", server.headers.single()["authorization"])
         assertEquals(listOf("/authentication?"), requests)
-        server.close()
-        assertEquals(TmdbClient.KeyCheck.UNREACHABLE, client.checkKey(KEY))
+        // Nothing answering. Not this server closed: its port can be another test's server by then,
+        // with tests running side by side, and that one answers.
+        val nowhere = TmdbClient(OkHttpClient(), "http://127.0.0.1:1", spacingMs = 0, busyWaitMs = 10, locale = { Locale.UK })
+        assertEquals(TmdbClient.KeyCheck.UNREACHABLE, nowhere.checkKey(KEY))
     }
 
     private companion object {
