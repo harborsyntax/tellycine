@@ -12,15 +12,20 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -61,6 +66,7 @@ import app.tellycine.data.ProblemLog
 import app.tellycine.data.settings.AppSettings
 import app.tellycine.data.settings.ThemeMode
 import app.tellycine.data.settings.TvTheme
+import app.tellycine.data.sports.SportsRepository
 import app.tellycine.data.tmdb.TmdbClient
 import app.tellycine.ui.components.ListItem
 import app.tellycine.ui.components.TellycineLogo
@@ -69,6 +75,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -101,6 +108,27 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val sportsWorking: StateFlow<Boolean> = container.sportsIndexer.working
     fun lookForSportAgain() = container.sportsIndexer.refreshAll()
+
+    /** The categories sport was found in, each shown in the Sports Hub or left out. */
+    val sportCategories: StateFlow<List<SportCategoryRow>> =
+        combine(container.sports.categories(), container.playlists.playlists, repo.settings) { categories, playlists, s ->
+            val names = playlists.associate { it.id to it.name }
+            categories.map { c ->
+                val key = SportsRepository.categoryKey(c.playlistId, c.categoryId)
+                SportCategoryRow(
+                    key = key,
+                    name = c.name ?: c.categoryId?.takeIf { it.isNotBlank() } ?: "No category",
+                    playlist = names[c.playlistId]?.takeIf { playlists.size > 1 },
+                    airings = c.airings,
+                    shown = key !in s.sportsExcludedCategories,
+                )
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun setSportCategoryShown(key: String, shown: Boolean) = viewModelScope.launch { repo.setSportsCategoryExcluded(key, !shown) }
+
+    /** Forgets every event and name put together with "Same as…". */
+    fun forgetSameAs() = viewModelScope.launch { repo.clearSportsAliases() }
 
     /** Checking a TMDB key before keeping it. */
     sealed interface KeyCheck {
@@ -151,6 +179,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit, onOpenSports
     var themeDialog by remember { mutableStateOf(false) }
     var epgDialog by remember { mutableStateOf(false) }
     var clearDialog by remember { mutableStateOf(false) }
+    var sportCategoriesDialog by remember { mutableStateOf(false) }
     var problemDialog by remember { mutableStateOf(false) }
     val problem by vm.problem.collectAsStateWithLifecycle()
     var playerDialog by remember { mutableStateOf(false) }
@@ -255,6 +284,19 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit, onOpenSports
                     supportingContent = { Text(SportsText.found(status, working).ifEmpty { "No playlists yet" }) },
                     trailingContent = { TextButton(onClick = { vm.lookForSportAgain() }, enabled = !working) { Text("Look again") } },
                 )
+                val categories by vm.sportCategories.collectAsStateWithLifecycle()
+                ListItem(
+                    headlineContent = { Text("Categories") },
+                    supportingContent = { Text(SportsText.categories(categories)) },
+                    modifier = Modifier.clickable { sportCategoriesDialog = true },
+                )
+                if (s.sportsAliases.isNotEmpty()) {
+                    ListItem(
+                        headlineContent = { Text("Put together by hand") },
+                        supportingContent = { Text(SportsText.sameAs(s.sportsAliases.size)) },
+                        trailingContent = { TextButton(onClick = vm::forgetSameAs) { Text("Forget") } },
+                    )
+                }
             }
             Text(
                 SportsText.ABOUT,
@@ -351,6 +393,30 @@ fun SettingsScreen(onBack: () -> Unit, onOpenDownloads: () -> Unit, onOpenSports
             selected = s.epgDays,
             onSelect = { vm.setEpgDays(it); epgDialog = false },
             onDismiss = { epgDialog = false },
+        )
+    }
+    if (sportCategoriesDialog) {
+        val categories by vm.sportCategories.collectAsStateWithLifecycle()
+        AlertDialog(
+            onDismissRequest = { sportCategoriesDialog = false },
+            title = { Text("Categories in the Sports Hub") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(SportsText.CATEGORIES, style = MaterialTheme.typography.bodyMedium)
+                    if (categories.isEmpty()) Text(SportsText.NO_CATEGORIES, style = MaterialTheme.typography.bodyMedium)
+                    LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                        items(categories, key = { it.key }) { c ->
+                            ListItem(
+                                headlineContent = { Text(c.name, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                                supportingContent = { Text(SportsText.categoryDetail(c)) },
+                                leadingContent = { Checkbox(checked = c.shown, onCheckedChange = null) },
+                                modifier = Modifier.toggleable(value = c.shown, role = Role.Checkbox) { vm.setSportCategoryShown(c.key, it) },
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { sportCategoriesDialog = false }) { Text("Done") } },
         )
     }
     val shown = problem

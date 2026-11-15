@@ -424,6 +424,9 @@ data class SportIndexEntity(
 )
 
 /** What the Sports Hub found in a playlist, to say so: in Settings, and when the hub is empty. */
+/** A playlist's category of channels sport was found on, and how many programmes ([airings]). */
+data class SportCategory(val playlistId: Long, val categoryId: String?, val name: String?, val airings: Int)
+
 data class SportsStatus(
     val playlistId: Long,
     val name: String,

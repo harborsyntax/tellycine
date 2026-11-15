@@ -13,11 +13,13 @@ import app.tellycine.AppContainer
 import app.tellycine.core.ContentKind
 import app.tellycine.core.sports.AiringKind
 import app.tellycine.core.sports.Sport
+import app.tellycine.core.sports.SportAliases
 import app.tellycine.data.db.PlaylistEntity
 import app.tellycine.data.db.PlaylistType
 import app.tellycine.data.db.ProgrammeEntity
 import app.tellycine.data.db.StreamEntity
 import app.tellycine.data.sports.SportEvent
+import app.tellycine.data.sports.SportsRepository
 import app.tellycine.screenshots.DemoData
 import app.tellycine.screenshots.ScreenshotDriver
 import kotlinx.coroutines.Dispatchers
@@ -41,9 +43,15 @@ class SportsHubTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
 
-    private fun events(container: AppContainer, replays: Boolean = false, teams: List<String> = listOf("Arsenal")): List<SportEvent> = runBlocking(Dispatchers.IO) {
+    private fun events(
+        container: AppContainer,
+        replays: Boolean = false,
+        teams: List<String> = listOf("Arsenal"),
+        aliases: SportAliases = SportAliases.NONE,
+        excluded: Set<String> = emptySet(),
+    ): List<SportEvent> = runBlocking(Dispatchers.IO) {
         val now = System.currentTimeMillis()
-        container.sports.events(now - 8 * HOUR, now + 4 * DAY, replays, eventChannels = true, teams = teams).first()
+        container.sports.events(now - 8 * HOUR, now + 4 * DAY, replays, eventChannels = true, teams = teams, aliases = aliases, excludedCategories = excluded).first()
     }
 
     @Test
@@ -140,6 +148,43 @@ class SportsHubTest {
         chip("Live")
         d.waitForText("Sinner v Zverev")
         assertTrue(compose.onAllNodes(hasText("All football")).fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun sameAsPutsTwoEventsTogetherAndRemembersIt() {
+        val d = ScreenshotDriver(compose)
+        d.launch { pid -> DemoData.seedSports(d.app.container, pid, follow = emptyList()) }
+        d.openTab("Sports", "Live now")
+        val before = events(d.app.container, teams = emptyList()).size
+
+        compose.onAllNodesWithText("Inter", substring = true).onFirst().performClick()
+        d.waitForText("Watch on")
+        compose.onAllNodesWithText("Same as another event…", useUnmergedTree = true).onFirst().performScrollTo().performClick()
+        d.waitForText("Same as…")
+        compose.onAllNodes(hasText("Alcaraz v Fritz") and hasClickAction()).onFirst().performClick()
+        compose.waitUntil(5_000) {
+            compose.waitForIdle()
+            runBlocking { d.app.container.settings.current().sportsAliases }.isNotEmpty()
+        }
+        // One event now, and so from then on.
+        val aliases = SportAliases(runBlocking { d.app.container.settings.current().sportsAliases })
+        assertEquals(before - 1, events(d.app.container, teams = emptyList(), aliases = aliases).size)
+    }
+
+    @Test
+    fun aCategoryLeftOutIsntInTheHub() {
+        val d = ScreenshotDriver(compose)
+        var pid = 0L
+        d.launch { p -> pid = p; DemoData.seedSports(d.app.container, p, follow = emptyList()) }
+        val container = d.app.container
+        // The demo's sport is on channels in its Sport category.
+        val categories = runBlocking(Dispatchers.IO) { container.sports.categories().first() }
+        assertEquals("Sport", categories.first().name)
+        assertTrue(events(container, teams = emptyList()).isNotEmpty())
+        val sport = SportsRepository.categoryKey(pid, "sport")
+        assertTrue(events(container, teams = emptyList(), excluded = setOf(sport)).isEmpty())
+        // And still listed, to put back.
+        assertTrue(runBlocking(Dispatchers.IO) { container.sports.categories().first() }.any { it.categoryId == "sport" })
     }
 
     @Test

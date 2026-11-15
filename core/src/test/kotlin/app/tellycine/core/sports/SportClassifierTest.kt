@@ -243,4 +243,31 @@ class SportClassifierTest {
         assertFalse(c.channel("ICI Radio-Canada Télé").radio)
         assertFalse(c.channel("Sky Sports Main Event", "UK | Sports").radio)
     }
+
+    // As guides in America, France, Germany, Spain and Brazil name matches.
+
+    @Test
+    fun matchesNamedTheWaysOtherCountriesGuidesNameThem() {
+        fun sides(title: String, channel: String = "ESPN") = classify(title, channel = channel)?.let { it.home to it.away }
+        assertEquals("Buffalo Bills" to "Minnesota Vikings", sides("Buffalo Bills at Minnesota Vikings"))
+        assertEquals("Buffalo Bills" to "Minnesota Vikings", sides("Buffalo Bills vs. Minnesota Vikings NFL Football In-Game Live Monday Night Gameday", "SportsGrid"))
+        assertEquals("Oklahoma City Thunder" to "Portland Trail Blazers", sides("Oklahoma City Thunder at Portland Trail Blazers ᴺᵉʷ"))
+        assertEquals("Bills de Buffalo" to "Vikings du Minnesota", sides("Football NFL : Bills de Buffalo c. Vikings du Minnesota ᴸᶦᵛᵉ", "RDS"))
+        assertEquals("Flamengo" to "Palmeiras", sides("Futebol: Flamengo x Palmeiras", "Sportv"))
+        assertEquals("Bayern München" to "Borussia Dortmund", sides("Fußball: Bayern München gegen Borussia Dortmund", "Sky Sport Bundesliga"))
+        assertEquals("Real Madrid" to "Barcelona", sides("Real Madrid contra Barcelona", "Movistar Deportes"))
+        assertEquals("Sunderland" to "Chelsea", sides("PL:Sunderland v Chelsea Highlights", "Sky Sports Premier League"))
+        assertEquals(Sport.FOOTBALL, classify("Futebol: Flamengo x Palmeiras", channel = "Sportv")?.sport)
+        assertEquals(AiringKind.REPLAY, classify("All-Time Games : 2026: San Francisco Giants at Cincinnati Reds", channel = "MLB Network")?.kind)
+        // Football talk shows elsewhere aren't matches.
+        assertEquals(AiringKind.MAGAZINE, classify("Fútbol picante ᴺᵉʷ", channel = "ESPN Deportes")?.kind)
+    }
+
+    @Test
+    fun anEventSomewhereIsntOneTeamAtAnother() {
+        fun sides(title: String) = classify(title, channel = "Sky Sports Main Event")?.let { it.home to it.away }
+        for (title in listOf("Live Racing at Cheltenham", "Women's Football at Wembley Stadium", "Golf at St Andrews", "Manchester United at Old Trafford", "Snooker at the Crucible")) {
+            assertEquals(title, null to null, sides(title) ?: (null to null))
+        }
+    }
 }

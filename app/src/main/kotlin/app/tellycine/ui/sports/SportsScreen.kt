@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MergeType
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -37,6 +38,7 @@ import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -47,6 +49,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -57,6 +60,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -478,6 +484,7 @@ private fun EventSheet(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    var sameAs by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         // It scrolls, for small phones and landscape, and events on many channels.
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
@@ -560,14 +567,61 @@ private fun EventSheet(
                     }
                 }
             }
+            // Shown twice under different names: put together by hand.
+            TextButton(onClick = { sameAs = true }, modifier = Modifier.padding(top = 8.dp)) {
+                Icon(Icons.Filled.MergeType, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Same as another event…")
+            }
             Text(
                 if (event.sources.all { it.airing.isEventChannel }) "From the channel's name. No scores are shown." else "From your TV guide. No scores are shown.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 16.dp),
+                modifier = Modifier.padding(top = 8.dp),
             )
         }
     }
+    if (sameAs) {
+        SameAsDialog(event, vm.sameAsCandidates(event), now, onPick = { vm.sameAs(event, it); sameAs = false }, onDismiss = { sameAs = false })
+    }
+}
+
+/** The events [event] could be the same as, to choose from: chosen, they're one from then on. */
+@Composable
+private fun SameAsDialog(event: SportEvent, candidates: List<SportEvent>, now: Long, onPick: (SportEvent) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Same as…") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Choose the event \u201c${event.title}\u201d is too, and they're shown as one, now and when these names come up again.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                if (candidates.isEmpty()) {
+                    Text("Nothing else is on around then.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                    items(candidates, key = { it.key }) { other ->
+                        ListItem(
+                            headlineContent = { Text(other.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                            supportingContent = {
+                                Text(
+                                    listOf(startLabel(other.startMs, now), other.caption, other.sources.first().stream.name).joinToString(" · "),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            },
+                            leadingContent = { Icon(other.sport.icon, null) },
+                            modifier = Modifier.clickable { onPick(other) },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

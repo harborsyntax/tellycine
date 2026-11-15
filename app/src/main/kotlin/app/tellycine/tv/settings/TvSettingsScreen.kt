@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,8 +34,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Button
+import androidx.tv.material3.ListItem
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.OutlinedButton
+import androidx.tv.material3.Switch
 import androidx.tv.material3.Text
 import app.tellycine.BuildConfig
 import app.tellycine.R
@@ -48,6 +51,7 @@ import app.tellycine.tv.components.TvDialog
 import app.tellycine.tv.components.TvHeader
 import app.tellycine.tv.components.TvMessageDialog
 import app.tellycine.tv.components.TvSectionLabel
+import app.tellycine.tv.components.TvSidePanel
 import app.tellycine.tv.components.TvSpacing
 import app.tellycine.tv.components.TvSwitchRow
 import app.tellycine.tv.components.TvTextInputDialog
@@ -71,6 +75,8 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
     var themeDialog by remember { mutableStateOf(false) }
     var clearDialog by remember { mutableStateOf(false) }
     var problemDialog by remember { mutableStateOf(false) }
+    var sportCategories by remember { mutableStateOf(false) }
+    var forgetSameAs by remember { mutableStateOf(false) }
     val problem by vm.problem.collectAsStateWithLifecycle()
     var followPanel by remember { mutableStateOf(false) }
     /** Typing a TMDB key: whether a saved key turns details from TMDB on; null when not typing one. */
@@ -171,6 +177,15 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
                             SportsText.found(status, working).ifEmpty { "No playlists yet" } + if (working) "" else "\nPress OK to look through your guides again.",
                             onClick = { if (!working) vm.lookForSportAgain() },
                         )
+                    }
+                    item {
+                        val categories by vm.sportCategories.collectAsStateWithLifecycle()
+                        TvValueRow("Categories", SportsText.categories(categories), onClick = { sportCategories = true })
+                    }
+                    if (s.sportsAliases.isNotEmpty()) {
+                        item {
+                            TvValueRow("Put together by hand", SportsText.sameAs(s.sportsAliases.size) + "\nPress OK to forget them.", onClick = { forgetSameAs = true })
+                        }
                     }
                 }
                 item {
@@ -308,6 +323,19 @@ fun TvSettingsScreen(onOpenDownloads: () -> Unit) {
             onDismiss = { epgDialog = false },
         )
     }
+    if (sportCategories) TvSportCategoriesPanel(vm, onDismiss = { sportCategories = false })
+    if (forgetSameAs) {
+        TvConfirmDialog(
+            title = "Forget what's put together?",
+            message = "Events and names put together with Same as… are shown apart again.",
+            confirmLabel = "Forget",
+            onConfirm = {
+                vm.forgetSameAs()
+                forgetSameAs = false
+            },
+            onDismiss = { forgetSameAs = false },
+        )
+    }
     val shown = problem
     if (problemDialog && shown != null) {
         TvProblemDialog(
@@ -357,4 +385,34 @@ private fun TvProblemDialog(problem: ProblemLog.Problem, onForget: () -> Unit, o
         }
     }
     RequestFocusOnStart(done)
+}
+
+/** The categories sport was found in, each to show in the Sports Hub or leave out. */
+@Composable
+private fun TvSportCategoriesPanel(vm: SettingsViewModel, onDismiss: () -> Unit) {
+    val categories by vm.sportCategories.collectAsStateWithLifecycle()
+    val first = remember { FocusRequester() }
+    TvSidePanel(onDismiss = onDismiss, width = 620.dp) {
+        Text("Categories in the Sports Hub", style = MaterialTheme.typography.headlineSmall)
+        Text(
+            SportsText.CATEGORIES,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp, bottom = 12.dp),
+        )
+        if (categories.isEmpty()) Text(SportsText.NO_CATEGORIES, style = MaterialTheme.typography.bodyLarge)
+        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            itemsIndexed(categories, key = { _, c -> c.key }) { i, c ->
+                ListItem(
+                    selected = false,
+                    onClick = { vm.setSportCategoryShown(c.key, !c.shown) },
+                    headlineContent = { Text(c.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    supportingContent = { Text(SportsText.categoryDetail(c), maxLines = 1) },
+                    trailingContent = { Switch(checked = c.shown, onCheckedChange = null) },
+                    modifier = if (i == 0) Modifier.focusRequester(first) else Modifier,
+                )
+            }
+        }
+    }
+    if (categories.isNotEmpty()) RequestFocusOnStart(first)
 }
