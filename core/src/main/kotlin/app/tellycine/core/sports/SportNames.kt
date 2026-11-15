@@ -39,6 +39,16 @@ object SportNames {
         return if (decomposed.none { it in SMALL_CAPITALS }) decomposed else decomposed.map { SMALL_CAPITALS[it] ?: it }.joinToString("")
     }
 
+    /**
+     * [name] with look-alike letters as plain ones ("ᴸᶦᵛᵉ" is "Live"), keeping its accents, for
+     * showing: "Bayern München" stays so.
+     */
+    fun compatible(name: String): String {
+        if (name.all { it.code < 128 }) return name
+        val composed = Normalizer.normalize(name, Normalizer.Form.NFKC)
+        return if (composed.none { it in SMALL_CAPITALS }) composed else composed.map { SMALL_CAPITALS[it] ?: it }.joinToString("")
+    }
+
     private val SMALL_CAPITALS: Map<Char, Char> = mapOf(
         'ᴀ' to 'a', 'ʙ' to 'b', 'ᴄ' to 'c', 'ᴅ' to 'd', 'ᴇ' to 'e', 'ꜰ' to 'f', 'ɢ' to 'g', 'ʜ' to 'h', 'ɪ' to 'i', 'ᴊ' to 'j',
         'ᴋ' to 'k', 'ʟ' to 'l', 'ᴍ' to 'm', 'ɴ' to 'n', 'ᴏ' to 'o', 'ᴘ' to 'p', 'ʀ' to 'r', 'ꜱ' to 's', 'ᴛ' to 't', 'ᴜ' to 'u',

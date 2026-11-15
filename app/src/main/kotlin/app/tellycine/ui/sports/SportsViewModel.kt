@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import app.tellycine.AppContainer
 import app.tellycine.core.sports.AiringKind
 import app.tellycine.core.sports.Competitions
+import app.tellycine.core.sports.SameEvent
 import app.tellycine.core.sports.Sport
+import app.tellycine.core.sports.SportAliases
 import app.tellycine.core.sports.SportCatalogue
 import app.tellycine.core.sports.SportNames
 import app.tellycine.data.db.SportsStatus
@@ -14,9 +16,11 @@ import app.tellycine.data.settings.AppSettings
 import app.tellycine.data.sports.SportEvent
 import app.tellycine.data.sports.SportSide
 import app.tellycine.data.sports.SportSource
+import app.tellycine.data.sports.SportsRepository
 import app.tellycine.player.PlayRequest
 import app.tellycine.ui.live.liveRequest
 import app.tellycine.ui.live.replayRequest
+import kotlin.math.abs
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -123,13 +127,25 @@ class SportsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    private data class Query(val replays: Boolean, val eventChannels: Boolean, val teams: List<String>, val days: Int)
+    private data class Query(
+        val replays: Boolean,
+        val eventChannels: Boolean,
+        val teams: List<String>,
+        val days: Int,
+        val aliases: List<String>,
+        val excluded: Set<String>,
+    )
 
     private val events: StateFlow<List<SportEvent>?> = combine(
         windowStart,
-        settings.map { Query(it.sportsReplays, it.sportsEventChannels, it.sportsTeams, it.epgDays) }.distinctUntilChanged(),
+        settings.map { Query(it.sportsReplays, it.sportsEventChannels, it.sportsTeams, it.epgDays, it.sportsAliases, it.sportsExcludedCategories) }
+            .distinctUntilChanged(),
     ) { start, q -> start to q }
-        .flatMapLatest { (start, q) -> container.sports.events(start - LIVE_FOR, start + (q.days + 1) * DAY, q.replays, q.eventChannels, q.teams) }
+        .flatMapLatest { (start, q) ->
+            container.sports.events(
+                start - LIVE_FOR, start + (q.days + 1) * DAY, q.replays, q.eventChannels, q.teams, SportAliases(q.aliases), q.excluded,
+            )
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val _filter = MutableStateFlow<SportsFilter>(SportsFilter.ForYou)
@@ -272,6 +288,21 @@ class SportsViewModel(private val container: AppContainer) : ViewModel() {
     fun quickPlay(event: SportEvent, now: Long = System.currentTimeMillis()): PlayRequest? =
         event.sources.firstOrNull { it.isOn(now) }?.let { playRequest(it, now) }
 
+    // ---- The same event, by hand ----
+
+    /** Events [event] could be the same as: those on around then, of its sport first, then the nearest in time. */
+    fun sameAsCandidates(event: SportEvent): List<SportEvent> =
+        events.value.orEmpty()
+            .filter { it.key != event.key && abs(it.startMs - event.startMs) <= SAME_AS_WINDOW }
+            .sortedWith(compareBy({ it.sport != event.sport }, { abs(it.startMs - event.startMs) }, { it.title }))
+            .take(30)
+
+    /** [event] is the same as [other]: put together, and their names from then on. */
+    fun sameAs(event: SportEvent, other: SportEvent) {
+        _open.value = null
+        viewModelScope.launch { container.settings.addSportsAliases(sameAsLines(event, other)) }
+    }
+
     // ---- What's followed ----
 
     fun follow(name: String) {
@@ -329,6 +360,32 @@ class SportsViewModel(private val container: AppContainer) : ViewModel() {
     }
 
     companion object {
+        /** How far apart in time events can be to be said to be the same. */
+        private const val SAME_AS_WINDOW = 3 * 60 * 60_000L
+
+        /**
+         * What to remember for [event] being [other]: matches of the same sport and kind, each side
+         * as the other's that looks most like it (so their later matches are put together too);
+         * anything else, the one event as the other.
+         */
+        fun sameAsLines(event: SportEvent, other: SportEvent): List<String> {
+            val eh = event.home?.name
+            val ea = event.away?.name
+            val oh = other.home?.name
+            val oa = other.away?.name
+            val identity = { e: SportEvent -> e.key.substringBeforeLast('|') }
+            if (eh == null || ea == null || oh == null || oa == null || event.sport != other.sport || event.kind.isCoverage != other.kind.isCoverage) {
+                return listOf(SportAliases.eventLine(identity(event), identity(other)))
+            }
+            val straight = SameEvent.similarity(eh, oh) + SameEvent.similarity(ea, oa)
+            val crossed = SameEvent.similarity(eh, oa) + SameEvent.similarity(ea, oh)
+            val pairs = if (crossed > straight) listOf(eh to oa, ea to oh) else listOf(eh to oh, ea to oa)
+            return pairs.map { (from, to) -> SportsRepository.sideKey(from, event.sport) to SportsRepository.sideKey(to, event.sport) }
+                .filter { (from, to) -> from != to }
+                .map { (from, to) -> SportAliases.sideLine(event.sport, from, to) }
+                .ifEmpty { listOf(SportAliases.eventLine(identity(event), identity(other))) }
+        }
+
         private const val MINUTE = 60_000L
         private const val DAY = 24 * 60 * MINUTE
         private const val WINDOW_STEP = 15 * MINUTE

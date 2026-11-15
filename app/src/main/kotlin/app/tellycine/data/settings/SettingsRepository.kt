@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import app.tellycine.core.sports.SportAliases
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -143,6 +144,10 @@ data class AppSettings(
     val sportsEventChannels: Boolean = true,
     /** Whether "What do you follow?" has been answered or put off, so the hub stops asking. */
     val sportsAsked: Boolean = false,
+    /** Names said to be the same event or side with "Same as…", as [SportAliases] keeps them. */
+    val sportsAliases: List<String> = emptyList(),
+    /** Playlists' categories whose channels the hub leaves out, as SportsRepository.categoryKey makes them. */
+    val sportsExcludedCategories: Set<String> = emptySet(),
 ) {
     /** The key TMDB is asked with: the user's own, or else Tellycine's. */
     val tmdbKey: String get() = tmdbApiKey.ifBlank { tmdbBuiltInKey }
@@ -200,6 +205,8 @@ class SettingsRepository(
         val sportsReplays = booleanPreferencesKey("sports_replays")
         val sportsEventChannels = booleanPreferencesKey("sports_event_channels")
         val sportsAsked = booleanPreferencesKey("sports_asked")
+        val sportsAliases = stringPreferencesKey("sports_aliases")
+        val sportsExcludedCategories = stringSetPreferencesKey("sports_excluded_categories")
     }
 
     val settings: Flow<AppSettings> = context.dataStore.data.map(::read)
@@ -234,6 +241,8 @@ class SettingsRepository(
             sportsReplays = p[Keys.sportsReplays] ?: false,
             sportsEventChannels = p[Keys.sportsEventChannels] ?: true,
             sportsAsked = p[Keys.sportsAsked] ?: false,
+            sportsAliases = p[Keys.sportsAliases]?.split('\n')?.filter { it.isNotBlank() }.orEmpty(),
+            sportsExcludedCategories = p[Keys.sportsExcludedCategories].orEmpty(),
         )
 
     suspend fun current(): AppSettings = settings.first()
@@ -298,6 +307,20 @@ class SettingsRepository(
     suspend fun setSportsHub(enabled: Boolean) = context.dataStore.edit { it[Keys.sportsHub] = enabled }
     suspend fun setSportsReplays(enabled: Boolean) = context.dataStore.edit { it[Keys.sportsReplays] = enabled }
     suspend fun setSportsEventChannels(enabled: Boolean) = context.dataStore.edit { it[Keys.sportsEventChannels] = enabled }
+
+    /** Names said to be the same ([SportAliases] lines), with those already said. */
+    suspend fun addSportsAliases(lines: List<String>) = context.dataStore.edit { p ->
+        p[Keys.sportsAliases] = SportAliases(read(p).sportsAliases).plus(lines).lines.joinToString("\n")
+    }
+
+    /** Forgets every name said to be the same. */
+    suspend fun clearSportsAliases() = context.dataStore.edit { it.remove(Keys.sportsAliases) }
+
+    /** Leaves the category [key] out of the Sports Hub, or puts it back. */
+    suspend fun setSportsCategoryExcluded(key: String, excluded: Boolean) = context.dataStore.edit { p ->
+        val now = read(p).sportsExcludedCategories
+        p[Keys.sportsExcludedCategories] = if (excluded) now + key else now - key
+    }
 
     /** Shows [sport] under "For you", or stops; the last one can't be turned off. */
     suspend fun setSportFollowed(sport: Sport, followed: Boolean) = context.dataStore.edit { p ->

@@ -642,6 +642,24 @@ interface SportsDao {
     )
     fun observeStatus(): Flow<List<SportsStatus>>
 
+    /**
+     * The playlists' categories whose channels sport was found on (live or not said to be a
+     * replay), with how much, the most first: to leave some out of the hub.
+     */
+    @Query(
+        """SELECT x.playlistId AS playlistId, x.categoryId AS categoryId, c.name AS name, COUNT(*) AS airings FROM (
+             SELECT s.playlistId AS playlistId, s.categoryId AS categoryId FROM sport_airings a
+               JOIN streams s ON s.playlistId = a.playlistId AND s.kind = 'LIVE' AND s.epgChannelId = a.channelId
+               WHERE a.streamId IS NULL AND a.kind IN ('LIVE', 'EVENT')
+             UNION ALL
+             SELECT s.playlistId, s.categoryId FROM sport_airings a
+               JOIN streams s ON s.playlistId = a.playlistId AND s.kind = 'LIVE' AND s.streamId = a.streamId
+               WHERE a.streamId IS NOT NULL
+           ) x LEFT JOIN categories c ON c.playlistId = x.playlistId AND c.kind = 'LIVE' AND c.categoryId = x.categoryId
+           GROUP BY x.playlistId, x.categoryId ORDER BY airings DESC"""
+    )
+    fun observeCategories(): Flow<List<SportCategory>>
+
     /** The playlists whose sport was found with [version]'s rules. */
     @Query("SELECT playlistId FROM sport_index WHERE version = :version")
     fun indexedWith(version: Int): List<Long>

@@ -259,9 +259,10 @@ class SportsIndexer(
          * Goes up when the rules for finding sport change, so it's found again everywhere. 2: from
          * a real UK guide: sport the title doesn't name needs more to be an event, seasons and
          * past years are replays, news channels, "Hlts". 3: series' episodes ("S05 E12"), films,
-         * and radio and music channels aren't sport.
+         * and radio and music channels aren't sport. 4: matches named as guides elsewhere name
+         * them ("X at Y", "x", "c.", "gegen", "contra"), without what follows the second side.
          */
-        const val VERSION = 3
+        const val VERSION = 4
 
         /** How long ago an event can have started and still be on: a Test match or a golf round is long. */
         private const val LIVE_FOR_MS = 8 * 60 * 60 * 1000L

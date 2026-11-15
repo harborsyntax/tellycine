@@ -19,6 +19,7 @@ Tap an event to see where to watch it:
 - **Watch on:** every channel it's on, in all your playlists, with the playlist's name when you have more than one. Tap one to watch it.
 - **Watch from the start:** when it's started already and the channel has [catch-up](Catch-up.md).
 - **Follow** either side, or stop following them.
+- **Same as another event…:** when one event shows twice under different names, choose the other, and they're one from then on (see below).
 
 No scores or results are shown, so nothing is spoiled.
 
@@ -35,7 +36,10 @@ Everything comes from your own playlists, on your device:
 - **Live or not:** Sky Sports, TNT Sports and Premier Sports say "Live" on their live coverage, so on their channels, sport that doesn't say it (such as "The Emirates FA Cup" or "EFL 26/27: West Brom v Millwall") is taken to be shown again. A season or past year in the title, "Hlts" and the like mark replays and highlights anywhere.
 - **Event channels:** many providers have channels whose names change with each event, such as "EPL 03: Arsenal v Chelsea 15:00", "PPV 1 | Joshua v Dubois | Sat 22:00 UK" or "Sky Sports + 05: EFL Trophy Barnet v L Orient @ 10 Nov 06:45 PM London". Their events show too, and join the same match on other channels. Times without a time zone are taken to be UK time.
 
-The same match on several channels, or in several playlists, is one event with every channel it's on.
+The same match on several channels, or in several playlists, is one event with every channel it's on, however each guide names it:
+- **Ways of writing a match:** "Arsenal v Chelsea", "vs", "@", and American "Buffalo Bills at Minnesota Vikings"; Portuguese "Flamengo x Palmeiras", French "Bills de Buffalo c. Vikings du Minnesota", German "gegen" and Spanish "contra". What some guides add after the second side ("… NFL Football In-Game Live Monday Night Gameday", "New") isn't part of its name.
+- **Names nearly the same:** matches on at the same time whose sides are both the same team by another name are one: "Bills" and "Buffalo Bills", "Bills de Buffalo" and "Buffalo Bills", "L Orient" and "Leyton Orient", "Bayern München" and "Bayern Munich". Not "Manchester United" and "Manchester City", a women's or youth side and the senior one, or a fighter's two fights. Formula 1 and MotoGP sessions on at the same time are one whatever they're called, and other events of the same name are one too.
+- **By hand:** for those it can't tell, tap the event, choose **Same as another event…** and pick the other: they're one from then on, and so are the next matches of the same teams under those names. **Settings → Sports → Put together by hand** forgets them.
 
 Episodes of series ("S05 E12"), films, and radio and music channels aren't taken for sport, whatever they're called: The Simpsons' "Tennis the Menace" isn't tennis. On a sports channel, a series is a magazine or documentary, and stays out too.
 
@@ -56,6 +60,8 @@ In **Settings → Sports** (on phones and TV):
 | **Replays and highlights** | Shows them as well as live coverage. Off by default. |
 | **Event channels** | Shows the events channels' names announce. On by default. |
 | **Sport found** | For each playlist, how much sport was found in its guide and when, or why its guide couldn't be looked through. **Look again** looks through every guide afresh. |
+| **Categories** | The categories sport was found in, the most first. Untick one to leave its channels out of the hub, such as another country's local channels; tick it to have them back. |
+| **Put together by hand** | How many events and names you've put together with **Same as another event…**, and **Forget** to show them apart again. Only once there are some. |
 
 ### If the Sports tab is empty
 The empty Sports tab, and **Settings → Sports → Sport found**, say what was found in each playlist's guide. If a playlist hasn't been looked through yet, or its guide couldn't be, use **Look again**. Sport is found on each device separately, from its own copy of your guides, so one device can be behind another until its guide is refreshed.
@@ -64,7 +70,7 @@ The empty Sports tab, and **Settings → Sports → Sport found**, say what was 
 <img src="images/screens/tv-sports.png" width="640" alt="Sports on TV">
 
 - Rows of cards: **Live now**, **Your teams**, then each day's events.
-- **OK** on a live event plays it. On one coming up, or held on a live one, it opens the event's panel: where to watch it, from the start, **Record** (where the playlist can record, as in the guide), **Multi-view** (when it's on now), and following its sides.
+- **OK** on a live event plays it. On one coming up, or held on a live one, it opens the event's panel: where to watch it, from the start, **Record** (where the playlist can record, as in the guide), **Multi-view** (when it's on now), **Same as…** (another event it is too), and following its sides.
 - **Hold OK** on a channel in the event's panel for that channel's options and schedule, as in the guide: favourites, Multi-view, Open with…, its stream URL, and watching or recording its programmes. **Back** returns to the event.
 - **Your sports** at the top chooses what you follow.
 - Back from a live channel, it plays on in a **mini player** at the top, as in the guide. OK on it, or **holding Back**, returns it to full screen; it stops when you leave Sports.

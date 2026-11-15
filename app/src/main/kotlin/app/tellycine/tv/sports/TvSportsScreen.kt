@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.MergeType
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Replay
@@ -493,6 +494,7 @@ private fun TvEventPanel(
     val recordable = event.sources.firstOrNull { it.airing.startMs != 0L && it.airing.stopMs > now && channels.canRecord(it.row()) }
     LaunchedEffect(recordable?.stream?.streamId) { recordable?.let { channels.refreshRecordings(it.row()) } }
     val onNow = event.sources.firstOrNull { it.isOn(now) }.takeIf { event.isLive(now) }
+    var sameAs by remember { mutableStateOf(false) }
     TvSidePanel(onDismiss = onDismiss, width = 520.dp) {
         LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             item {
@@ -562,8 +564,8 @@ private fun TvEventPanel(
                 }
             }
             // After where to watch it, so OK as the panel opens plays it.
-            if (recordable != null || onNow != null) {
-                item(key = "actions") {
+            item(key = "actions") {
+                run {
                     Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (recordable != null) {
                             val row = recordable.row()
@@ -587,6 +589,8 @@ private fun TvEventPanel(
                                 icon = Icons.Filled.GridView,
                             )
                         }
+                        // Shown twice under different names: put together by hand.
+                        TvActionButton("Same as…", onClick = { sameAs = true }, icon = Icons.Filled.MergeType)
                     }
                 }
             }
@@ -619,6 +623,41 @@ private fun TvEventPanel(
         )
     }
     RequestFocusOnStart(focus, key = event.key)
+    if (sameAs) TvSameAsDialog(event, vm.sameAsCandidates(event), now, onPick = { vm.sameAs(event, it); sameAs = false }, onDismiss = { sameAs = false })
+}
+
+/** The events [event] could be the same as, to choose from: chosen, they're one from then on. */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun TvSameAsDialog(event: SportEvent, candidates: List<SportEvent>, now: Long, onPick: (SportEvent) -> Unit, onDismiss: () -> Unit) {
+    val first = remember { FocusRequester() }
+    TvSidePanel(onDismiss = onDismiss, width = 560.dp) {
+        Text("Same as…", style = MaterialTheme.typography.headlineSmall)
+        Text(
+            "Choose the event \u201c${event.title}\u201d is too, and they're shown as one, now and when these names come up again.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp, bottom = 12.dp),
+        )
+        if (candidates.isEmpty()) {
+            Text("Nothing else is on around then. Back returns to the event.", style = MaterialTheme.typography.bodyLarge)
+        }
+        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            itemsIndexed(candidates, key = { _, e -> e.key }) { i, other ->
+                ListItem(
+                    selected = false,
+                    onClick = { onPick(other) },
+                    headlineContent = { Text(other.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    supportingContent = {
+                        Text(listOf(startLabel(other.startMs, now), other.caption, other.sources.first().stream.name).joinToString(" · "), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    },
+                    leadingContent = { Icon(other.sport.icon, null) },
+                    modifier = if (i == 0) Modifier.focusRequester(first) else Modifier,
+                )
+            }
+        }
+    }
+    if (candidates.isNotEmpty()) RequestFocusOnStart(first)
 }
 
 @Composable

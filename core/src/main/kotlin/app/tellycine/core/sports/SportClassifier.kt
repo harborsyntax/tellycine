@@ -88,9 +88,10 @@ class SportClassifier {
         year: Int? = null,
     ): SportMatch? {
         if (channel.radio) return null
-        // Superscript and other look-alike letters as plain ones: "ᴸᶦᵛᵉ" is "Live".
-        val title = SportNames.plain(title)
-        val description = description?.let(SportNames::plain)
+        // Superscript and other look-alike letters as plain ones: "ᴸᶦᵛᵉ" is "Live". Accents stay, for
+        // the names shown; they're left out where names are compared.
+        val title = SportNames.compatible(title)
+        val description = description?.let(SportNames::compatible)
         val titleWords = Words(title)
         val categoryWords = category?.let(::Words)
         val descWords = description?.let { Words(firstSentences(it)) }
@@ -110,6 +111,7 @@ class SportClassifier {
             ?: contextual(titleWords, descWords, channel, categoryWords, month)
             ?: Sport.OTHER.takeIf { titleWords.otherSport() }
             ?: footballOf(titleWords)?.let { if (channel.otherSport) Sport.OTHER else it }
+            ?: Sport.FOOTBALL.takeIf { home != null && !channel.otherSport && titleWords.hasAny(FOOTBALL_ELSEWHERE) }
             ?: sidesSport(home, away)
         val weak = descWords?.let { sportOf(it) ?: Sport.OTHER.takeIf { _ -> it.otherSport() } ?: footballOf(it) }
             ?: categoryWords?.let { sportOf(it) ?: footballOf(it) ?: if (it.hasAny(MOTOR_CATEGORY)) channel.sport?.takeIf { s -> s == Sport.F1 || s == Sport.MOTOGP } ?: Sport.OTHER else null }
@@ -311,7 +313,7 @@ class SportClassifier {
                 var away: String? = null
                 val rest = ArrayList<String>()
                 for (part in parts) {
-                    val sides = if (home == null) sidesOf(part) else null
+                    val sides = if (home == null) sidesOf(part, american = true) else null
                     if (sides != null) {
                         home = sides.first
                         away = sides.second
@@ -329,26 +331,53 @@ class SportClassifier {
              */
             fun knownSides(text: String): Pair<String, String>? {
                 text.replace(LEADING_ACTION, "").split(SENTENCE_OR_SEPARATOR).forEachIndexed { index, part ->
-                    val sides = sidesOf(part.trim()) ?: return@forEachIndexed
+                    val sides = sidesOf(part.trim(), american = false) ?: return@forEachIndexed
                     if (index == 0 || (SportCatalogue.find(sides.first) != null && SportCatalogue.find(sides.second) != null)) return sides
                 }
                 return null
             }
 
-            private fun sidesOf(part: String): Pair<String, String>? {
-                val m = SIDES.find(part) ?: return null
-                val home = side(m.groupValues[1]) ?: return null
-                val away = side(m.groupValues[2]) ?: return null
+            /**
+             * "A v B" in [part], in the ways guides write it: "v", "vs", "@", Portuguese "x", French
+             * "c." and "contre", German "gegen", Spanish "contra"; and, with [american], "A at B",
+             * when both look like teams' names ("Buffalo Bills at Minnesota Vikings", not "Racing at
+             * Cheltenham").
+             */
+            private fun sidesOf(part: String, american: Boolean = false): Pair<String, String>? {
+                val m = SIDES.find(part) ?: SIDES_LOWER.find(part)
+                if (m != null) {
+                    val home = side(m.groupValues[1]) ?: return null
+                    val away = side(m.groupValues[2]) ?: return null
+                    return home to away
+                }
+                if (!american) return null
+                val at = SIDES_AT.find(part) ?: return null
+                val home = side(at.groupValues[1])?.takeIf(::looksLikeATeam) ?: return null
+                val away = side(at.groupValues[2])?.takeIf(::looksLikeATeam) ?: return null
                 return home to away
             }
 
-            /** One side of "A v B": a name of a few words, without "Live" or a kick-off time. */
+            /**
+             * One side of "A v B": a name of a few words, without "Live", a kick-off time or what a
+             * guide puts after it ("Minnesota Vikings NFL Football In-Game Live Monday Night").
+             */
             private fun side(text: String): String? {
-                val s = text.replace(TRAILING_BRACKETS, "").replace(LEADING_LIVE, "").replace(LEADING_LEAGUE, "").replace(TRAILING_TIME, "")
+                var s = text.replace(TRAILING_BRACKETS, "").replace(LEADING_LIVE, "").replace(LEADING_LEAGUE, "").replace(LEADING_TAG, "").replace(TRAILING_TIME, "")
                     .replace(TRAILING_CONTEXT, "").trim(' ', ',', '.', '-', '–')
+                val all = s.split(' ').filter { it.isNotEmpty() }
+                val noise = all.indices.firstOrNull { i -> i > 0 && all[i].trim(',', '.', '!', ':').lowercase() in SIDE_NOISE }
+                if (noise != null) s = all.take(noise).joinToString(" ").trim(' ', ',', '.', '-', '–')
                 val words = s.split(' ').filter { it.isNotEmpty() }
                 if (words.isEmpty() || words.size > 5 || s.length > 40 || s.none { it.isLetter() }) return null
                 return s
+            }
+
+            /** A team's name, by the look of it: two to five words, each with a capital (or a number), none a sport's or a place's. */
+            private fun looksLikeATeam(name: String): Boolean {
+                val words = name.split(' ').filter { it.isNotEmpty() }
+                return words.size in 2..5 &&
+                    words.all { w -> w.first().isUpperCase() || w.first().isDigit() } &&
+                    words.none { it.trim(',', '.', '\'').lowercase() in NOT_TEAM_WORDS }
             }
 
             private fun clean(title: String): String = title
@@ -452,7 +481,26 @@ class SportClassifier {
         val SENTENCE_OR_SEPARATOR = Regex("[.!?](?:\\s+|$)|\\s*:\\s+|\\s+[-–—|]\\s+|,\\s+|\\s*\\(")
 
         /** "A v B", "A vs B", "A vs. B", "A versus B". */
-        val SIDES = Regex("^(.+?)\\s+(?:v|vs\\.?|versus|@)\\s+(.+)$", RegexOption.IGNORE_CASE)
+        val SIDES = Regex("^(.+?)\\s+(?:v|vs\\.?|versus|@|contre|gegen|contra)\\s+(.+)$", RegexOption.IGNORE_CASE)
+        /** Portuguese "Flamengo x Palmeiras" and French "Bills de Buffalo c. Vikings du Minnesota", only in lower case. */
+        val SIDES_LOWER = Regex("^(.+?)\\s+(?:x|c\\.)\\s+(.+)$")
+        /** American "Buffalo Bills at Minnesota Vikings", only when both look like teams' names. */
+        val SIDES_AT = Regex("^(.+?)\\s+at\\s+(.+)$")
+
+        /** What guides put after the second side, where the name ends: "… NFL Football In-Game Live Monday Night Gameday". */
+        val SIDE_NOISE = setOf(
+            "nfl", "nba", "nhl", "mlb", "mls", "ncaa", "wnba", "ufc", "football", "basketball", "hockey", "baseball", "soccer",
+            "in-game", "ingame", "gameday", "game", "live", "new", "pregame", "postgame", "highlights", "replay", "encore",
+        )
+
+        /** Words that make "A at B" an event somewhere rather than one team at another. */
+        val NOT_TEAM_WORDS = setOf(
+            "football", "soccer", "racing", "golf", "tennis", "snooker", "darts", "cricket", "rugby", "boxing", "live", "highlights",
+            "formula", "f1", "grand", "prix", "championship", "championships", "cup", "league", "open", "masters", "final", "finals",
+            "tour", "stage", "race", "qualifying", "practice", "round", "match", "stadium", "park", "arena", "ground", "racecourse",
+            "palace", "centre", "center", "field", "course", "circuit", "speedway", "dome", "hall", "bridge", "lane", "road",
+            "wembley", "twickenham", "murrayfield", "crucible", "anfield", "trafford", "goodison", "hampden", "ibrox", "lords",
+        )
 
         /** "26/27", "1999/00", "2013-14". */
         val SEASON = Regex("(?<![\\d/])((?:19|20)?\\d{2})[/-]((?:19|20)?\\d{2})(?![\\d/])")
@@ -483,6 +531,8 @@ class SportClassifier {
         val KICK_OFF = Regex("\\((?:ko|k/o|kick[- ]?off)[^)]*\\)", RegexOption.IGNORE_CASE)
         /** A league before the first side, without a colon: "NFL Buccaneers @ Bears". */
         val LEADING_LEAGUE = Regex("^(?:NFL|NBA|NHL|MLB|MLS|WNBA|NRL|AFL|IPL|EPL)\\s+")
+        /** A competition's letters stuck to the first side: "PL:Sunderland v Chelsea". */
+        val LEADING_TAG = Regex("^[A-Z]{2,5}:(?=\\S)")
 
         /** How a description starts before naming the match: "Action from Chelsea v Everton". */
         val LEADING_ACTION = Regex(
@@ -522,6 +572,12 @@ class SportClassifier {
             "community shield", "club world cup", "nwsl", "supercopa", "dfb pokal", "coppa italia", "primeira liga", "liga portugal",
             "match of the day", "motd", "uefa", "fifa", "monday night football", "super sunday",
         ))
+
+        /**
+         * Football in other languages: only with who's playing, as these guides' football talk
+         * shows ("Fútbol picante", "Estudio fútbol") aren't known for magazines the way UK ones are.
+         */
+        val FOOTBALL_ELSEWHERE = Phrases(listOf("futebol", "futbol", "fussball", "fußball", "calcio", "voetbal", "fotboll", "fotball", "fodbold"))
 
         /** Sports the hub doesn't name whose names have one of its sports' words in. */
         val OTHER_IN_MAIN = Phrases(listOf(
@@ -574,7 +630,7 @@ class SportClassifier {
         val REPLAY = Phrases(listOf(
             "replay", "replays", "repeat", "rpt", "rerun", "re run", "classic", "classics", "encore", "rewind", "retro", "archive",
             "greatest", "best of", "vintage", "full match", "full race", "memorable", "iconic", "from the vault", "on this day",
-            "flashback",
+            "flashback", "all time games", "all time game", "throwback",
         ))
         val REPLAY_DESC = Phrases(listOf("another chance to see", "first shown", "originally shown", "from earlier", "earlier today"))
         val HIGHLIGHTS = Phrases(listOf(
